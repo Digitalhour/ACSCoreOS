@@ -22,11 +22,15 @@ import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head } from '@inertiajs/react';
 import axios from 'axios';
-import { Calendar, ChevronLeft, ChevronRight, Clock, FileText, Loader2, Plus, Save, Trash2, Users, X } from 'lucide-react';
+import { Calendar as CalendarIcon, Clock, FileText, Loader2, Plus, Save, Trash2, Users, X } from 'lucide-react';
+import { Calendar, momentLocalizer, Views } from 'react-big-calendar';
+import moment from 'moment';
+import 'react-big-calendar/lib/css/react-big-calendar.css';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
-import DepartmentPtoCalendar from "@/components/DepartmentPtoCalendar";
+
+const localizer = momentLocalizer(moment);
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
@@ -125,11 +129,19 @@ interface RequestFormData {
     reason: string;
 }
 
-interface CalendarDay {
-    date: Date;
-    isCurrentMonth: boolean;
-    isToday: boolean;
-    ptoRequests: DepartmentPtoRequest[];
+interface CalendarEvent {
+    id: string;
+    title: string;
+    start: Date;
+    end: Date;
+    allDay: boolean;
+    resource: {
+        user: string;
+        type: string;
+        status: 'pending' | 'approved' | 'denied' | 'cancelled';
+        color: string;
+        days: number;
+    };
 }
 
 const initialFormData: RequestFormData = {
@@ -145,10 +157,6 @@ export default function UserPtoDashboard() {
     const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);
     const [cancelling, setCancelling] = useState<number | null>(null);
-
-    // Calendar state
-    const [currentDate, setCurrentDate] = useState(new Date());
-    const [calendarDays, setCalendarDays] = useState<CalendarDay[]>([]);
 
     // Request form state
     const [showRequestForm, setShowRequestForm] = useState(false);
@@ -180,82 +188,60 @@ export default function UserPtoDashboard() {
         fetchDashboardData();
     }, [fetchDashboardData]);
 
-    // Generate calendar days when current date or department PTO requests change
-    useEffect(() => {
-        if (dashboardData?.department_pto_requests) {
-            generateCalendarDays();
-        }
-    }, [currentDate, dashboardData?.department_pto_requests]);
+    // Convert PTO requests to calendar events
+    const calendarEvents = useMemo((): CalendarEvent[] => {
+        if (!dashboardData?.department_pto_requests) return [];
 
-    // Generate calendar days
-    const generateCalendarDays = useCallback(() => {
-        const year = currentDate.getFullYear();
-        const month = currentDate.getMonth();
+        return dashboardData.department_pto_requests
+            .filter((request) => request.status === 'approved' || request.status === 'pending')
+            .map((request) => {
+                // Create dates at noon to avoid timezone issues
+                const startDate = moment(request.start_date).hour(12).minute(0).second(0).millisecond(0).toDate();
+                const endDate = moment(request.end_date).hour(12).minute(0).second(0).millisecond(0).toDate();
 
-        // First day of the month
-        const firstDay = new Date(year, month, 1);
-        // Last day of the month
-        const lastDay = new Date(year, month + 1, 0);
-
-        // First day to show (might be from previous month)
-        const startDate = new Date(firstDay);
-        startDate.setDate(startDate.getDate() - firstDay.getDay());
-
-        // Last day to show (might be from next month)
-        const endDate = new Date(lastDay);
-        endDate.setDate(endDate.getDate() + (6 - lastDay.getDay()));
-
-        const days: CalendarDay[] = [];
-        const currentDateLoop = new Date(startDate);
-        const today = new Date();
-
-        while (currentDateLoop <= endDate) {
-            const isCurrentMonth = currentDateLoop.getMonth() === month;
-            const isToday = currentDateLoop.toDateString() === today.toDateString();
-
-            // Find PTO requests for this day
-            const ptoRequests =
-                dashboardData?.department_pto_requests?.filter((request) => {
-                    if (request.status !== 'approved' && request.status !== 'pending') return false;
-
-                    // Add 'T00:00:00' to parse the dates in the user's local timezone,
-                    // avoiding off-by-one errors caused by UTC conversion.
-                    const requestStart = new Date(request.start_date + 'T00:00:00');
-                    const requestEnd = new Date(request.end_date + 'T00:00:00');
-
-                    return currentDateLoop >= requestStart && currentDateLoop <= requestEnd;
-                }) || [];
-
-            days.push({
-                date: new Date(currentDateLoop),
-                isCurrentMonth,
-                isToday,
-                ptoRequests,
+                return {
+                    id: `pto-${request.id}`,
+                    title: `${request.user.name} - ${request.pto_type.code}${request.status === 'pending' ? ' *' : ''}`,
+                    start: startDate,
+                    end: endDate,
+                    allDay: true,
+                    resource: {
+                        user: request.user.name,
+                        type: request.pto_type.name,
+                        status: request.status,
+                        color: request.pto_type.color,
+                        days: request.total_days,
+                    },
+                };
             });
+    }, [dashboardData?.department_pto_requests]);
 
-            currentDateLoop.setDate(currentDateLoop.getDate() + 1);
-        }
+    // Custom event style
+    const eventStyleGetter = useCallback((event: CalendarEvent) => {
+        const isPending = event.resource.status === 'pending';
 
-        setCalendarDays(days);
-    }, [currentDate, dashboardData?.department_pto_requests]);
-
-    // Navigate calendar
-    const navigateMonth = useCallback((direction: 'prev' | 'next') => {
-        setCurrentDate((prev) => {
-            const newDate = new Date(prev);
-            if (direction === 'prev') {
-                newDate.setMonth(newDate.getMonth() - 1);
-            } else {
-                newDate.setMonth(newDate.getMonth() + 1);
-            }
-            return newDate;
-        });
+        return {
+            style: {
+                backgroundColor: isPending ? '#fef3c7' : event.resource.color + '80', // Yellow background for pending, type color for approved
+                borderColor: isPending ? '#d97706' : '#22c55e', // Orange border for pending, green for approved
+                borderWidth: '1px',
+                borderStyle: 'solid',
+                color: '#333',
+                borderRadius: '3px',
+                fontSize: '2px',
+                padding: '1px 3px',
+                lineHeight: '1.2',
+            },
+        };
     }, []);
 
-    // Go to today
-    const goToToday = useCallback(() => {
-        setCurrentDate(new Date());
-    }, []);
+    // Custom event component
+    const EventComponent = useCallback(({ event }: { event: CalendarEvent }) => (
+        <div className="overflow-hidden">
+            <div className="truncate font-medium text-xs leading-tight">{event.resource.user} - {event.resource.type} {event.resource.status === 'pending' && ' * Pending'}</div>
+
+        </div>
+    ), []);
 
     // Debug: Log the dashboard data when it changes
     useEffect(() => {
@@ -542,10 +528,6 @@ export default function UserPtoDashboard() {
         );
     }
 
-    const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
-
-    const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="My PTO" />
@@ -559,7 +541,6 @@ export default function UserPtoDashboard() {
                     </Button>
                 </div>
 
-                {/* PTO Balances */}
                 {/* Quick Stats */}
                 <div className="space-y-4">
                     <div className="grid grid-cols-3 gap-4">
@@ -590,7 +571,7 @@ export default function UserPtoDashboard() {
                         <Card>
                             <CardContent className="pt-6">
                                 <div className="flex items-center space-x-2">
-                                    <Calendar className="h-4 w-4 text-green-600" />
+                                    <CalendarIcon className="h-4 w-4 text-green-600" />
                                     <div>
                                         <p className="text-sm font-medium">Total PTO Types</p>
                                         <p className="text-2xl font-bold">{dashboardData.pto_data.length}</p>
@@ -600,6 +581,8 @@ export default function UserPtoDashboard() {
                         </Card>
                     </div>
                 </div>
+
+                {/* PTO Balances */}
                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-6">
                     {dashboardData.pto_data.map((item) => {
                         // Use available balance (total minus pending)
@@ -645,21 +628,57 @@ export default function UserPtoDashboard() {
                     })}
                 </div>
 
+                {/* Department PTO Calendar */}
+                <Card>
+                    <CardHeader>
+                        <div className="flex items-center gap-2">
+                            <Users className="h-5 w-5" />
+                            <CardTitle>Department PTO Calendar</CardTitle>
+                        </div>
+                    </CardHeader>
+                    <CardContent>
+                        <div className='h-dvh ' >
+                            <Calendar
+                                localizer={localizer}
+                                events={calendarEvents}
+                                startAccessor="start"
+                                endAccessor="end"
+                                titleAccessor="title"
+                                allDayAccessor="allDay"
+                                views={['month', 'week', 'day']}
+                                defaultView={Views.MONTH}
+                                eventPropGetter={eventStyleGetter}
+                                components={{
+                                    event: EventComponent,
+                                }}
+                                popup
+                                showMultiDayTimes
+                                step={60}
+                                showAllEvents
+                                onSelectEvent={(event) => {
+                                    toast.info(
+                                        `${event.resource.user} - ${event.resource.type} (${event.resource.status}) - ${event.resource.days} days`
+                                    );
+                                }}
+                            />
+                        </div>
 
-                    {/* Department PTO Calendar */}
-                <div className="grid gap-6 lg:grid-cols-2">
-                    {/* Department PTO Calendar */}
-                    <DepartmentPtoCalendar
-                        departmentPtoRequests={dashboardData?.department_pto_requests || []}
-                        title="Department PTO Calendar"
-                        showHeader={true}
-                        maxRequestsPerDay={3}
-                        onDateClick={(date, requests) => {
-                            console.log('Clicked date:', date, 'Requests:', requests);
-                        }}
-                    />
-                </div>
-
+                        {/* Legend */}
+                        <div className="mt-4 border-t pt-4">
+                            <div className="text-muted-foreground mb-2 text-sm">Legend:</div>
+                            <div className="flex flex-wrap gap-4 text-xs">
+                                <div className="flex items-center gap-1">
+                                    <div className="h-3 w-3 border-2 border-orange-600 bg-yellow-200"></div>
+                                    <span>Pending (*)</span>
+                                </div>
+                                <div className="flex items-center gap-1">
+                                    <div className="h-3 w-3 border-2 border-green-500 bg-green-200"></div>
+                                    <span>Approved</span>
+                                </div>
+                            </div>
+                        </div>
+                    </CardContent>
+                </Card>
 
                 {/* Recent Requests */}
                 <Card>
