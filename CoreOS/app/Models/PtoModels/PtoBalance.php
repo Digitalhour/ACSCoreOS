@@ -81,6 +81,7 @@ class PtoBalance extends Model
      */
     public function addBalance(float $amount, string $description = null, User $createdBy = null): PtoTransaction
     {
+        $balanceBefore = $this->balance;
         $this->balance += $amount;
         $this->save();
 
@@ -90,6 +91,8 @@ class PtoBalance extends Model
             'amount' => $amount,
             'type' => 'accrual',
             'description' => $description ?? 'Balance adjustment',
+            'balance_before' => $balanceBefore,
+            'balance_after' => $this->balance,
             'created_by_id' => $createdBy?->id,
         ]);
     }
@@ -99,6 +102,7 @@ class PtoBalance extends Model
      */
     public function subtractBalance(float $amount, string $description = null, User $createdBy = null): PtoTransaction
     {
+        $balanceBefore = $this->balance;
         $this->balance -= $amount;
         $this->used_balance += $amount;
         $this->save();
@@ -109,6 +113,8 @@ class PtoBalance extends Model
             'amount' => -$amount,
             'type' => 'usage',
             'description' => $description ?? 'PTO usage',
+            'balance_before' => $balanceBefore,
+            'balance_after' => $this->balance,
             'created_by_id' => $createdBy?->id,
         ]);
     }
@@ -136,7 +142,7 @@ class PtoBalance extends Model
      */
     public function resetForNewYear(float $newBalance, User $createdBy = null): PtoTransaction
     {
-        $oldBalance = $this->balance;
+        $balanceBefore = $this->balance;
         $this->balance = $newBalance;
         $this->used_balance = 0;
         $this->pending_balance = 0;
@@ -146,9 +152,11 @@ class PtoBalance extends Model
         return PtoTransaction::create([
             'user_id' => $this->user_id,
             'pto_type_id' => $this->pto_type_id,
-            'amount' => $newBalance - $oldBalance,
+            'amount' => $newBalance - $balanceBefore,
             'type' => 'reset',
             'description' => 'Annual balance reset',
+            'balance_before' => $balanceBefore,
+            'balance_after' => $this->balance,
             'created_by_id' => $createdBy?->id,
         ]);
     }

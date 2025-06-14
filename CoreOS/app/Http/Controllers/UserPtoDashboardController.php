@@ -10,6 +10,7 @@ use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
 
 class UserPtoDashboardController extends Controller
@@ -39,7 +40,7 @@ class UserPtoDashboardController extends Controller
         // Get PTO types for the request form
         $ptoTypes = $this->getPtoTypesWithBalances($user, $currentYear);
 
-        $dashboardData = [
+        return Inertia::render('UserPtoDashboard', [
             'pto_data' => $ptoData,
             'recent_requests' => $recentRequests,
             'pending_requests_count' => $pendingRequestsCount,
@@ -49,16 +50,223 @@ class UserPtoDashboardController extends Controller
                 'email' => $user->email,
             ],
             'department_pto_requests' => $departmentPtoRequests,
-        ];
-
-        $summaryData = [
             'pto_types' => $ptoTypes,
-        ];
-
-        return Inertia::render('employee/UserPtoDashboard', [
-            'dashboardData' => $dashboardData,
-            'summaryData' => $summaryData,
         ]);
+    }
+
+    /**
+     * Store a new PTO request.
+     */
+    public function store(Request $request)
+    {
+        $user = Auth::user();
+
+        $validated = $request->validate([
+            'pto_type_id' => 'required|exists:pto_types,id',
+            'start_date' => 'required|date|after_or_equal:today',
+            'end_date' => 'required|date|after_or_equal:start_date',
+            'total_days' => 'required|numeric|min:0.5',
+            'reason' => 'nullable|string|max:1000',
+            'day_options' => 'required|array',
+            'day_options.*.date' => 'required|date',
+            'day_options.*.type' => 'required|in:full,half',
+        ]);
+
+        // Check if user has enough balance
+        $ptoType = PtoType::findOrFail($validated['pto_type_id']);
+        $currentYear = Carbon::now()->year;
+
+        $balance = PtoBalance::where('user_id', $user->id)
+            ->where('pto_type_id', $ptoType->id)
+            ->where('year', $currentYear)
+            ->first();
+
+        $availableBalance = 0;
+        if ($balance) {
+            $availableBalance = $balance->balance - $balance->pending_balance;
+        } else {
+            // Check if user has a policy for this PTO type
+            $policies = $user->activePtoPolicies()->where('pto_type_id', $ptoType->id)->get();
+            if ($policies->isNotEmpty()) {
+                $availableBalance = $policies->first()->annual_accrual_amount ?? 0;
+            }
+        }
+
+        if ($validated['total_days'] > $availableBalance) {
+            return back()->withErrors([
+                'total_days' => "Insufficient PTO balance. Available: {$availableBalance} days."
+            ]);
+        }
+
+        // Validate business days
+        $this->validateBusinessDays($validated['day_options']);
+
+        // Generate request number
+        $requestNumber = 'PTO-U' . $user->id . '-' . time();
+
+        DB::beginTransaction();
+
+        try {
+            // Create the request
+            $ptoRequest = PtoRequest::create([
+                'user_id' => $user->id,
+                'pto_type_id' => $validated['pto_type_id'],
+                'request_number' => $requestNumber,
+                'start_date' => $validated['start_date'],
+                'end_date' => $validated['end_date'],
+                'total_days' => $validated['total_days'],
+                'reason' => $validated['reason'],
+                'status' => 'pending',
+                'submitted_at' => now(),
+            ]);
+
+            // Update pending balance
+            if ($balance) {
+                $balance->increment('pending_balance', $validated['total_days']);
+            } else {
+                // Create balance record if it doesn't exist
+                PtoBalance::create([
+                    'user_id' => $user->id,
+                    'pto_type_id' => $validated['pto_type_id'],
+                    'year' => $currentYear,
+                    'balance' => $availableBalance - $validated['total_days'],
+                    'pending_balance' => $validated['total_days'],
+                    'used_balance' => 0,
+                ]);
+            }
+
+            // Create approval records if needed
+            $this->createApprovalRecords($ptoRequest, $ptoType);
+
+            DB::commit();
+
+            Log::info('PTO request created successfully', [
+                'request_id' => $ptoRequest->id,
+                'user_id' => $user->id,
+                'total_days' => $validated['total_days']
+            ]);
+
+            return redirect()->route('pto.dashboard')->with('success', 'PTO request submitted successfully!');
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+
+            Log::error('Error creating PTO request', [
+                'error' => $e->getMessage(),
+                'user_id' => $user->id,
+                'validated_data' => $validated
+            ]);
+
+            return back()->withErrors(['error' => 'Failed to submit PTO request. Please try again.']);
+        }
+    }
+
+    /**
+     * Cancel a PTO request.
+     */
+    public function cancel(Request $request, PtoRequest $ptoRequest)
+    {
+        $user = Auth::user();
+
+        // Ensure user owns this request
+        if ($ptoRequest->user_id !== $user->id) {
+            abort(403, 'Unauthorized');
+        }
+
+        // Check if request can be cancelled
+        if (!$this->canCancelRequest($ptoRequest)) {
+            return back()->withErrors(['error' => 'This request cannot be cancelled.']);
+        }
+
+        DB::beginTransaction();
+
+        try {
+            // Update request status
+            $ptoRequest->update([
+                'status' => 'cancelled',
+                'cancellation_reason' => 'Cancelled by user',
+            ]);
+
+            // Return days to balance
+            $balance = PtoBalance::where('user_id', $user->id)
+                ->where('pto_type_id', $ptoRequest->pto_type_id)
+                ->where('year', Carbon::now()->year)
+                ->first();
+
+            if ($balance) {
+                if ($ptoRequest->getOriginal('status') === 'pending') {
+                    $balance->decrement('pending_balance', $ptoRequest->total_days);
+                } elseif ($ptoRequest->getOriginal('status') === 'approved') {
+                    $balance->increment('balance', $ptoRequest->total_days);
+                    $balance->decrement('used_balance', $ptoRequest->total_days);
+                }
+            }
+
+            DB::commit();
+
+            return redirect()->route('pto.dashboard')->with('success', 'PTO request cancelled successfully!');
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+
+            Log::error('Error cancelling PTO request', [
+                'error' => $e->getMessage(),
+                'request_id' => $ptoRequest->id,
+                'user_id' => $user->id
+            ]);
+
+            return back()->withErrors(['error' => 'Failed to cancel PTO request. Please try again.']);
+        }
+    }
+
+    /**
+     * Create approval records for the PTO request based on the PTO type configuration.
+     */
+    private function createApprovalRecords(PtoRequest $ptoRequest, PtoType $ptoType): void
+    {
+        if (!$ptoType->multi_level_approval) {
+            // Simple approval - just manager approval
+            $manager = $ptoRequest->user->manager;
+            if ($manager) {
+                $ptoRequest->approvals()->create([
+                    'approver_id' => $manager->id,
+                    'level' => 1,
+                    'sequence' => 1,
+                    'status' => 'pending',
+                ]);
+            }
+        } else {
+            // Multi-level approval workflow
+            $approvers = [];
+
+            // Add manager if not disabled
+            if (!$ptoType->disable_hierarchy_approval) {
+                $manager = $ptoRequest->user->manager;
+                if ($manager) {
+                    $approvers[] = ['user_id' => $manager->id, 'level' => 1];
+                }
+            }
+
+            // Add specific approvers
+            if ($ptoType->specific_approvers && count($ptoType->specific_approvers) > 0) {
+                foreach ($ptoType->specific_approvers as $index => $approverId) {
+                    $approvers[] = [
+                        'user_id' => $approverId,
+                        'level' => $ptoType->disable_hierarchy_approval ? 1 : 2
+                    ];
+                }
+            }
+
+            // Create approval records
+            foreach ($approvers as $index => $approver) {
+                $ptoRequest->approvals()->create([
+                    'approver_id' => $approver['user_id'],
+                    'level' => $approver['level'],
+                    'sequence' => $index + 1,
+                    'status' => 'pending',
+                ]);
+            }
+        }
     }
 
     /**
@@ -79,7 +287,7 @@ class UserPtoDashboardController extends Controller
                 ->first();
 
             // Get policy for this PTO type
-            $policy = $user->getPolicyForPtoType($ptoType->id);
+            $policy = $user->activePtoPolicies()->where('pto_type_id', $ptoType->id)->first();
 
             if ($balance) {
                 // User has a balance record
@@ -227,9 +435,9 @@ class UserPtoDashboardController extends Controller
             if ($balance) {
                 $currentBalance = $balance->balance - $balance->pending_balance;
             } else {
-                $policy = $user->getPolicyForPtoType($ptoType->id);
+                $policy = $user->activePtoPolicies()->where('pto_type_id', $ptoType->id)->first();
                 if ($policy) {
-                    $currentBalance = $policy->annual_accrual_amount;
+                    $currentBalance = $policy->annual_accrual_amount ?? 0;
                 }
             }
 
@@ -250,7 +458,7 @@ class UserPtoDashboardController extends Controller
      */
     private function getUserPolicyForType(User $user, int $ptoTypeId): ?array
     {
-        $policy = $user->getPolicyForPtoType($ptoTypeId);
+        $policy = $user->activePtoPolicies()->where('pto_type_id', $ptoTypeId)->first();
 
         if (!$policy) {
             return null;
@@ -281,5 +489,18 @@ class UserPtoDashboardController extends Controller
         }
 
         return false;
+    }
+
+    /**
+     * Validate that all selected days are business days.
+     */
+    private function validateBusinessDays(array $dayOptions): void
+    {
+        foreach ($dayOptions as $dayOption) {
+            $date = Carbon::parse($dayOption['date']);
+            if ($date->isWeekend()) {
+                throw new \InvalidArgumentException('Weekend days are not allowed for PTO requests.');
+            }
+        }
     }
 }

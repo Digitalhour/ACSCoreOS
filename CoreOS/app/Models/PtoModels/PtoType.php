@@ -49,6 +49,7 @@ class PtoType extends Model
         'show_in_department_calendar' => 'boolean',
         'is_active' => 'boolean',
         'sort_order' => 'integer',
+        'code' => 'string',
     ];
 
     /**

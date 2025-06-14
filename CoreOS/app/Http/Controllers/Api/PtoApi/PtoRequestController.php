@@ -85,7 +85,7 @@ class PtoRequestController extends Controller
             $userId = $user->id;
 
             // Generate a unique request number to satisfy the NOT NULL constraint.
-            $requestNumber = 'PTO-U' . $userId . '-' . time();
+            $requestNumber = 'PTO-' . $userId . '-' . time();
 
             // Use the frontend calculated total days if provided, otherwise calculate
             $totalDays = $request->total_days ?? $this->calculateTotalDays(

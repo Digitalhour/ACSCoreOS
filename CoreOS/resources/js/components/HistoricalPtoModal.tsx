@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import axios from 'axios';
+import { router } from '@inertiajs/react';
 import { Calendar, Loader2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
@@ -27,7 +27,7 @@ interface HistoricalPtoModalProps {
     isOpen: boolean;
     onClose: () => void;
     users: User[];
-    ptoTypes: PtoType[]; // This is now unused since we fetch user-specific types
+    ptoTypes: PtoType[];
     onSuccess: () => void;
 }
 
@@ -55,17 +55,17 @@ export default function HistoricalPtoModal({ isOpen, onClose, users, onSuccess }
 
     // Fetch PTO types when user is selected
     useEffect(() => {
-        setSelectedPtoTypeId(''); // Reset PTO type selection when user changes
+        setSelectedPtoTypeId('');
 
         if (selectedUserId) {
             setLoadingPtoTypes(true);
-            axios
-                .get(`/api/users/${selectedUserId}/pto-types`)
-                .then((response) => {
-                    const typesData = response.data.data || response.data;
+            fetch(`/api/users/${selectedUserId}/pto-types`)
+                .then(response => response.json())
+                .then(data => {
+                    const typesData = data.data || data;
                     setUserPtoTypes(Array.isArray(typesData) ? typesData : []);
                 })
-                .catch((error) => {
+                .catch(error => {
                     console.error('Error fetching PTO types for user:', error);
                     toast.error('Failed to load PTO types for the selected employee.');
                     setUserPtoTypes([]);
@@ -108,21 +108,29 @@ export default function HistoricalPtoModal({ isOpen, onClose, users, onSuccess }
         setIsSubmitting(true);
 
         try {
-            await axios.post('/api/admin/pto/historical', {
+            router.post(route('submit-historical'), {
                 user_id: parseInt(selectedUserId),
                 pto_type_id: parseInt(selectedPtoTypeId),
                 start_date: startDate,
                 end_date: endDate,
                 reason: reason.trim() || null,
+            }, {
+                onSuccess: () => {
+                    toast.success('Historical PTO submitted successfully');
+                    onSuccess();
+                    onClose();
+                },
+                onError: (errors) => {
+                    const errorMessage = Object.values(errors)[0] || 'Failed to submit historical PTO.';
+                    toast.error(errorMessage);
+                },
+                onFinish: () => {
+                    setIsSubmitting(false);
+                }
             });
-
-            toast.success('Historical PTO submitted successfully');
-            onSuccess();
-            onClose();
-        } catch (error: any) {
-            const errorMessage = error.response?.data?.message || error.response?.data?.error || 'Failed to submit historical PTO.';
-            toast.error(errorMessage);
-        } finally {
+        } catch (error) {
+            console.error('Error submitting historical PTO:', error);
+            toast.error('An unexpected error occurred. Please try again.');
             setIsSubmitting(false);
         }
     };
@@ -170,10 +178,10 @@ export default function HistoricalPtoModal({ isOpen, onClose, users, onSuccess }
                                         loadingPtoTypes
                                             ? 'Loading PTO types...'
                                             : !selectedUserId
-                                              ? 'Select an employee first'
-                                              : userPtoTypes.length === 0
-                                                ? 'No PTO types available'
-                                                : 'Select PTO type'
+                                                ? 'Select an employee first'
+                                                : userPtoTypes.length === 0
+                                                    ? 'No PTO types available'
+                                                    : 'Select PTO type'
                                     }
                                 />
                             </SelectTrigger>

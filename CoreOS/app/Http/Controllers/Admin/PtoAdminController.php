@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\PtoModels\PtoApproval;
+use App\Models\PtoModels\PtoBalance;
 use App\Models\PtoModels\PtoBlackout;
 use App\Models\PtoModels\PtoPolicy;
 use App\Models\PtoModels\PtoRequest;
@@ -13,6 +15,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 
 class PtoAdminController extends Controller
@@ -218,7 +221,7 @@ class PtoAdminController extends Controller
     }
 
     /**
-     * Approve a PTO request.
+     * Approve a PTO request - handles both simple and multi-level approval.
      */
     public function approveRequest(Request $request, PtoRequest $ptoRequest)
     {
@@ -229,42 +232,70 @@ class PtoAdminController extends Controller
         $approverId = Auth::id();
 
         try {
-            // Get the next approval(s) that are pending
-            $pendingApprovals = $ptoRequest->getNextPendingApprovals();
-
-            if ($pendingApprovals->isEmpty()) {
+            // Check if request is still pending
+            if ($ptoRequest->status !== 'pending') {
                 return redirect()->back()->with('info', 'This request is no longer pending approval.');
             }
 
-            // Find the specific approval record for the current user within the next pending level
-            $currentUserApproval = $pendingApprovals->firstWhere('approver_id', $approverId);
+            DB::beginTransaction();
 
-            if (!$currentUserApproval) {
-                return redirect()->back()->with('error', 'You are not authorized to approve this request at this time.');
-            }
+            // Check if this PTO type uses multi-level approval
+            if ($ptoRequest->ptoType->multi_level_approval) {
+                // Multi-level approval workflow
+                $approval = PtoApproval::where('pto_request_id', $ptoRequest->id)
+                    ->where('approver_id', $approverId)
+                    ->where('status', 'pending')
+                    ->first();
 
-            // Update the current user's approval step
-            $currentUserApproval->update([
-                'status' => 'approved',
-                'comments' => $request->comments,
-                'responded_at' => now(),
-            ]);
+                if (!$approval) {
+                    DB::rollBack();
+                    return redirect()->back()->with('error', 'You are not authorized to approve this request or it has already been processed.');
+                }
 
-            // After approval, re-check if the request is now fully approved
-            if ($ptoRequest->fresh()->isFullyApproved()) {
-                // If all approvals are done, update the main request
-                $ptoRequest->update([
+                // Update the current user's approval
+                $approval->update([
                     'status' => 'approved',
-                    'approved_at' => now(),
-                    'approved_by_id' => $approverId, // Final approver
+                    'comments' => $request->comments,
+                    'responded_at' => now(),
                 ]);
 
-                // TODO: Trigger balance deductions and notifications here
+                Log::info('Individual approval recorded', [
+                    'approval_id' => $approval->id,
+                    'approver_id' => $approverId,
+                    'pto_request_id' => $ptoRequest->id
+                ]);
+
+                // Check if there are any more pending approvals
+                $pendingApprovals = PtoApproval::where('pto_request_id', $ptoRequest->id)
+                    ->where('status', 'pending')
+                    ->count();
+
+                Log::info('Pending approvals remaining', ['count' => $pendingApprovals]);
+
+                // If no more pending approvals, approve the entire request
+                if ($pendingApprovals === 0) {
+                    $this->finalizeApproval($ptoRequest, $approverId);
+                }
+
+                DB::commit();
+
+                $message = $pendingApprovals === 0
+                    ? "PTO request for {$ptoRequest->user->name} has been fully approved and processed."
+                    : "Your approval has been recorded. {$pendingApprovals} more approval(s) needed.";
+
+                return redirect()->back()->with('success', $message);
+
+            } else {
+                // Simple approval workflow (no multi-level)
+                $this->finalizeApproval($ptoRequest, $approverId);
+                DB::commit();
+
+                return redirect()->back()->with('success', "PTO request for {$ptoRequest->user->name} has been approved successfully.");
             }
 
-            return redirect()->back()->with('success', "Approval recorded successfully for {$ptoRequest->user->name}'s request.");
-
         } catch (\Exception $e) {
+            DB::rollBack();
+
             Log::error('Error approving PTO request: '.$ptoRequest->id, [
                 'error' => $e->getMessage(),
                 'user_id' => $approverId,
@@ -276,7 +307,58 @@ class PtoAdminController extends Controller
     }
 
     /**
-     * Deny a PTO request.
+     * Finalize the approval process and deduct balance.
+     */
+    private function finalizeApproval(PtoRequest $ptoRequest, int $approverId)
+    {
+        // Update the main request to approved
+        $ptoRequest->update([
+            'status' => 'approved',
+            'approved_at' => now(),
+            'approved_by_id' => $approverId,
+        ]);
+
+        // Only deduct balance if the PTO type uses balance tracking
+        if ($ptoRequest->ptoType->uses_balance) {
+            // Find or create the user's PTO balance for this type and year
+            $year = Carbon::parse($ptoRequest->start_date)->year;
+            $ptoBalance = PtoBalance::firstOrCreate(
+                [
+                    'user_id' => $ptoRequest->user_id,
+                    'pto_type_id' => $ptoRequest->pto_type_id,
+                    'year' => $year,
+                ],
+                [
+                    'balance' => 0,
+                    'pending_balance' => 0,
+                    'used_balance' => 0,
+                ]
+            );
+
+            // Deduct the balance using the model method
+            $ptoTransaction = $ptoBalance->subtractBalance(
+                $ptoRequest->total_days,
+                'PTO approved and taken - ' . ($ptoRequest->reason ?: 'No reason provided'),
+                auth()->user()
+            );
+
+            // Link the transaction to the PTO request
+            $ptoTransaction->update(['pto_request_id' => $ptoRequest->id]);
+
+            Log::info('PTO balance deducted', [
+                'transaction_id' => $ptoTransaction->id,
+                'balance_after' => $ptoBalance->fresh()->balance
+            ]);
+        }
+
+        Log::info('PTO request fully approved', [
+            'pto_request_id' => $ptoRequest->id,
+            'approved_by' => $approverId,
+        ]);
+    }
+
+    /**
+     * Deny a PTO request - handles both simple and multi-level approval.
      */
     public function denyRequest(Request $request, PtoRequest $ptoRequest)
     {
@@ -287,15 +369,41 @@ class PtoAdminController extends Controller
         $approverId = Auth::id();
 
         try {
-            // Any authorized approver in the current pending step can deny the whole request
-            $pendingApprovals = $ptoRequest->getNextPendingApprovals();
-            $currentUserApproval = $pendingApprovals->firstWhere('approver_id', $approverId);
-
-            if (!$currentUserApproval) {
-                return redirect()->back()->with('error', 'You are not authorized to deny this request at this time.');
+            // Check if request is still pending
+            if ($ptoRequest->status !== 'pending') {
+                return redirect()->back()->with('info', 'This request is no longer pending approval.');
             }
 
-            // A single denial rejects the entire request chain.
+            DB::beginTransaction();
+
+            // Check if this PTO type uses multi-level approval
+            if ($ptoRequest->ptoType->multi_level_approval) {
+                // Multi-level approval workflow
+                $approval = PtoApproval::where('pto_request_id', $ptoRequest->id)
+                    ->where('approver_id', $approverId)
+                    ->where('status', 'pending')
+                    ->first();
+
+                if (!$approval) {
+                    DB::rollBack();
+                    return redirect()->back()->with('error', 'You are not authorized to deny this request or it has already been processed.');
+                }
+
+                // Update the current user's approval
+                $approval->update([
+                    'status' => 'denied',
+                    'comments' => $request->comments,
+                    'responded_at' => now(),
+                ]);
+
+                // Mark all other pending approvals as denied (one denial stops the chain)
+                PtoApproval::where('pto_request_id', $ptoRequest->id)
+                    ->where('status', 'pending')
+                    ->where('id', '!=', $approval->id)
+                    ->update(['status' => 'denied']);
+            }
+
+            // Update the main request to denied
             $ptoRequest->update([
                 'status' => 'denied',
                 'denied_at' => now(),
@@ -303,18 +411,19 @@ class PtoAdminController extends Controller
                 'denial_reason' => $request->comments,
             ]);
 
-            // Update all approval steps to reflect the denial.
-            $ptoRequest->approvals()->update(['status' => 'denied']);
+            DB::commit();
 
-            // Log the specific comment on the denier's approval record
-            $currentUserApproval->update([
-                'comments' => $request->comments,
-                'responded_at' => now(),
+            Log::info('PTO request denied successfully', [
+                'pto_request_id' => $ptoRequest->id,
+                'denied_by' => $approverId,
+                'reason' => $request->comments
             ]);
 
             return redirect()->back()->with('success', "PTO request for {$ptoRequest->user->name} has been denied.");
 
         } catch (\Exception $e) {
+            DB::rollBack();
+
             Log::error('Error denying PTO request: '.$ptoRequest->id, [
                 'error' => $e->getMessage(),
                 'user_id' => $approverId,
@@ -330,7 +439,13 @@ class PtoAdminController extends Controller
      */
     public function submitHistoricalPto(Request $request)
     {
-        $request->validate([
+        // Add debugging
+        Log::info('Historical PTO submission started', [
+            'request_data' => $request->all(),
+            'user_id' => auth()->id(),
+        ]);
+
+        $validated = $request->validate([
             'user_id' => 'required|exists:users,id',
             'pto_type_id' => 'required|exists:pto_types,id',
             'start_date' => 'required|date|before_or_equal:today',
@@ -338,10 +453,14 @@ class PtoAdminController extends Controller
             'reason' => 'nullable|string|max:500',
         ]);
 
+        Log::info('Validation passed', ['validated_data' => $validated]);
+
+        DB::beginTransaction();
+
         try {
             // Calculate total days (excluding weekends)
-            $startDate = Carbon::parse($request->start_date);
-            $endDate = Carbon::parse($request->end_date);
+            $startDate = Carbon::parse($validated['start_date']);
+            $endDate = Carbon::parse($validated['end_date']);
             $totalDays = 0;
 
             $current = $startDate->copy();
@@ -352,30 +471,104 @@ class PtoAdminController extends Controller
                 $current->addDay();
             }
 
-            // Create the PTO request
+            Log::info('Calculated total days', ['total_days' => $totalDays]);
+
+            // Generate historical PTO request number: PTO-For{UserID}-By{RequesterID}-{Timestamp}
+            $requestNumber = 'PTO-For' . $validated['user_id'] . '-By' . auth()->id() . '-' . time();
+
+            Log::info('Generated historical PTO request number', ['request_number' => $requestNumber]);
+
+            // Create the PTO request with the historical request number
             $ptoRequest = PtoRequest::create([
-                'user_id' => $request->user_id,
-                'pto_type_id' => $request->pto_type_id,
-                'start_date' => $request->start_date,
-                'end_date' => $request->end_date,
+                'request_number' => $requestNumber,
+                'user_id' => $validated['user_id'],
+                'pto_type_id' => $validated['pto_type_id'],
+                'start_date' => $validated['start_date'],
+                'end_date' => $validated['end_date'],
                 'total_days' => $totalDays,
-                'reason' => $request->reason ?? '',
+                'reason' => $validated['reason'] ?? '',
                 'status' => 'approved',
                 'submitted_at' => now(),
                 'approved_at' => now(),
                 'approved_by_id' => auth()->id(),
             ]);
 
-            return redirect()->back()->with('success', 'Historical PTO request submitted successfully.');
+            Log::info('PTO request created', [
+                'pto_request_id' => $ptoRequest->id,
+                'pto_request' => $ptoRequest->toArray()
+            ]);
+
+            // Get the PTO type to check if it uses balance
+            $ptoType = PtoType::find($validated['pto_type_id']);
+
+            if ($ptoType && $ptoType->uses_balance) {
+                // Find or create the user's PTO balance for this type and year
+                $year = Carbon::parse($validated['start_date'])->year;
+                $ptoBalance = PtoBalance::firstOrCreate(
+                    [
+                        'user_id' => $validated['user_id'],
+                        'pto_type_id' => $validated['pto_type_id'],
+                        'year' => $year,
+                    ],
+                    [
+                        'balance' => 0,
+                        'pending_balance' => 0,
+                        'used_balance' => 0,
+                    ]
+                );
+
+                Log::info('PTO balance found/created', [
+                    'balance_id' => $ptoBalance->id,
+                    'current_balance' => $ptoBalance->balance,
+                    'year' => $year
+                ]);
+
+                // Deduct the balance using the model method
+                $ptoTransaction = $ptoBalance->subtractBalance(
+                    $totalDays,
+                    'Historical PTO taken - ' . ($validated['reason'] ?: 'No reason provided'),
+                    auth()->user()
+                );
+
+                // Link the transaction to the PTO request
+                $ptoTransaction->update(['pto_request_id' => $ptoRequest->id]);
+
+                Log::info('PTO transaction created and linked', [
+                    'transaction_id' => $ptoTransaction->id,
+                    'transaction' => $ptoTransaction->toArray()
+                ]);
+            } else {
+                Log::info('PTO type does not use balance, skipping balance deduction');
+            }
+
+            DB::commit();
+
+            Log::info('Historical PTO submission completed successfully', [
+                'pto_request_id' => $ptoRequest->id,
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Historical PTO request submitted successfully.',
+                'data' => [
+                    'pto_request' => $ptoRequest,
+                ]
+            ]);
 
         } catch (\Exception $e) {
+            DB::rollBack();
+
             Log::error('Error submitting historical PTO request', [
                 'error' => $e->getMessage(),
-                'request_data' => $request->all(),
+                'trace' => $e->getTraceAsString(),
+                'request_data' => $validated,
                 'user_id' => auth()->id(),
             ]);
 
-            return redirect()->back()->with('error', 'Failed to submit historical PTO request. Please try again.');
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to submit historical PTO request: ' . $e->getMessage()
+            ], 500);
         }
     }
 }
