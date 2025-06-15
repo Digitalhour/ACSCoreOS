@@ -28,7 +28,7 @@ use App\Http\Controllers\Employee\EmergencyContactsController;
 use App\Http\Controllers\PartsCatalogController;
 use App\Http\Controllers\RolePermissionController;
 use App\Http\Controllers\UserController;
-use App\Http\Controllers\UserPtoDashboardController;
+use App\Http\Controllers\EmployeePtoController;
 use App\Models\User;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -243,10 +243,10 @@ Route::middleware([
 //        | PTO System Routes
 //        |--------------------------------------------------------------------------
 //        */
-//    Route::get('/pto', [UserPtoDashboardController::class, 'index'])->name('pto.dashboard');
+//    Route::get('/pto', [EmployeePtoController::class, 'index'])->name('pto.dashboard');
 //        // User PTO Dashboard
 ////        Route::get('/pto', function () {
-////            return Inertia::render('employee/UserPtoDashboard');
+////            return Inertia::render('Employee/EmployeePtoDashboard');
 ////        })->name('pto.dashboard');
 //        // Legacy route redirects (if you have existing bookmarks)
 ////        Route::get('/my-pto', function () {

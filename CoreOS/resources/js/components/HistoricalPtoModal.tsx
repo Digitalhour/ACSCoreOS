@@ -67,7 +67,7 @@ export default function HistoricalPtoModal({ isOpen, onClose, users, onSuccess }
                 })
                 .catch(error => {
                     console.error('Error fetching PTO types for user:', error);
-                    toast.error('Failed to load PTO types for the selected employee.');
+                    toast.error('Failed to load PTO types for the selected Employee.');
                     setUserPtoTypes([]);
                 })
                 .finally(() => {
@@ -81,7 +81,7 @@ export default function HistoricalPtoModal({ isOpen, onClose, users, onSuccess }
     const handleSubmit = async () => {
         // Validation
         if (!selectedUserId) {
-            toast.error('Please select an employee.');
+            toast.error('Please select an Employee.');
             return;
         }
         if (!selectedPtoTypeId) {
@@ -178,7 +178,7 @@ export default function HistoricalPtoModal({ isOpen, onClose, users, onSuccess }
                                         loadingPtoTypes
                                             ? 'Loading PTO types...'
                                             : !selectedUserId
-                                                ? 'Select an employee first'
+                                                ? 'Select an Employee first'
                                                 : userPtoTypes.length === 0
                                                     ? 'No PTO types available'
                                                     : 'Select PTO type'

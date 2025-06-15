@@ -101,11 +101,11 @@ class User extends Authenticatable
     }
 
     /**
-     * Get all historical reporting assignments for this user (where they are the employee).
+     * Get all historical reporting assignments for this user (where they are the Employee).
      */
     public function reportingAssignments(): HasMany
     {
-        return $this->hasMany(UserReportingAssignment::class, 'user_id');
+        return $this->hasMany(EmployeeReportingAssignment::class, 'user_id');
     }
 
     /**
@@ -113,7 +113,7 @@ class User extends Authenticatable
      */
     public function managedAssignments(): HasMany
     {
-        return $this->hasMany(UserReportingAssignment::class, 'manager_id');
+        return $this->hasMany(EmployeeReportingAssignment::class, 'manager_id');
     }
 
     /**
@@ -121,7 +121,7 @@ class User extends Authenticatable
      */
     public function currentReportingAssignment()
     {
-        return $this->hasOne(UserReportingAssignment::class, 'user_id')->whereNull('end_date');
+        return $this->hasOne(EmployeeReportingAssignment::class, 'user_id')->whereNull('end_date');
     }
 
     /*

@@ -13,8 +13,10 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
 
-class UserPtoDashboardController extends Controller
+class EmployeePtoController extends Controller
 {
+
+
     /**
      * Display the user PTO dashboard.
      */
@@ -40,7 +42,7 @@ class UserPtoDashboardController extends Controller
         // Get PTO types for the request form
         $ptoTypes = $this->getPtoTypesWithBalances($user, $currentYear);
 
-        return Inertia::render('UserPtoDashboard', [
+        return Inertia::render('Employee/EmployeePtoDashboard', [
             'pto_data' => $ptoData,
             'recent_requests' => $recentRequests,
             'pending_requests_count' => $pendingRequestsCount,
@@ -140,11 +142,11 @@ class UserPtoDashboardController extends Controller
 
             DB::commit();
 
-            Log::info('PTO request created successfully', [
-                'request_id' => $ptoRequest->id,
-                'user_id' => $user->id,
-                'total_days' => $validated['total_days']
-            ]);
+//            Log::info('PTO request created successfully', [
+//                'request_id' => $ptoRequest->id,
+//                'user_id' => $user->id,
+//                'total_days' => $validated['total_days']
+//            ]);
 
             return redirect()->route('pto.dashboard')->with('success', 'PTO request submitted successfully!');
 
@@ -181,10 +183,13 @@ class UserPtoDashboardController extends Controller
         DB::beginTransaction();
 
         try {
+            // Store the original status before updating
+            $originalStatus = $ptoRequest->status;
+
             // Update request status
             $ptoRequest->update([
                 'status' => 'cancelled',
-                'cancellation_reason' => 'Cancelled by user',
+                'reason' => 'Cancelled by user ' . $user->name . ($user->isImpersonated() ? ' (impersonated)' : '')
             ]);
 
             // Return days to balance
@@ -194,15 +199,39 @@ class UserPtoDashboardController extends Controller
                 ->first();
 
             if ($balance) {
-                if ($ptoRequest->getOriginal('status') === 'pending') {
+                if ($originalStatus === 'pending') {
+                    // For pending requests, just remove from pending balance
                     $balance->decrement('pending_balance', $ptoRequest->total_days);
-                } elseif ($ptoRequest->getOriginal('status') === 'approved') {
+                } elseif ($originalStatus === 'approved') {
+                    // For approved requests, return days to available balance and remove from used balance
                     $balance->increment('balance', $ptoRequest->total_days);
                     $balance->decrement('used_balance', $ptoRequest->total_days);
+                }
+            } else {
+                // If no balance record exists, create one with the returned days
+                if ($originalStatus === 'pending' || $originalStatus === 'approved') {
+                    $policy = $user->activePtoPolicies()->where('pto_type_id', $ptoRequest->pto_type_id)->first();
+                    $initialBalance = $policy ? $policy->annual_accrual_amount : 0;
+
+                    PtoBalance::create([
+                        'user_id' => $user->id,
+                        'pto_type_id' => $ptoRequest->pto_type_id,
+                        'year' => Carbon::now()->year,
+                        'balance' => $initialBalance + ($originalStatus === 'approved' ? $ptoRequest->total_days : 0),
+                        'pending_balance' => 0,
+                        'used_balance' => 0,
+                    ]);
                 }
             }
 
             DB::commit();
+
+            Log::info('PTO request cancelled successfully', [
+                'request_id' => $ptoRequest->id,
+                'user_id' => $user->id,
+                'original_status' => $originalStatus,
+                'days_returned' => $ptoRequest->total_days
+            ]);
 
             return redirect()->route('pto.dashboard')->with('success', 'PTO request cancelled successfully!');
 
@@ -389,31 +418,53 @@ class UserPtoDashboardController extends Controller
             ->pluck('user_id')
             ->toArray();
 
-        return PtoRequest::with(['user', 'ptoType'])
-            ->whereIn('user_id', $departmentUserIds)
-            ->whereIn('status', ['approved', 'pending'])
-            ->whereYear('start_date', $year)
-            ->get()
-            ->map(function ($request) {
-                return [
-                    'id' => $request->id,
-                    'user' => [
-                        'id' => $request->user->id,
-                        'name' => $request->user->name,
-                    ],
-                    'pto_type' => [
-                        'id' => $request->ptoType->id,
-                        'name' => $request->ptoType->name,
-                        'color' => $request->ptoType->color,
-                        'code' => $request->ptoType->code,
-                    ],
-                    'start_date' => $request->start_date,
-                    'end_date' => $request->end_date,
-                    'total_days' => (float) $request->total_days,
-                    'status' => $request->status,
-                ];
-            })
+        // Get PTO type IDs that should be shown in department calendar
+        $showablePtoTypeIds = PtoType::where('show_in_department_calendar', 1)
+            ->where('is_active', 1)
+            ->pluck('id')
             ->toArray();
+
+        // Get department colleagues' PTO requests (excluding current user)
+        $colleagueRequests = PtoRequest::with(['user', 'ptoType'])
+            ->whereIn('user_id', $departmentUserIds)
+            ->where('user_id', '!=', $user->id) // Exclude current user
+            ->whereIn('status', ['approved', 'pending'])
+            ->whereIn('pto_type_id', $showablePtoTypeIds) // Only show PTO types marked for department calendar
+            ->whereYear('start_date', $year)
+            ->get();
+
+        // Get current user's own PTO requests (always show regardless of calendar setting)
+        $userOwnRequests = PtoRequest::with(['user', 'ptoType'])
+            ->where('user_id', $user->id)
+            ->whereIn('status', ['approved', 'pending'])
+            ->whereHas('ptoType', function ($query) {
+                $query->where('is_active', 1);
+            })
+            ->whereYear('start_date', $year)
+            ->get();
+
+        // Combine both collections
+        $allRequests = $colleagueRequests->concat($userOwnRequests);
+
+        return $allRequests->map(function ($request) {
+            return [
+                'id' => $request->id,
+                'user' => [
+                    'id' => $request->user->id,
+                    'name' => $request->user->name,
+                ],
+                'pto_type' => [
+                    'id' => $request->ptoType->id,
+                    'name' => $request->ptoType->name,
+                    'color' => $request->ptoType->color,
+                    'code' => $request->ptoType->code,
+                ],
+                'start_date' => $request->start_date,
+                'end_date' => $request->end_date,
+                'total_days' => (float) $request->total_days,
+                'status' => $request->status,
+            ];
+        })->toArray();
     }
 
     /**

@@ -34,6 +34,6 @@ class Position extends Model
      */
     public function userReportingAssignments(): HasMany
     {
-        return $this->hasMany(UserReportingAssignment::class);
+        return $this->hasMany(EmployeeReportingAssignment::class);
     }
 }

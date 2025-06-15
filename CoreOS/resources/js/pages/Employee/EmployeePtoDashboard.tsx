@@ -1,14 +1,3 @@
-import {
-    AlertDialog,
-    AlertDialogAction,
-    AlertDialogCancel,
-    AlertDialogContent,
-    AlertDialogDescription,
-    AlertDialogFooter,
-    AlertDialogHeader,
-    AlertDialogTitle,
-    AlertDialogTrigger,
-} from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -16,21 +5,18 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+
 import { Textarea } from '@/components/ui/textarea';
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, useForm, usePage } from '@inertiajs/react';
-import { Calendar as CalendarIcon, Clock, FileText, Info, Loader2, MoreVertical, Plus, Save, Trash2, Users, X } from 'lucide-react';
+import { Loader2, Save,  Users, X } from 'lucide-react';
 import { Calendar, momentLocalizer, Views } from 'react-big-calendar';
 import moment from 'moment';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
-import { PopoverContent } from '@radix-ui/react-popover';
-import {Popover, PopoverTrigger} from "@/components/ui/popover";
-import {Tooltip, TooltipContent, TooltipTrigger} from "@/components/ui/tooltip";
 
 const localizer = momentLocalizer(moment);
 
@@ -99,16 +85,24 @@ interface DepartmentPtoRequest {
     status: 'pending' | 'approved' | 'denied' | 'cancelled';
 }
 
+interface PtoDataItem {
+    policy: any;
+    balance: number;
+    pending_balance: number;
+    available_balance: number;
+    pto_type: {
+        id: number;
+        name: string;
+        description?: string;
+        color: string;
+        code: string;
+    };
+    can_request: boolean;
+    has_balance_record: boolean;
+}
+
 interface PageProps {
-    pto_data: Array<{
-        policy: any;
-        balance: number;
-        pending_balance: number;
-        available_balance: number;
-        pto_type: PtoType;
-        can_request: boolean;
-        has_balance_record: boolean;
-    }>;
+    pto_data: PtoDataItem[];
     recent_requests: PtoRequest[];
     pending_requests_count: number;
     user: {
@@ -118,6 +112,7 @@ interface PageProps {
     };
     department_pto_requests: DepartmentPtoRequest[];
     pto_types: PtoType[];
+    [key: string]: any;
 }
 
 interface DayOption {
@@ -211,17 +206,18 @@ const DonutChart = ({ data, size = 120 }: { data: Array<{ label: string; value: 
     );
 };
 
-export default function UserPtoDashboard() {
-    const { pto_data, recent_requests, pending_requests_count, user, department_pto_requests, pto_types } = usePage<PageProps>().props;
+export default function EmployeePtoDashboard() {
+    const { pto_data, recent_requests, department_pto_requests } = usePage<PageProps>().props;
 
     // Flash messages
-    const { flash } = usePage().props;
+
 
     // Request form state
     const [showRequestForm, setShowRequestForm] = useState(false);
     const [requestedDays, setRequestedDays] = useState<number | null>(null);
     const [dayOptions, setDayOptions] = useState<DayOption[]>([]);
-
+    const [showCancelDialog, setShowCancelDialog] = useState(false);
+    const [requestToCancel, setRequestToCancel] = useState<PtoRequest | null>(null);
     // Inertia form for PTO requests
     const { data, setData, post, processing, errors, reset } = useForm({
         pto_type_id: '',
@@ -234,16 +230,28 @@ export default function UserPtoDashboard() {
 
     // Inertia form for cancellation
     const { post: postCancel, processing: cancelProcessing } = useForm();
+    const handleCancelRequest = useCallback((request: PtoRequest) => {
+        setRequestToCancel(request);
+        setShowCancelDialog(true);
+    }, []);
 
-    // Show flash messages
-    useEffect(() => {
-        if (flash?.success) {
-            toast.success(flash.success);
+    const confirmCancelRequest = useCallback(() => {
+        if (requestToCancel) {
+            postCancel(route('pto.requests.cancel', { ptoRequest: requestToCancel.id }), {
+                onSuccess: () => {
+                    toast.success('PTO request cancelled successfully!');
+                    setShowCancelDialog(false);
+                    setRequestToCancel(null);
+                },
+                onError: () => {
+                    toast.error('Failed to cancel PTO request.');
+                    setShowCancelDialog(false);
+                    setRequestToCancel(null);
+                },
+            });
         }
-        if (flash?.error) {
-            toast.error(flash.error);
-        }
-    }, [flash]);
+    }, [postCancel, requestToCancel]);
+
 
     // Convert PTO requests to calendar events
     const calendarEvents = useMemo((): CalendarEvent[] => {
@@ -350,7 +358,7 @@ export default function UserPtoDashboard() {
             setData('total_days', 0);
             setData('day_options', []);
         }
-    }, [data.start_date, data.end_date, generateDayOptions]);
+    }, [data.start_date, data.end_date, generateDayOptions, setData]);
 
     // Handle day option change
     const handleDayOptionChange = useCallback((date: Date, type: 'full' | 'half') => {
@@ -412,9 +420,9 @@ export default function UserPtoDashboard() {
         }
 
         // Check balance
-        const selectedType = pto_types.find((t) => t.id === parseInt(data.pto_type_id));
-        if (selectedType && requestedDays > selectedType.current_balance) {
-            toast.error(`You don't have enough PTO balance (${selectedType.current_balance} days available).`);
+        const selectedType = pto_data.find((item) => item.pto_type.id === parseInt(data.pto_type_id));
+        if (selectedType && requestedDays > selectedType.available_balance) {
+            toast.error(`You don't have enough PTO balance (${selectedType.available_balance} days available).`);
             return;
         }
 
@@ -427,19 +435,9 @@ export default function UserPtoDashboard() {
                 toast.error('Failed to submit PTO request.');
             },
         });
-    }, [data, requestedDays, pto_types, post, resetForm]);
+    }, [data, requestedDays, pto_data, post, resetForm]);
 
-    // Handle cancel request
-    const handleCancelRequest = useCallback((requestId: number) => {
-        postCancel(route('pto.requests.cancel', requestId), {
-            onSuccess: () => {
-                toast.success('PTO request cancelled successfully!');
-            },
-            onError: () => {
-                toast.error('Failed to cancel PTO request.');
-            },
-        });
-    }, [postCancel]);
+
 
     // Helper function to check if request can be cancelled
     const canCancelRequest = useCallback((request: PtoRequest) => {
@@ -490,7 +488,7 @@ export default function UserPtoDashboard() {
     }, [recent_requests]);
 
     // Prepare donut chart data for each PTO type
-    const getPtoChartData = (ptoItem: any) => {
+    const getPtoChartData = (ptoItem: PtoDataItem) => {
         const totalBalance = ptoItem.balance;
         const pendingBalance = ptoItem.pending_balance || 0;
         const usedBalance = totalBalance - ptoItem.available_balance - pendingBalance;
@@ -502,7 +500,7 @@ export default function UserPtoDashboard() {
             data.push({
                 label: 'approved',
                 value: approvedDays,
-                color: ptoItem.pto_type.color,
+                color: 'rgba(40,40,40,0.38)',
                 description: `${approvedDays} days approved`
             });
         }
@@ -529,7 +527,7 @@ export default function UserPtoDashboard() {
             data.push({
                 label: 'remaining',
                 value: remainingBalance,
-                color: '#10b981',
+                color: ptoItem.pto_type.color,
                 description: `${remainingBalance} days remaining`
             });
         }
@@ -550,7 +548,7 @@ export default function UserPtoDashboard() {
                 </div>
 
                 {/* Time Off Policy Overview */}
-                <div className="grid grid-cols-4 gap-2 justify-between">
+                <div className="flex flex-col w-sm gap-2 justify-between">
                     {pto_data.map((item) => (
                         <Card key={item.pto_type.id}>
                             <CardHeader className="pb-4">
@@ -561,7 +559,7 @@ export default function UserPtoDashboard() {
                                     </Badge>
                                 </div>
                             </CardHeader>
-                            <CardContent className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                            <CardContent className="flex flex-col">
                                 <div>
                                     <div className="space-y-4">
                                         <DonutChart data={getPtoChartData(item)} />
@@ -580,31 +578,65 @@ export default function UserPtoDashboard() {
                         </CardHeader>
                         <CardContent>
                             <div className="space-y-4">
-                                <div className="grid grid-cols-3 gap-4 text-sm font-medium text-gray-500">
+                                <div className="grid grid-cols-4 gap-4 text-sm font-medium text-gray-500">
                                     <div>Date</div>
+                                    <div>Type</div>
                                     <div>Status</div>
                                     <div>Action</div>
                                 </div>
                                 {recent_requests
                                     .filter(request => request.status === 'approved' || request.status === 'pending')
                                     .slice(0, 5)
-                                    .map((request) => (
-                                        <div key={request.id} className="grid grid-cols-3 gap-4 items-center py-2 border-b last:border-b-0">
-                                            <div className="text-blue-500">
-                                                {formatDate(request.start_date)} - {formatDate(request.end_date)}
+                                    .map((request) => {
+                                        const canCancel = canCancelRequest(request);
+                                        const startDateTime = new Date(request.start_date);
+                                        const now = new Date();
+                                        const hoursUntilStart = (startDateTime.getTime() - now.getTime()) / (1000 * 60 * 60);
+
+                                        return (
+                                            <div key={request.id} className="grid grid-cols-4 gap-4 items-center py-2 border-b last:border-b-0">
+                                                <div className="text-blue-500 text-sm">
+                                                    {formatDate(request.start_date)} - {formatDate(request.end_date)}
+                                                </div>
+                                                <div className="flex items-center gap-2 text-sm">
+                                                    <div className="h-3 w-3 rounded-full" style={{ backgroundColor: request.pto_type.color }} />
+                                                    <span className="text-xs">{request.pto_type.code}</span>
+                                                </div>
+                                                <div>
+                                                    <Badge className={getStatusColor(request.status)}>
+                                                        {request.status.charAt(0).toUpperCase() + request.status.slice(1)}
+                                                    </Badge>
+                                                </div>
+                                                <div className="flex items-center gap-2">
+                                                    {canCancel ? (
+                                                        <Button
+                                                            variant="destructive"
+                                                            size="sm"
+                                                            onClick={() => handleCancelRequest(request)}
+                                                            disabled={cancelProcessing}
+                                                            className="text-xs px-2 py-1 h-auto"
+                                                        >
+                                                            {cancelProcessing ? (
+                                                                <Loader2 className="h-3 w-3 animate-spin" />
+                                                            ) : (
+                                                                <X className="h-3 w-3" />
+                                                            )}
+                                                            Cancel
+                                                        </Button>
+                                                    ) : (
+                                                        <div className="text-xs text-gray-500">
+                                                            {request.status === 'approved' && hoursUntilStart < 24
+                                                                ? `Cannot cancel (${Math.ceil(hoursUntilStart)}h left)`
+                                                                : request.status === 'denied' || request.status === 'cancelled'
+                                                                    ? 'Not cancellable'
+                                                                    : ''
+                                                            }
+                                                        </div>
+                                                    )}
+                                                </div>
                                             </div>
-                                            <div>
-                                                <Badge className={getStatusColor(request.status)}>
-                                                    {request.status.charAt(0).toUpperCase() + request.status.slice(1)}
-                                                </Badge>
-                                            </div>
-                                            <div>
-                                                <Button variant="ghost" size="sm">
-                                                    <MoreVertical className="h-4 w-4" />
-                                                </Button>
-                                            </div>
-                                        </div>
-                                    ))}
+                                        );
+                                    })}
                                 {recent_requests.filter(r => r.status === 'approved' || r.status === 'pending').length === 0 && (
                                     <div className="text-center py-8 text-gray-500">
                                         No upcoming requests
@@ -612,7 +644,59 @@ export default function UserPtoDashboard() {
                                 )}
                             </div>
                         </CardContent>
+
                     </Card>
+                    <Dialog open={showCancelDialog} onOpenChange={setShowCancelDialog}>
+                        <DialogContent className="max-w-md">
+                            <DialogHeader>
+                                <DialogTitle>Cancel PTO Request</DialogTitle>
+                                <DialogDescription>
+                                    Are you sure you want to cancel this PTO request?
+                                </DialogDescription>
+                                {requestToCancel && requestToCancel.pto_type && (
+                                    <div className="mt-3 p-3 bg-gray-50 rounded-md">
+                                        <div className="text-sm">
+                                            <div><strong>Date:</strong> {formatDate(requestToCancel.start_date)} - {formatDate(requestToCancel.end_date)}</div>
+                                            <div><strong>Type:</strong> {requestToCancel.pto_type.name}</div>
+                                            <div><strong>Days:</strong> {requestToCancel.total_days}</div>
+                                            <div><strong>Status:</strong> {requestToCancel.status}</div>
+                                        </div>
+                                    </div>
+                                )}
+                                <div className="mt-2 text-sm text-gray-600">
+                                    This action cannot be undone. The days will be returned to your balance.
+                                </div>
+                            </DialogHeader>
+                            <DialogFooter>
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    onClick={() => setShowCancelDialog(false)}
+                                    disabled={cancelProcessing}
+                                >
+                                    Keep Request
+                                </Button>
+                                <Button
+                                    type="button"
+                                    variant="destructive"
+                                    onClick={confirmCancelRequest}
+                                    disabled={cancelProcessing}
+                                >
+                                    {cancelProcessing ? (
+                                        <>
+                                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                            Cancelling...
+                                        </>
+                                    ) : (
+                                        <>
+                                            <X className="mr-2 h-4 w-4" />
+                                            Cancel Request
+                                        </>
+                                    )}
+                                </Button>
+                            </DialogFooter>
+                        </DialogContent>
+                    </Dialog>
 
                     {/* Company Holidays */}
                     <Card>
@@ -635,6 +719,7 @@ export default function UserPtoDashboard() {
                             </div>
                         </CardContent>
                     </Card>
+
                 </div>
 
                 {/* Taken Time Off */}
@@ -743,11 +828,11 @@ export default function UserPtoDashboard() {
                                         <SelectValue placeholder="Select PTO type" />
                                     </SelectTrigger>
                                     <SelectContent>
-                                        {pto_types.map((type) => (
-                                            <SelectItem key={type.id} value={type.id.toString()}>
+                                        {pto_data.map((item) => (
+                                            <SelectItem key={item.pto_type.id} value={item.pto_type.id.toString()}>
                                                 <div className="flex items-center gap-2">
-                                                    <div className="h-3 w-3 rounded-full" style={{ backgroundColor: type.color }} />
-                                                    {type.name} ({type.current_balance} days available)
+                                                    <div className="h-3 w-3 rounded-full" style={{ backgroundColor: item.pto_type.color }} />
+                                                    {item.pto_type.name} ({item.available_balance} days available)
                                                 </div>
                                             </SelectItem>
                                         ))}

@@ -1,6 +1,6 @@
 <?php
 
-use App\Http\Controllers\UserPtoDashboardController;
+use App\Http\Controllers\EmployeePtoController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 use Laravel\WorkOS\Http\Middleware\ValidateSessionWithWorkOS;
@@ -14,12 +14,12 @@ ValidateSessionWithWorkOS::class,
 
 
 // Main user PTO dashboard
-    Route::get('/pto', [UserPtoDashboardController::class, 'index'])->name('pto.dashboard');
+    Route::get('/employee/pto', [EmployeePtoController::class, 'index'])->name('pto.dashboard');
 
 // User PTO request management
-    Route::post('/pto/requests', [UserPtoDashboardController::class, 'store'])->name('pto.requests.store');
+    Route::post('/pto/requests', [EmployeePtoController::class, 'store'])->name('pto.requests.store');
     Route::post('/pto/requests/{ptoRequest}/cancel',
-        [UserPtoDashboardController::class, 'cancel'])->name('pto.requests.cancel');
+        [EmployeePtoController::class, 'cancel'])->name('pto.requests.cancel');
 
 // Legacy redirect
     Route::get('/request-pto', function () {

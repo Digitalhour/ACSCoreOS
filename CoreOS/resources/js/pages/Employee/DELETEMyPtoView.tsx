@@ -40,7 +40,7 @@ interface PtoRequest {
     created_at: string;
 }
 
-export default function MyPtoView() {
+export default function DELETEMyPtoView() {
     const [ptoBalances, setPtoBalances] = useState<PtoBalance[]>([]);
     const [ptoRequests, setPtoRequests] = useState<PtoRequest[]>([]);
     const [loading, setLoading] = useState(true);

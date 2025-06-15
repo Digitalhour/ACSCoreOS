@@ -22,7 +22,7 @@ class PtoBalance extends Model
         return LogOptions::defaults()
             ->logAll()
             ->logOnlyDirty()
-            ->useLogName('Pto Balance')
+            ->useLogName('Time Off Balance')
             ->dontSubmitEmptyLogs();
     }
 

@@ -22,7 +22,7 @@ class PtoRequest extends Model
         return LogOptions::defaults()
             ->logAll()
             ->logOnlyDirty()
-            ->useLogName('PTO Request')
+            ->useLogName('Time Off Request')
             ->dontSubmitEmptyLogs();
     }
 

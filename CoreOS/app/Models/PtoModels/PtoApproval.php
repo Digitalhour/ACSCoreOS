@@ -6,11 +6,20 @@ use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Spatie\Activitylog\LogOptions;
+use Spatie\Activitylog\Traits\LogsActivity;
 
 class PtoApproval extends Model
 {
-    use HasFactory;
-
+    use HasFactory, LogsActivity;
+    public function getActivitylogOptions(): LogOptions
+    {
+        return LogOptions::defaults()
+            ->logAll()
+            ->logOnlyDirty()
+            ->useLogName('Time Off Approval(s)')
+            ->dontSubmitEmptyLogs();
+    }
     protected $fillable = [
         'pto_request_id',
         'approver_id',

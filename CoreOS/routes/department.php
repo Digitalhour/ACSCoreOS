@@ -1,7 +1,7 @@
 <?php
 
 use App\Http\Controllers\DepartmentController;
-use App\Http\Controllers\UserPtoDashboardController;
+use App\Http\Controllers\EmployeePtoController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 use Laravel\WorkOS\Http\Middleware\ValidateSessionWithWorkOS;

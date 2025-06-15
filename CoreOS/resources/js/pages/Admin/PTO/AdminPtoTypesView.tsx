@@ -491,6 +491,8 @@ export default function AdminPtoTypesView() {
                                         <SettingToggle id="modal-carryover_allowed" label="Allow Carryover" description="Allow remaining balance to roll over." checked={formData.carryover_allowed} onCheckedChange={(c) => handleChange('carryover_allowed', c)} />
                                         <SettingToggle id="modal-negative_allowed" label="Allow Negative Balance" description="Users can request more time than they have." checked={formData.negative_allowed} onCheckedChange={(c) => handleChange('negative_allowed', c)} />
                                         <SettingToggle id="modal-affects_schedule" label="Show on Schedule" description="Display approved requests on the schedule." checked={formData.affects_schedule} onCheckedChange={(c) => handleChange('affects_schedule', c)} />
+                                        <SettingToggle id="modal-show_in_department_calendar" label="Show on Department Calendar" description="Display this pto on the department calendar." checked={formData.show_in_department_calendar} onCheckedChange={(c) => handleChange('show_in_department_calendar', c)} />
+
                                     </div>
                                 </div>
                                 <div className="space-y-2 rounded-md border p-4  ">

@@ -4,7 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
-use App\Models\UserReportingAssignment;
+use App\Models\EmployeeReportingAssignment;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -117,7 +117,7 @@ class UserHierarchyController extends Controller
             $user->position_id = $newPositionId;
             $user->save();
 
-            UserReportingAssignment::create([
+            EmployeeReportingAssignment::create([
                 'user_id' => $user->id,
                 'manager_id' => $user->reports_to_user_id,
                 'position_id' => $newPositionId,
@@ -189,7 +189,7 @@ class UserHierarchyController extends Controller
             $user->reports_to_user_id = $newManagerId;
             $user->save();
 
-            UserReportingAssignment::create([
+            EmployeeReportingAssignment::create([
                 'user_id' => $user->id,
                 'manager_id' => $newManagerId,
                 'position_id' => $user->position_id,

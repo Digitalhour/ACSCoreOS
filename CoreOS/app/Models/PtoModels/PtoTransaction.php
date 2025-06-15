@@ -22,6 +22,7 @@ class PtoTransaction extends Model
         return LogOptions::defaults()
             ->logAll()
             ->logOnlyDirty()
+            ->useLogName('Time Off Transaction')
             ->dontSubmitEmptyLogs();
     }
 

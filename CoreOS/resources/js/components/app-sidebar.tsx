@@ -5,7 +5,7 @@ import { NavUser } from '@/components/nav-user';
 import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem } from '@/components/ui/sidebar';
 import { type NavItem, type User } from '@/types'; // Ensure NavItem can have 'roles?: string' and 'permission?: string'
 import { Link, usePage } from '@inertiajs/react';
-import { BookOpen, BotMessageSquareIcon, Folder, ImageUp, LayoutGrid, ShieldCheck, Users } from 'lucide-react';
+import { BookOpen,ShipWheel, BotMessageSquareIcon, Folder, ImageUp, LayoutGrid, ShieldCheck, Users } from 'lucide-react';
 import AppLogo from './app-logo';
 
 interface AuthenticatedUser extends User {
@@ -22,14 +22,15 @@ interface PageProps {
 
 const mainNavItems: NavItem[] = [
     { title: 'Dashboard', href: '/dashboard', icon: LayoutGrid },
-    { title: 'Billy The AI', href: '/billy', icon: BotMessageSquareIcon },
-    { title: 'Product Picture Manager', href: '/ppm', icon: ImageUp, permission: '' }, // Shows if permission is empty string
-    { title: 'ACS Organization', href: '/acs-org', icon: Users, permission: '' }, // Shows if permission is empty string
-    { title: 'ACS PermissionTest', href: '/test', icon: Users, permission: 'AdminMenu' },
-    { title: 'ACS RoleTest', href: '/Roletest', icon: Users, roles: '' },
-    { title: 'ACS Parts Database', href: '/parts-catalog', icon: Users, roles: '' },
-    { title: 'ACS Org', href: '/organization-chart', icon: Users, roles: '' },
-    { title: 'My PTO', href: '/pto', icon: Users },
+    { title: 'Your PTO', href: '/employee/pto', icon: ShipWheel },
+    // { title: 'Billy The AI', href: '/billy', icon: BotMessageSquareIcon },
+    // { title: 'Product Picture Manager', href: '/ppm', icon: ImageUp, permission: '' }, // Shows if permission is empty string
+    // { title: 'ACS Organization', href: '/acs-org', icon: Users, permission: '' }, // Shows if permission is empty string
+    // { title: 'ACS PermissionTest', href: '/test', icon: Users, permission: 'AdminMenu' },
+    // { title: 'ACS RoleTest', href: '/Roletest', icon: Users, roles: '' },
+    // { title: 'ACS Parts Database', href: '/parts-catalog', icon: Users, roles: '' },
+    // { title: 'ACS Org', href: '/organization-chart', icon: Users, roles: '' },
+
     { title: 'Department PTO', href: '/department-pto', icon: Users },
 ];
 
