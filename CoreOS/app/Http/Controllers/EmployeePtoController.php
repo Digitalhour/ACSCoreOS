@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Holiday;
 use App\Models\PtoModels\PtoBalance;
 use App\Models\PtoModels\PtoRequest;
 use App\Models\PtoModels\PtoType;
@@ -15,13 +16,30 @@ use Inertia\Inertia;
 
 class EmployeePtoController extends Controller
 {
-
-
     /**
      * Display the user PTO dashboard.
      */
     public function index(Request $request)
     {
+        $request->validate([
+            'start_date' => 'nullable|date',
+            'end_date'   => 'nullable|date|after_or_equal:start_date',
+        ]);
+        $holidaysInRange = [];
+        if ($request->filled('start_date') && $request->filled('end_date')) {
+            $holidaysInRange = Holiday::active()
+                ->whereBetween('date', [$request->start_date, $request->end_date])
+                ->get()
+                ->map(function ($holiday) {
+                    return [
+                        'date'           => $holiday->date->format('Y-m-d'),
+                        'name'           => $holiday->name,
+                        'type'           => $holiday->type,
+                        'formatted_date' => $holiday->date->format('M d, Y'),
+                    ];
+                });
+        }
+
         $user = Auth::user();
         $currentYear = Carbon::now()->year;
 
@@ -42,6 +60,23 @@ class EmployeePtoController extends Controller
         // Get PTO types for the request form
         $ptoTypes = $this->getPtoTypesWithBalances($user, $currentYear);
 
+        // Get upcoming holidays for the current year
+        $upcomingHolidays = Holiday::active()
+            ->where('date', '>=', now())
+            ->whereYear('date', $currentYear)
+            ->orderBy('date')
+            ->limit(10)
+            ->get()
+            ->map(function ($holiday) {
+                return [
+                    'id' => $holiday->id,
+                    'name' => $holiday->name,
+                    'date' => $holiday->date->format('Y-m-d'),
+                    'formatted_date' => $holiday->date->format('M d, Y'),
+                    'type' => $holiday->type,
+                ];
+            });
+
         return Inertia::render('Employee/EmployeePtoDashboard', [
             'pto_data' => $ptoData,
             'recent_requests' => $recentRequests,
@@ -53,6 +88,8 @@ class EmployeePtoController extends Controller
             ],
             'department_pto_requests' => $departmentPtoRequests,
             'pto_types' => $ptoTypes,
+            'upcoming_holidays' => $upcomingHolidays,
+            'holidays' => $holidaysInRange,
         ]);
     }
 
@@ -67,12 +104,22 @@ class EmployeePtoController extends Controller
             'pto_type_id' => 'required|exists:pto_types,id',
             'start_date' => 'required|date|after_or_equal:today',
             'end_date' => 'required|date|after_or_equal:start_date',
-            'total_days' => 'required|numeric|min:0.5',
+            'total_days' => 'required|numeric|min:0',
             'reason' => 'nullable|string|max:1000',
             'day_options' => 'required|array',
             'day_options.*.date' => 'required|date',
             'day_options.*.type' => 'required|in:full,half',
         ]);
+
+        // Calculate actual PTO days (excluding holidays)
+        $actualPtoDays = $this->calculatePtoDaysExcludingHolidays(
+            $validated['start_date'],
+            $validated['end_date'],
+            $validated['day_options']
+        );
+
+        // Update validated data with actual PTO days
+        $validated['total_days'] = $actualPtoDays;
 
         // Check if user has enough balance
         $ptoType = PtoType::findOrFail($validated['pto_type_id']);
@@ -96,7 +143,7 @@ class EmployeePtoController extends Controller
 
         if ($validated['total_days'] > $availableBalance) {
             return back()->withErrors([
-                'total_days' => "Insufficient PTO balance. Available: {$availableBalance} days."
+                'total_days' => "Insufficient PTO balance. Available: {$availableBalance} days, Required: {$validated['total_days']} days (holidays excluded)."
             ]);
         }
 
@@ -109,13 +156,13 @@ class EmployeePtoController extends Controller
         DB::beginTransaction();
 
         try {
-            // Create the request
+            // Create the request - Laravel will handle datetime conversion
             $ptoRequest = PtoRequest::create([
                 'user_id' => $user->id,
                 'pto_type_id' => $validated['pto_type_id'],
                 'request_number' => $requestNumber,
-                'start_date' => $validated['start_date'],
-                'end_date' => $validated['end_date'],
+                'start_date' => $validated['start_date'], // Will be stored as 2025-07-03 00:00:00
+                'end_date' => $validated['end_date'], // Will be stored as 2025-07-03 00:00:00
                 'total_days' => $validated['total_days'],
                 'reason' => $validated['reason'],
                 'status' => 'pending',
@@ -142,13 +189,7 @@ class EmployeePtoController extends Controller
 
             DB::commit();
 
-//            Log::info('PTO request created successfully', [
-//                'request_id' => $ptoRequest->id,
-//                'user_id' => $user->id,
-//                'total_days' => $validated['total_days']
-//            ]);
-
-            return redirect()->route('pto.dashboard')->with('success', 'PTO request submitted successfully!');
+            return redirect()->route('pto.dashboard')->with('success', 'PTO request submitted successfully! Holidays in your date range were automatically excluded.');
 
         } catch (\Exception $e) {
             DB::rollBack();
@@ -162,6 +203,31 @@ class EmployeePtoController extends Controller
             return back()->withErrors(['error' => 'Failed to submit PTO request. Please try again.']);
         }
     }
+
+    /**
+     * Get holidays in date range for frontend
+     */
+//    public function getHolidaysInRange(Request $request)
+//    {
+//        $request->validate([
+//            'start_date' => 'required|date',
+//            'end_date' => 'required|date|after_or_equal:start_date',
+//        ]);
+//
+//        $holidays = Holiday::active()
+//            ->whereBetween('date', [$request->start_date, $request->end_date])
+//            ->get()
+//            ->map(function ($holiday) {
+//                return [
+//                    'date' => $holiday->date->format('Y-m-d'),
+//                    'name' => $holiday->name,
+//                    'type' => $holiday->type,
+//                    'formatted_date' => $holiday->date->format('M d, Y'),
+//                ];
+//            });
+//
+//        return $holidays;
+//    }
 
     /**
      * Cancel a PTO request.
@@ -246,6 +312,31 @@ class EmployeePtoController extends Controller
 
             return back()->withErrors(['error' => 'Failed to cancel PTO request. Please try again.']);
         }
+    }
+
+    /**
+     * Calculate PTO days excluding holidays
+     */
+    private function calculatePtoDaysExcludingHolidays($startDate, $endDate, $dayOptions)
+    {
+        // Get holidays in the date range
+        $holidays = Holiday::getHolidaysInRange($startDate, $endDate);
+
+        $totalDays = 0.0;
+
+        foreach ($dayOptions as $dayOption) {
+            $date = Carbon::parse($dayOption['date'])->format('Y-m-d');
+
+            // Skip if it's a holiday
+            if (in_array($date, $holidays)) {
+                continue;
+            }
+
+            // Add the day value based on type
+            $totalDays += ($dayOption['type'] === 'full') ? 1.0 : 0.5;
+        }
+
+        return $totalDays;
     }
 
     /**

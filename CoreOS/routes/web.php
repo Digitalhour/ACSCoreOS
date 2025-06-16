@@ -11,7 +11,9 @@ use App\Http\Controllers\Admin\UserActivityController;
 use App\Http\Controllers\Api\CsvProcessController;
 use App\Http\Controllers\Api\ImportedDataController;
 use App\Http\Controllers\Api\PositionController;
-use App\Http\Controllers\PtoApprovalController;
+use App\Http\Controllers\Api\PtoApi\HRPtoDashboardController;
+use App\Http\Controllers\HolidayController;
+use App\Http\Controllers\DepartmentTimeOffController;
 use App\Http\Controllers\Api\PtoApi\PtoApprovalRuleController;
 use App\Http\Controllers\Api\PtoApi\PtoBalanceController;
 use App\Http\Controllers\Api\PtoApi\PtoDetailController;
@@ -49,6 +51,10 @@ Route::middleware([
     Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/activity-log', [ActivityLogController::class, 'index'])->name('activity-log.index');
         Route::get('/activity-log/{activity}', [ActivityLogController::class, 'show'])->name('activity-log.show');
+
+
+        Route::resource('holidays', HolidayController::class)->names('holidays');
+
         /*
     |--------------------------------------------------------------------------
     | User PTO Dashboard Routes (Employee-facing)
@@ -71,7 +77,7 @@ Route::middleware([
                 ]
             ]);
         })->name('admin.index');
-        Route::get('/admin/pto', [PtoAdminController::class, 'dashboard'])->name('admin.pto.dashboard');
+
         Route::get('/admin/pto-types', [PtoAdminController::class, 'types'])->name('admin.pto.types');
         Route::get('/admin/pto-policies', [PtoAdminController::class, 'policies'])->name('admin.pto.policies');
         Route::get('/admin/pto-requests', [PtoAdminController::class, 'requests'])->name('admin.pto.requests');
@@ -84,9 +90,9 @@ Route::middleware([
         Route::post('/admin/pto-requests/{ptoRequest}/deny',
             [PtoAdminController::class, 'denyRequest'])->name('admin.pto-requests.deny');
 
+
+        Route::get('/api/pto-requests/user-details', [HRPtoDashboardController::class, 'getUserDetails'])->name('api.pto-requests.user-details');
 // Historical PTO submission
-        Route::post('/admin/pto/submit-historical',
-            [PtoAdminController::class, 'submitHistoricalPto'])->name('submit-historical');
 
         /*
         |--------------------------------------------------------------------------
@@ -94,14 +100,6 @@ Route::middleware([
         |--------------------------------------------------------------------------
         */
 // Department manager PTO dashboard
-        Route::get('/department-pto',
-            [PtoApprovalController::class, 'dashboard'])->name('department.manager.pto.dashboard');
-
-// Department manager approval actions (from manager interface)
-        Route::post('/pto-requests/{ptoRequest}/approve',
-            [PtoApprovalController::class, 'approve'])->name('pto.requests.approve');
-        Route::post('/pto-requests/{ptoRequest}/deny',
-            [PtoApprovalController::class, 'deny'])->name('pto.requests.deny');
 
         /*
         |--------------------------------------------------------------------------
@@ -376,11 +374,9 @@ Route::middleware([
 //            ]);
 //        })->name('data.file.details');
 //
-//        // Positions management
-//        Route::get('/admin/positions', function () {
-//            return Inertia::render('Admin/Positions/IndexPage');
-//        })->name('admin.positions.index');
-//
+        // Positions management
+
+
 //        // User hierarchy management
 //        Route::get('/admin/user-hierarchy', function () {
 //            return Inertia::render('Admin/UserHierarchy/IndexPage');
@@ -399,7 +395,7 @@ Route::middleware([
 //        // Route to handle the submission of the "Add New User" form
 //        Route::post('/admin/users/add', [AdminAddUserController::class, 'store'])->name('adduser.store');
 //
-//    Route::get('/department-pto', [PtoApprovalController::class, 'dashboard'])
+//    Route::get('/department-pto', [DepartmentTimeOffController::class, 'dashboard'])
 //        ->name('department.manager.pto.dashboard');
 //
 //    Route::post('/pto-requests/{ptoRequest}/approve', [PtoAdminController::class, 'approveRequest'])
@@ -488,13 +484,13 @@ Route::middleware([
 //            */
 //            Route::prefix('pto-approvals')->name('pto-approvals.')->group(function () {
 //                Route::get('dashboard',
-//                    [PtoApprovalController::class, 'dashboard'])->name('dashboard');
+//                    [DepartmentTimeOffController::class, 'dashboard'])->name('dashboard');
 //                Route::get('pending',
-//                    [PtoApprovalController::class, 'pendingApprovals'])->name('pending');
+//                    [DepartmentTimeOffController::class, 'pendingApprovals'])->name('pending');
 //                Route::get('my-approvals',
-//                    [PtoApprovalController::class, 'myApprovals'])->name('my-approvals');
+//                    [DepartmentTimeOffController::class, 'myApprovals'])->name('my-approvals');
 //                Route::get('{ptoRequest}/chain',
-//                    [PtoApprovalController::class, 'getApprovalChain'])->name('chain');
+//                    [DepartmentTimeOffController::class, 'getApprovalChain'])->name('chain');
 //            });
 //
 //            /*
@@ -545,9 +541,9 @@ Route::middleware([
 //
 //                // Approval actions
 //                Route::post('{pto_request}/approve',
-//                    [PtoApprovalController::class, 'approve'])->name('approve');
+//                    [DepartmentTimeOffController::class, 'approve'])->name('approve');
 //                Route::post('{pto_request}/deny',
-//                    [PtoApprovalController::class, 'deny'])->name('deny');
+//                    [DepartmentTimeOffController::class, 'deny'])->name('deny');
 //
 //                // Cancel actions
 //                Route::patch('{pto_request}/cancel', [PtoRequestController::class, 'cancel'])->name('cancel');
@@ -644,24 +640,24 @@ Route::middleware([
 //            Route::post('/upload-zip-bundle', [CsvProcessController::class, 'uploadAndProcessZipBundle']);
 //
 //            // Positions API
-//            Route::apiResource('positions', PositionController::class);
+            Route::apiResource('positions', PositionController::class);
 //
 //            // User Hierarchy API
 ////            Route::get('/hierarchy-tree', [HierarchyController::class, 'getTreeData']);
 //            Route::get('/users/hierarchy', [UserHierarchyController::class, 'getHierarchy'])->name('users.hierarchy');
 //
 //            // User Hierarchy detailed routes
-            Route::prefix('users-hierarchy')->name('users-hierarchy.')->group(function () {
-                Route::get('/', [UserHierarchyController::class, 'getUsersWithHierarchyInfo'])->name('list');
-                Route::post('/{user}/assign-position',
-                    [UserHierarchyController::class, 'assignPosition'])->name('assign-position');
-                Route::post('/{user}/assign-manager',
-                    [UserHierarchyController::class, 'assignManager'])->name('assign-manager');
-                Route::get('/{user}/details',
-                    [UserHierarchyController::class, 'getUserHierarchyDetails'])->name('details');
-                Route::get('/{user}/assignable-managers',
-                    [UserHierarchyController::class, 'getAssignableManagers'])->name('assignable-managers');
-            });
+//            Route::prefix('users-hierarchy')->name('users-hierarchy.')->group(function () {
+//                Route::get('/', [UserHierarchyController::class, 'getUsersWithHierarchyInfo'])->name('list');
+//                Route::post('/{user}/assign-position',
+//                    [UserHierarchyController::class, 'assignPosition'])->name('assign-position');
+//                Route::post('/{user}/assign-manager',
+//                    [UserHierarchyController::class, 'assignManager'])->name('assign-manager');
+//                Route::get('/{user}/details',
+//                    [UserHierarchyController::class, 'getUserHierarchyDetails'])->name('details');
+//                Route::get('/{user}/assignable-managers',
+//                    [UserHierarchyController::class, 'getAssignableManagers'])->name('assignable-managers');
+//            });
 
             // Users API (for dropdowns)
             Route::get('users', function () {
@@ -679,3 +675,4 @@ require __DIR__.'/pto-routes.php';
 require __DIR__.'/department.php';
 require __DIR__.'/api.php';
 require __DIR__.'/auth.php';
+require __DIR__.'/hr-routes.php';

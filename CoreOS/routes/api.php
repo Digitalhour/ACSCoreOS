@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\CsvProcessController;
 use App\Http\Controllers\Api\ImportedDataController;
 use App\Http\Controllers\Api\PositionController;
 use App\Http\Controllers\Api\PtoApi\DELETEPtoApprovalController;
+use App\Http\Controllers\Api\PtoApi\HRPtoDashboardController;
 use App\Http\Controllers\Api\PtoApi\PtoBalanceController;
 use App\Http\Controllers\Api\PtoApi\PtoDetailController;
 use App\Http\Controllers\Api\PtoApi\PtoPolicyController;
@@ -13,7 +14,9 @@ use App\Http\Controllers\Api\PtoApi\PtoTypeController;
 use App\Http\Controllers\Api\QueueStatusController;
 use App\Http\Controllers\Api\UserHierarchyController;
 use App\Http\Controllers\Api\UserPtoController;
+use App\Http\Controllers\EmployeePtoController;
 use App\Http\Controllers\PartsCatalogController;
+use App\Http\Controllers\DepartmentTimeOffController;
 use App\Http\Controllers\UserController;
 use App\Models\User;
 use Illuminate\Support\Facades\Route;
@@ -24,6 +27,11 @@ Route::middleware([
 ValidateSessionWithWorkOS::class,
 ])->group(function () {
     Route::prefix('api')->name('api.')->group(function () {
+
+
+
+
+
         Route::get('/users/{user}/pto-types',
             [App\Http\Controllers\Admin\PtoAdminController::class, 'getPtoTypesForUser']);
 
@@ -34,15 +42,14 @@ ValidateSessionWithWorkOS::class,
         | PTO Approval API
         |--------------------------------------------------------------------------
         */
+
         Route::prefix('pto-approvals')->name('pto-approvals.')->group(function () {
-            Route::get('dashboard',
-                [DELETEPtoApprovalController::class, 'dashboard'])->name('dashboard');
-            Route::get('pending',
-                [DELETEPtoApprovalController::class, 'pendingApprovals'])->name('pending');
+          Route::get('pending',
+                [DepartmentTimeOffController::class, 'pendingApprovals'])->name('pending');
             Route::get('my-approvals',
-                [DELETEPtoApprovalController::class, 'myApprovals'])->name('my-approvals');
+                [DepartmentTimeOffController::class, 'myApprovals'])->name('my-approvals');
             Route::get('{ptoRequest}/chain',
-                [DELETEPtoApprovalController::class, 'getApprovalChain'])->name('chain');
+                [DepartmentTimeOffController::class, 'getApprovalChain'])->name('chain');
         });
 
         /*
@@ -97,7 +104,7 @@ ValidateSessionWithWorkOS::class,
             Route::post('{pto_request}/approve',
                 [DELETEPtoApprovalController::class, 'approve'])->name('approve');
             Route::post('{pto_request}/deny',
-                [DELETEPtoApprovalController::class, 'deny'])->name('deny');
+                [PtoRequestController::class, 'deny'])->name('deny');
 
 // Cancel actions
             Route::patch('{pto_request}/cancel', [PtoRequestController::class, 'cancel'])->name('cancel');

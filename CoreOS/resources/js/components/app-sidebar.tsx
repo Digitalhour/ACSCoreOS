@@ -32,6 +32,7 @@ const mainNavItems: NavItem[] = [
     // { title: 'ACS Org', href: '/organization-chart', icon: Users, roles: '' },
 
     { title: 'Department PTO', href: '/department-pto', icon: Users },
+    { title: 'hoilday', href: '/holidays', icon: Users },
 ];
 
 const footerNavItems: NavItem[] = [

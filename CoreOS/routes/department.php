@@ -10,7 +10,9 @@ Route::middleware([
     'auth',
     ValidateSessionWithWorkOS::class,
 ])->group(function () {
-
+    Route::get('/admin/positions', function () {
+        return Inertia::render('Admin/Positions/IndexPage');
+    })->name('admin.positions.index');
 
             Route::get('/departments', [DepartmentController::class, 'index'])->name('departments.index');
         Route::post('/departments', [DepartmentController::class, 'store'])->name('departments.store');

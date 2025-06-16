@@ -152,30 +152,7 @@ class PtoAdminController extends Controller
     /**
      * Display the PTO dashboard admin page.
      */
-    public function dashboard()
-    {
-        // Get summary statistics for the dashboard
-        $stats = [
-            'total_requests' => PtoRequest::count(),
-            'pending_requests' => PtoRequest::where('status', 'pending')->count(),
-            'approved_requests' => PtoRequest::where('status', 'approved')->count(),
-            'denied_requests' => PtoRequest::where('status', 'denied')->count(),
-            'total_types' => PtoType::count(),
-            'total_policies' => PtoPolicy::count(),
-            'total_blackouts' => PtoBlackout::count(),
-        ];
 
-        // Get users and PTO types for the modal
-        $users = User::select('id', 'name', 'email')->orderBy('name')->get();
-        $ptoTypes = PtoType::active()->ordered()->select('id', 'name', 'code', 'color')->get();
-
-        return Inertia::render('Admin/PTO/AdminPtoDashboardView', [
-            'title' => 'PTO Administration Dashboard',
-            'stats' => $stats,
-            'users' => $users,
-            'ptoTypes' => $ptoTypes,
-        ]);
-    }
 
     /**
      * Get the PTO types associated with a specific user (for AJAX calls).

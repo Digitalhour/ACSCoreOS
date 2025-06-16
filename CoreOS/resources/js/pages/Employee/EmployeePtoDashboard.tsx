@@ -1,3 +1,7 @@
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { Head, useForm, usePage, router } from '@inertiajs/react';
+import AppLayout from '@/layouts/app-layout';
+import { type BreadcrumbItem } from '@/types';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -5,17 +9,11 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-
 import { Textarea } from '@/components/ui/textarea';
-import AppLayout from '@/layouts/app-layout';
-import { type BreadcrumbItem } from '@/types';
-import { Head, useForm, usePage } from '@inertiajs/react';
-import { Loader2, Save,  Users, X } from 'lucide-react';
+import { Loader2, Save, Users, X, Calendar as CalendarIcon } from 'lucide-react';
 import { Calendar, momentLocalizer, Views } from 'react-big-calendar';
 import moment from 'moment';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
-
-import { useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 
 const localizer = momentLocalizer(moment);
@@ -30,6 +28,13 @@ const breadcrumbs: BreadcrumbItem[] = [
         href: '/pto',
     },
 ];
+
+interface Holiday {
+    date: string;
+    name: string;
+    type: string;
+    formatted_date: string;
+}
 
 interface PtoType {
     id: number;
@@ -112,12 +117,16 @@ interface PageProps {
     };
     department_pto_requests: DepartmentPtoRequest[];
     pto_types: PtoType[];
+    upcoming_holidays: Holiday[];
+    holidays: Holiday[];
     [key: string]: any;
 }
 
 interface DayOption {
     date: Date;
     type: 'full' | 'half';
+    isHoliday?: boolean;
+    holidayName?: string;
 }
 
 interface CalendarEvent {
@@ -207,10 +216,7 @@ const DonutChart = ({ data, size = 120 }: { data: Array<{ label: string; value: 
 };
 
 export default function EmployeePtoDashboard() {
-    const { pto_data, recent_requests, department_pto_requests } = usePage<PageProps>().props;
-
-    // Flash messages
-
+    const { pto_data, recent_requests, department_pto_requests, upcoming_holidays, holidays = [] } = usePage<PageProps>().props;
 
     // Request form state
     const [showRequestForm, setShowRequestForm] = useState(false);
@@ -218,6 +224,8 @@ export default function EmployeePtoDashboard() {
     const [dayOptions, setDayOptions] = useState<DayOption[]>([]);
     const [showCancelDialog, setShowCancelDialog] = useState(false);
     const [requestToCancel, setRequestToCancel] = useState<PtoRequest | null>(null);
+    const [loadingHolidays, setLoadingHolidays] = useState(false);
+
     // Inertia form for PTO requests
     const { data, setData, post, processing, errors, reset } = useForm({
         pto_type_id: '',
@@ -230,6 +238,25 @@ export default function EmployeePtoDashboard() {
 
     // Inertia form for cancellation
     const { post: postCancel, processing: cancelProcessing } = useForm();
+
+    // Fetch holidays for date range
+    const fetchHolidaysInRange = useCallback(async (startDate: string, endDate: string) => {
+        if (!startDate || !endDate) {
+            return;
+        }
+
+        router.get(route('pto.dashboard'), {
+            start_date: startDate,
+            end_date: endDate,
+        }, {
+            preserveState: true,
+            preserveScroll: true,
+            only: ['holidays'], // <-- THIS IS THE MAGIC!
+            onStart: () => setLoadingHolidays(true),
+            onFinish: () => setLoadingHolidays(false),
+        });
+    }, []);
+
     const handleCancelRequest = useCallback((request: PtoRequest) => {
         setRequestToCancel(request);
         setShowCancelDialog(true);
@@ -252,7 +279,6 @@ export default function EmployeePtoDashboard() {
         }
     }, [postCancel, requestToCancel]);
 
-
     // Convert PTO requests to calendar events
     const calendarEvents = useMemo((): CalendarEvent[] => {
         if (!department_pto_requests) return [];
@@ -260,14 +286,19 @@ export default function EmployeePtoDashboard() {
         return department_pto_requests
             .filter((request) => request.status === 'approved' || request.status === 'pending')
             .map((request) => {
-                const startDate = moment(request.start_date).hour(12).minute(0).second(0).millisecond(0).toDate();
-                const endDate = moment(request.end_date).hour(12).minute(0).second(0).millisecond(0).toDate();
+                // Parse database dates correctly (they come as YYYY-MM-DD from Laravel)
+                const startDate = new Date(request.start_date);
+                const endDate = new Date(request.end_date);
+
+                // For React Big Calendar all-day events, end needs to be next day
+                const calendarEndDate = new Date(endDate);
+                calendarEndDate.setDate(calendarEndDate.getDate() + 1);
 
                 return {
                     id: `pto-${request.id}`,
                     title: `${request.user.name} - ${request.pto_type.code}${request.status === 'pending' ? ' *' : ''}`,
                     start: startDate,
-                    end: endDate,
+                    end: calendarEndDate,
                     allDay: true,
                     resource: {
                         user: request.user.name,
@@ -308,7 +339,7 @@ export default function EmployeePtoDashboard() {
         </div>
     ), []);
 
-    // Calculate business days and generate day options
+    // Generate day options and check for holidays
     const generateDayOptions = useCallback((startDate: string, endDate: string): DayOption[] => {
         const start = new Date(startDate + 'T00:00:00');
         const end = new Date(endDate + 'T00:00:00');
@@ -323,11 +354,19 @@ export default function EmployeePtoDashboard() {
             curDate.setDate(curDate.getDate() + 1);
         }
 
-        return businessDays.map((date) => ({
-            date,
-            type: 'full' as const,
-        }));
-    }, []);
+        return businessDays.map((date) => {
+            const dateString = date.toISOString().split('T')[0];
+            // Use the `holidays` prop here instead of `holidaysInRange`
+            const holiday = holidays.find(h => h.date === dateString);
+
+            return {
+                date,
+                type: 'full' as const,
+                isHoliday: !!holiday,
+                holidayName: holiday?.name,
+            };
+        });
+    }, [holidays]);
 
     // Update day options and requested days when dates change
     useEffect(() => {
@@ -336,16 +375,7 @@ export default function EmployeePtoDashboard() {
             const end = new Date(data.end_date);
 
             if (start <= end) {
-                const newDayOptions = generateDayOptions(data.start_date, data.end_date);
-                setDayOptions(newDayOptions);
-
-                const totalDays = newDayOptions.reduce((sum, day) => sum + (day.type === 'full' ? 1.0 : 0.5), 0);
-                setRequestedDays(totalDays);
-                setData('total_days', totalDays);
-                setData('day_options', newDayOptions.map(option => ({
-                    date: option.date.toISOString().split('T')[0],
-                    type: option.type,
-                })));
+                fetchHolidaysInRange(data.start_date, data.end_date);
             } else {
                 setDayOptions([]);
                 setRequestedDays(null);
@@ -358,7 +388,29 @@ export default function EmployeePtoDashboard() {
             setData('total_days', 0);
             setData('day_options', []);
         }
-    }, [data.start_date, data.end_date, generateDayOptions, setData]);
+    }, [data.start_date, data.end_date]);
+
+    // Update day options when holidays are loaded
+    useEffect(() => {
+        if (data.start_date && data.end_date) {
+            const newDayOptions = generateDayOptions(data.start_date, data.end_date);
+            setDayOptions(newDayOptions);
+
+            const totalDays = newDayOptions
+                .filter(day => !day.isHoliday)
+                .reduce((sum, day) => sum + (day.type === 'full' ? 1.0 : 0.5), 0);
+
+            setRequestedDays(totalDays);
+            setData('total_days', totalDays);
+            setData('day_options', newDayOptions
+                .filter(day => !day.isHoliday)
+                .map(option => ({
+                    date: option.date.toISOString().split('T')[0],
+                    type: option.type,
+                }))
+            );
+        }
+    }, [holidays, data.start_date, data.end_date, generateDayOptions, setData]);
 
     // Handle day option change
     const handleDayOptionChange = useCallback((date: Date, type: 'full' | 'half') => {
@@ -371,13 +423,20 @@ export default function EmployeePtoDashboard() {
 
         setDayOptions(updatedOptions);
 
-        const totalDays = updatedOptions.reduce((sum, day) => sum + (day.type === 'full' ? 1.0 : 0.5), 0);
+        // Calculate total days excluding holidays
+        const totalDays = updatedOptions
+            .filter(day => !day.isHoliday)
+            .reduce((sum, day) => sum + (day.type === 'full' ? 1.0 : 0.5), 0);
+
         setRequestedDays(totalDays);
         setData('total_days', totalDays);
-        setData('day_options', updatedOptions.map(option => ({
-            date: option.date.toISOString().split('T')[0],
-            type: option.type,
-        })));
+        setData('day_options', updatedOptions
+            .filter(day => !day.isHoliday)
+            .map(option => ({
+                date: option.date.toISOString().split('T')[0],
+                type: option.type,
+            }))
+        );
     }, [dayOptions, setData]);
 
     // Handle date input changes with weekend validation
@@ -402,6 +461,7 @@ export default function EmployeePtoDashboard() {
         reset();
         setRequestedDays(null);
         setDayOptions([]);
+
         setShowRequestForm(false);
     }, [reset]);
 
@@ -414,30 +474,33 @@ export default function EmployeePtoDashboard() {
             return;
         }
 
-        if (requestedDays === null || requestedDays <= 0) {
+        if (requestedDays === null || requestedDays < 0) {
             toast.error('Please select valid business days.');
+            return;
+        }
+
+        if (requestedDays === 0 && holidays.length > 0) {
+            toast.info('Your selected date range only contains holidays, so no PTO days are required!');
             return;
         }
 
         // Check balance
         const selectedType = pto_data.find((item) => item.pto_type.id === parseInt(data.pto_type_id));
         if (selectedType && requestedDays > selectedType.available_balance) {
-            toast.error(`You don't have enough PTO balance (${selectedType.available_balance} days available).`);
+            toast.error(`You don't have enough PTO balance (${selectedType.available_balance} days available, ${requestedDays} days required after excluding holidays).`);
             return;
         }
 
         post(route('pto.requests.store'), {
             onSuccess: () => {
                 resetForm();
-                toast.success('PTO request submitted successfully!');
+                toast.success('PTO request submitted successfully! Holidays were automatically excluded.');
             },
             onError: () => {
                 toast.error('Failed to submit PTO request.');
             },
         });
-    }, [data, requestedDays, pto_data, post, resetForm]);
-
-
+    }, [data, requestedDays, pto_data, holidays, post, resetForm]);
 
     // Helper function to check if request can be cancelled
     const canCancelRequest = useCallback((request: PtoRequest) => {
@@ -455,9 +518,11 @@ export default function EmployeePtoDashboard() {
         return false;
     }, []);
 
-    // Format date
+    // Format date for display
     const formatDate = useCallback((dateString: string) => {
-        return new Date(dateString).toLocaleDateString('en-US', {
+        // Parse the date string directly from Laravel (YYYY-MM-DD format)
+        const date = new Date(dateString);
+        return date.toLocaleDateString('en-US', {
             year: 'numeric',
             month: 'short',
             day: 'numeric',
@@ -644,64 +709,15 @@ export default function EmployeePtoDashboard() {
                                 )}
                             </div>
                         </CardContent>
-
                     </Card>
-                    <Dialog open={showCancelDialog} onOpenChange={setShowCancelDialog}>
-                        <DialogContent className="max-w-md">
-                            <DialogHeader>
-                                <DialogTitle>Cancel PTO Request</DialogTitle>
-                                <DialogDescription>
-                                    Are you sure you want to cancel this PTO request?
-                                </DialogDescription>
-                                {requestToCancel && requestToCancel.pto_type && (
-                                    <div className="mt-3 p-3 bg-gray-50 rounded-md">
-                                        <div className="text-sm">
-                                            <div><strong>Date:</strong> {formatDate(requestToCancel.start_date)} - {formatDate(requestToCancel.end_date)}</div>
-                                            <div><strong>Type:</strong> {requestToCancel.pto_type.name}</div>
-                                            <div><strong>Days:</strong> {requestToCancel.total_days}</div>
-                                            <div><strong>Status:</strong> {requestToCancel.status}</div>
-                                        </div>
-                                    </div>
-                                )}
-                                <div className="mt-2 text-sm text-gray-600">
-                                    This action cannot be undone. The days will be returned to your balance.
-                                </div>
-                            </DialogHeader>
-                            <DialogFooter>
-                                <Button
-                                    type="button"
-                                    variant="outline"
-                                    onClick={() => setShowCancelDialog(false)}
-                                    disabled={cancelProcessing}
-                                >
-                                    Keep Request
-                                </Button>
-                                <Button
-                                    type="button"
-                                    variant="destructive"
-                                    onClick={confirmCancelRequest}
-                                    disabled={cancelProcessing}
-                                >
-                                    {cancelProcessing ? (
-                                        <>
-                                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                            Cancelling...
-                                        </>
-                                    ) : (
-                                        <>
-                                            <X className="mr-2 h-4 w-4" />
-                                            Cancel Request
-                                        </>
-                                    )}
-                                </Button>
-                            </DialogFooter>
-                        </DialogContent>
-                    </Dialog>
 
                     {/* Company Holidays */}
                     <Card>
                         <CardHeader>
-                            <CardTitle className="text-gray-600">2025 Company Holidays</CardTitle>
+                            <CardTitle className="flex items-center gap-2 text-gray-600">
+                                <CalendarIcon className="h-5 w-5" />
+                                Upcoming Company Holidays
+                            </CardTitle>
                         </CardHeader>
                         <CardContent>
                             <div className="space-y-4">
@@ -709,18 +725,77 @@ export default function EmployeePtoDashboard() {
                                     <div>Date</div>
                                     <div>Holiday</div>
                                 </div>
-                                <div className="grid grid-cols-2 gap-4 items-center py-2 border-b">
-                                    <div>01/01/2025</div>
-                                    <div>New Year's Day</div>
-                                </div>
-                                <div className="text-center py-8 text-gray-500">
-                                    More holidays will be added here
-                                </div>
+                                {upcoming_holidays.slice(0, 5).map((holiday) => (
+                                    <div key={holiday.date} className="grid grid-cols-2 gap-4 items-center py-2 border-b last:border-b-0">
+                                        <div className="text-blue-500 text-sm">{holiday.formatted_date}</div>
+                                        <div className="text-sm">
+                                            <div>{holiday.name}</div>
+                                            <div className="text-xs text-gray-500 capitalize">{holiday.type} holiday</div>
+                                        </div>
+                                    </div>
+                                ))}
+                                {upcoming_holidays.length === 0 && (
+                                    <div className="text-center py-8 text-gray-500">
+                                        No upcoming holidays
+                                    </div>
+                                )}
                             </div>
                         </CardContent>
                     </Card>
-
                 </div>
+
+                {/* Cancel Dialog */}
+                <Dialog open={showCancelDialog} onOpenChange={setShowCancelDialog}>
+                    <DialogContent className="max-w-md">
+                        <DialogHeader>
+                            <DialogTitle>Cancel PTO Request</DialogTitle>
+                            <DialogDescription>
+                                Are you sure you want to cancel this PTO request?
+                            </DialogDescription>
+                            {requestToCancel && requestToCancel.pto_type && (
+                                <div className="mt-3 p-3 bg-gray-50 rounded-md">
+                                    <div className="text-sm">
+                                        <div><strong>Date:</strong> {formatDate(requestToCancel.start_date)} - {formatDate(requestToCancel.end_date)}</div>
+                                        <div><strong>Type:</strong> {requestToCancel.pto_type.name}</div>
+                                        <div><strong>Days:</strong> {requestToCancel.total_days}</div>
+                                        <div><strong>Status:</strong> {requestToCancel.status}</div>
+                                    </div>
+                                </div>
+                            )}
+                            <div className="mt-2 text-sm text-gray-600">
+                                This action cannot be undone. The days will be returned to your balance.
+                            </div>
+                        </DialogHeader>
+                        <DialogFooter>
+                            <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => setShowCancelDialog(false)}
+                                disabled={cancelProcessing}
+                            >
+                                Keep Request
+                            </Button>
+                            <Button
+                                type="button"
+                                variant="destructive"
+                                onClick={confirmCancelRequest}
+                                disabled={cancelProcessing}
+                            >
+                                {cancelProcessing ? (
+                                    <>
+                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                        Cancelling...
+                                    </>
+                                ) : (
+                                    <>
+                                        <X className="mr-2 h-4 w-4" />
+                                        Cancel Request
+                                    </>
+                                )}
+                            </Button>
+                        </DialogFooter>
+                    </DialogContent>
+                </Dialog>
 
                 {/* Taken Time Off */}
                 <Card>
@@ -815,7 +890,7 @@ export default function EmployeePtoDashboard() {
                     <DialogContent className="max-h-[90vh] max-w-lg overflow-y-auto">
                         <DialogHeader>
                             <DialogTitle>Request PTO</DialogTitle>
-                            <DialogDescription>Submit a new paid time off request.</DialogDescription>
+                            <DialogDescription>Submit a new paid time off request. Holidays will be automatically excluded.</DialogDescription>
                         </DialogHeader>
 
                         <form onSubmit={handleSubmit} className="space-y-4">
@@ -871,10 +946,34 @@ export default function EmployeePtoDashboard() {
                                 </div>
                             </div>
 
+                            {/* Holiday Notice */}
+                            {holidays.length > 0 && (
+                                <div className="rounded-md bg-blue-50 border border-blue-200 p-3">
+                                    <div className="flex items-center gap-2">
+                                        <CalendarIcon className="h-4 w-4 text-blue-600" />
+                                        <p className="text-sm font-medium text-blue-800">Holidays in your date range:</p>
+                                    </div>
+                                    <div className="mt-2 space-y-1">
+                                        {holidays.map((holiday) => (
+                                            <div key={holiday.date} className="text-sm text-blue-700">
+                                                • {holiday.formatted_date}: {holiday.name}
+                                            </div>
+                                        ))}
+                                    </div>
+                                    <p className="mt-2 text-xs text-blue-600">
+                                        These holidays will be automatically excluded from your PTO calculation.
+                                    </p>
+                                </div>
+                            )}
+
+
                             {requestedDays !== null && (
                                 <div className="rounded-md bg-gray-50 p-3">
                                     <p className="text-sm">
-                                        <strong>Business days requested:</strong> {requestedDays}
+                                        <strong>PTO days required:</strong> {requestedDays}
+                                        {holidays.length > 0 && (
+                                            <span className="text-green-600 ml-1">(holidays excluded)</span>
+                                        )}
                                         {requestedDays !== Math.floor(requestedDays) && (
                                             <span className="text-muted-foreground ml-1">(includes half days)</span>
                                         )}
@@ -888,35 +987,50 @@ export default function EmployeePtoDashboard() {
                                     <Label>Day Options</Label>
                                     <div className="max-h-60 space-y-3 overflow-y-auto rounded-md border p-4">
                                         {dayOptions.map((dayOption, index) => (
-                                            <div key={index} className="flex items-center justify-between">
+                                            <div key={index} className={`flex items-center justify-between ${dayOption.isHoliday ? 'opacity-50' : ''}`}>
                                                 <div className="text-sm font-medium">
-                                                    {dayOption.date.toLocaleDateString('en-US', {
-                                                        weekday: 'long',
-                                                        month: 'short',
-                                                        day: 'numeric',
-                                                    })}
+                                                    <div className="flex items-center gap-2">
+                                                        <span>
+                                                            {dayOption.date.toLocaleDateString('en-US', {
+                                                                weekday: 'long',
+                                                                month: 'short',
+                                                                day: 'numeric',
+                                                            })}
+                                                        </span>
+                                                        {dayOption.isHoliday && (
+                                                            <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700">
+                                                                {dayOption.holidayName}
+                                                            </Badge>
+                                                        )}
+                                                    </div>
                                                 </div>
                                                 <div className="flex space-x-4">
-                                                    <label className="flex items-center text-sm">
-                                                        <input
-                                                            type="radio"
-                                                            name={`day-option-${index}`}
-                                                            checked={dayOption.type === 'full'}
-                                                            onChange={() => handleDayOptionChange(dayOption.date, 'full')}
-                                                            className="mr-2"
-                                                        />
-                                                        Full Day (-1.0)
-                                                    </label>
-                                                    <label className="flex items-center text-sm">
-                                                        <input
-                                                            type="radio"
-                                                            name={`day-option-${index}`}
-                                                            checked={dayOption.type === 'half'}
-                                                            onChange={() => handleDayOptionChange(dayOption.date, 'half')}
-                                                            className="mr-2"
-                                                        />
-                                                        Half Day (-0.5)
-                                                    </label>
+                                                    {dayOption.isHoliday ? (
+                                                        <div className="text-xs text-gray-500 italic">Holiday - No PTO needed</div>
+                                                    ) : (
+                                                        <>
+                                                            <label className="flex items-center text-sm">
+                                                                <input
+                                                                    type="radio"
+                                                                    name={`day-option-${index}`}
+                                                                    checked={dayOption.type === 'full'}
+                                                                    onChange={() => handleDayOptionChange(dayOption.date, 'full')}
+                                                                    className="mr-2"
+                                                                />
+                                                                Full Day (-1.0)
+                                                            </label>
+                                                            <label className="flex items-center text-sm">
+                                                                <input
+                                                                    type="radio"
+                                                                    name={`day-option-${index}`}
+                                                                    checked={dayOption.type === 'half'}
+                                                                    onChange={() => handleDayOptionChange(dayOption.date, 'half')}
+                                                                    className="mr-2"
+                                                                />
+                                                                Half Day (-0.5)
+                                                            </label>
+                                                        </>
+                                                    )}
                                                 </div>
                                             </div>
                                         ))}
@@ -939,13 +1053,19 @@ export default function EmployeePtoDashboard() {
                             {errors.total_days && <div className="text-red-500 text-sm">{errors.total_days}</div>}
 
                             <DialogFooter>
-                                <Button type="button" variant="outline" onClick={resetForm} disabled={processing}>
+                                <Button type="button" variant="outline" onClick={resetForm} disabled={processing || loadingHolidays}>
                                     <X className="mr-2 h-4 w-4" />
                                     Cancel
                                 </Button>
-                                <Button type="submit" disabled={processing}>
-                                    {processing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-                                    Submit Request
+                                <Button type="submit" disabled={processing || loadingHolidays}>
+                                    {processing ? (
+                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                    ) : loadingHolidays ? (
+                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                    ) : (
+                                        <Save className="mr-2 h-4 w-4" />
+                                    )}
+                                    {loadingHolidays ? 'Checking Holidays...' : 'Submit Request'}
                                 </Button>
                             </DialogFooter>
                         </form>

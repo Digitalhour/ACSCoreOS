@@ -7,6 +7,7 @@ use App\Models\PtoModels\PtoApproval;
 use App\Models\PtoModels\PtoBalance;
 use App\Models\PtoModels\PtoRequest;
 use App\Models\PtoModels\PtoType;
+use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -18,46 +19,231 @@ use Illuminate\Support\Facades\Validator;
 class PtoRequestController extends Controller
 {
     /**
-     * Display a listing of the resource.
+     * Display a listing of the resource with pagination and filters for frontend component.
      */
     public function index(Request $request): JsonResponse
     {
-        $query = PtoRequest::with(['user', 'ptoType', 'approvals.approver']);
+        $query = PtoRequest::with([
+            'user:id,name,email',
+            'ptoType:id,name,code,color',
+            'approvals.approver:id,name',
+            'approvedBy:id,name',
+            'deniedBy:id,name'
+        ]);
 
-        // Filter by user if provided
-        if ($request->has('user_id')) {
-            $query->where('user_id', $request->user_id);
+        // Apply filters
+        if ($request->filled('search')) {
+            $search = $request->get('search');
+            $query->where(function ($q) use ($search) {
+                $q->where('request_number', 'like', "%{$search}%")
+                    ->orWhereHas('user', function ($userQuery) use ($search) {
+                        $userQuery->where('name', 'like', "%{$search}%")
+                            ->orWhere('email', 'like', "%{$search}%");
+                    });
+            });
         }
 
-        // Filter by PTO type if provided
-        if ($request->has('pto_type_id')) {
-            $query->where('pto_type_id', $request->pto_type_id);
+        if ($request->filled('status') && $request->get('status') !== 'all') {
+            $query->where('status', $request->get('status'));
         }
 
-        // Filter by status if provided
-        if ($request->has('status')) {
-            $query->where('status', $request->status);
+        if ($request->filled('pto_type') && $request->get('pto_type') !== 'all') {
+            $query->where('pto_type_id', $request->get('pto_type'));
         }
 
-        // Filter by date range if provided
-        if ($request->has('start_date')) {
-            $query->where('start_date', '>=', $request->start_date);
+        if ($request->filled('user') && $request->get('user') !== 'all') {
+            $query->where('user_id', $request->get('user'));
         }
 
-        if ($request->has('end_date')) {
-            $query->where('end_date', '<=', $request->end_date);
+        if ($request->boolean('pending_only')) {
+            $query->where('status', 'pending');
         }
 
-        $ptoRequests = $query->orderBy('created_at', 'desc')->get();
+        // Order by most recent first
+        $query->orderBy('created_at', 'desc');
 
-        // Add cancellation info to each request
-        $ptoRequests->transform(function ($request) {
-//            $request->can_be_cancelled = $request->canBeCancelled();
-//            $request->hours_until_start = $request->hoursUntilStart();
-            return $request;
+        // Paginate results
+        $perPage = $request->get('per_page', 10);
+        $ptoRequests = $query->paginate($perPage);
+
+        // Transform the data to match frontend expectations
+        $transformedData = $ptoRequests->getCollection()->map(function ($request) {
+            return [
+                'id' => $request->id,
+                'request_number' => $request->request_number,
+                'user' => [
+                    'id' => $request->user->id,
+                    'name' => $request->user->name,
+                    'email' => $request->user->email,
+                ],
+                'pto_type' => [
+                    'id' => $request->ptoType->id,
+                    'name' => $request->ptoType->name,
+                    'code' => $request->ptoType->code,
+                    'color' => $request->ptoType->color,
+                ],
+                'start_date' => $request->start_date,
+                'end_date' => $request->end_date,
+                'start_time' => $request->start_time ?? 'full_day',
+                'end_time' => $request->end_time ?? 'full_day',
+                'total_days' => $request->total_days,
+                'reason' => $request->reason,
+                'status' => $request->status,
+                'denial_reason' => $request->denial_reason,
+                'submitted_at' => $request->created_at->format('Y-m-d H:i:s'),
+                'approved_at' => $request->approved_at?->format('Y-m-d H:i:s'),
+                'denied_at' => $request->denied_at?->format('Y-m-d H:i:s'),
+                'approved_by' => $request->approvedBy ? ['name' => $request->approvedBy->name] : null,
+                'denied_by' => $request->deniedBy ? ['name' => $request->deniedBy->name] : null,
+                'approvals' => $request->approvals->map(function ($approval) {
+                    return [
+                        'id' => $approval->id,
+                        'approver' => [
+                            'id' => $approval->approver->id,
+                            'name' => $approval->approver->name,
+                        ],
+                        'status' => $approval->status,
+                        'comments' => $approval->comments,
+                        'responded_at' => $approval->responded_at?->format('Y-m-d H:i:s'),
+                    ];
+                }),
+            ];
         });
 
-        return response()->json($ptoRequests);
+        return response()->json([
+            'data' => $transformedData,
+            'current_page' => $ptoRequests->currentPage(),
+            'last_page' => $ptoRequests->lastPage(),
+            'per_page' => $ptoRequests->perPage(),
+            'total' => $ptoRequests->total(),
+            'from' => $ptoRequests->firstItem(),
+            'to' => $ptoRequests->lastItem(),
+        ]);
+    }
+
+    /**
+     * Get user PTO details for overview modal
+     */
+    public function getUserDetails(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'user_id' => 'required|exists:users,id',
+            'year' => 'nullable|integer|min:2020|max:2030'
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['errors' => $validator->errors()], 422);
+        }
+
+        $userId = $request->get('user_id');
+        $year = $request->get('year', Carbon::now()->year);
+
+        try {
+            // Get user PTO requests for the specified year
+            $userRequests = PtoRequest::with(['ptoType:id,name'])
+                ->where('user_id', $userId)
+                ->whereYear('start_date', $year)
+                ->orderBy('start_date', 'desc')
+                ->get()
+                ->map(function ($request) {
+                    return [
+                        'id' => $request->id,
+                        'start_date' => $request->start_date,
+                        'end_date' => $request->end_date,
+                        'total_days' => $request->total_days,
+                        'status' => $request->status,
+                        'pto_type' => [
+                            'name' => $request->ptoType->name,
+                        ],
+                    ];
+                });
+
+            // Get user PTO balances for the specified year - matching PtoOverviewController logic
+            $ptoTypes = PtoType::orderBy('name')->get();
+            $userBalances = PtoBalance::where('user_id', $userId)
+                ->where('year', $year)
+                ->with('ptoType')
+                ->get()
+                ->keyBy('pto_type_id');
+
+            $ptoData = $ptoTypes->map(function ($type) use ($userBalances) {
+                $balance = $userBalances->get($type->id);
+
+                if (!$balance) {
+                    return [
+                        'type_id' => $type->id,
+                        'type_name' => $type->name,
+                        'balance' => 0,
+                        'used_balance' => 0,
+                        'pending_balance' => 0,
+                        'available_balance' => 0,
+                        'assigned_balance' => 0,
+                    ];
+                }
+
+                // Ensure we don't have negative values - exact same logic as PtoOverviewController
+                $totalBalance = max(0, $balance->balance);
+                $usedBalance = max(0, $balance->used_balance);
+                $pendingBalance = max(0, $balance->pending_balance);
+                $availableBalance = max(0, $totalBalance - $pendingBalance - $usedBalance);
+
+                // Calculate assigned balance (what they started with) - same as PtoOverviewController
+                $assignedBalance = $totalBalance + $usedBalance;
+
+                return [
+                    'type_id' => $type->id,
+                    'type_name' => $type->name,
+                    'balance' => $totalBalance,
+                    'used_balance' => $usedBalance,
+                    'pending_balance' => $pendingBalance,
+                    'available_balance' => $availableBalance,
+                    'assigned_balance' => $assignedBalance,
+                ];
+            });
+
+            return \Inertia\Inertia::render('Admin/PTO/Overview', [
+                'userRequests' => $userRequests,
+                'ptoData' => $ptoData,
+
+                'ptoTypes' => $ptoTypes,
+                'currentYear' => $year,
+
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error("Error fetching user PTO details for user {$userId}: " . $e->getMessage());
+            return response()->json([
+                'error' => 'Failed to fetch user details.',
+                'details' => App::environment('local') ? $e->getMessage() : 'An unexpected error occurred.'
+            ], 500);
+        }
+    }
+
+    /**
+     * Get users list for filtering
+     */
+    public function getUsersList(): JsonResponse
+    {
+        $users = User::select('id', 'name', 'email')
+            ->orderBy('name')
+            ->get();
+
+        return response()->json($users);
+    }
+
+    /**
+     * Get PTO types for filtering
+     */
+    public function getPtoTypes(): JsonResponse
+    {
+        // Check if you have an active scope, if not remove the active() call
+        $ptoTypes = PtoType::select('id', 'name', 'code', 'color')
+            ->orderBy('name')
+            ->get();
+
+        return response()->json([
+            'data' => $ptoTypes
+        ]);
     }
 
     /**
@@ -145,8 +331,10 @@ class PtoRequestController extends Controller
             $ptoRequest->save();
 
             // Create approval chain using the service
-            $approvalService = new \App\Services\ApprovalChainService();
-            $approvalService->createApprovalChain($ptoRequest);
+            if (class_exists('\App\Services\ApprovalChainService')) {
+                $approvalService = new \App\Services\ApprovalChainService();
+                $approvalService->createApprovalChain($ptoRequest);
+            }
 
             // Update the user's pending balance (simplified for now)
             if ($ptoType->uses_balance && $balance) {
@@ -387,19 +575,30 @@ class PtoRequestController extends Controller
     }
 
     /**
-     * Approve a PTO request.
+     * Approve a PTO request - Updated to match frontend expectations.
      */
-    public function approve(Request $request, PtoRequest $ptoRequest): JsonResponse
+    public function approve(Request $request, $id): JsonResponse
     {
         $validator = Validator::make($request->all(), [
-            'comments' => 'nullable|string',
+            'comments' => 'nullable|string|max:1000',
         ]);
 
         if ($validator->fails()) {
-            return response()->json(['errors' => $validator->errors()], 422);
+            return response()->json([
+                'error' => 'Validation failed',
+                'messages' => $validator->errors()
+            ], 422);
         }
 
         try {
+            $ptoRequest = PtoRequest::findOrFail($id);
+
+            if ($ptoRequest->status !== 'pending') {
+                return response()->json([
+                    'error' => 'This request has already been processed'
+                ], 422);
+            }
+
             // Get the current user (approver)
             $approver = Auth::user();
 
@@ -410,103 +609,124 @@ class PtoRequestController extends Controller
                 ->first();
 
             if (!$approval) {
-                return response()->json([
-                    'error' => 'No pending approval found for this request and approver.'
-                ], 422);
+                // If no approval record exists, create one or update the request directly
+                $approval = PtoApproval::updateOrCreate(
+                    ['pto_request_id' => $ptoRequest->id, 'approver_id' => $approver->id],
+                    [
+                        'status' => 'approved',
+                        'comments' => $request->get('comments'),
+                        'responded_at' => now(),
+                    ]
+                );
+            } else {
+                // Update existing approval
+                $approval->update([
+                    'status' => 'approved',
+                    'comments' => $request->get('comments'),
+                    'responded_at' => now(),
+                ]);
             }
 
-            // Approve the request
-            $approval->approve($request->comments);
+            // Update the request
+            $ptoRequest->update([
+                'status' => 'approved',
+                'approved_at' => now(),
+                'approved_by_id' => Auth::id(),
+            ]);
 
-            // Check if all required approvals are complete
-            $pendingApprovals = PtoApproval::where('pto_request_id', $ptoRequest->id)
-                ->where('status', 'pending')
-                ->count();
+            // Update the user's balance if needed
+            $ptoType = $ptoRequest->ptoType;
+            if ($ptoType->uses_balance ?? false) {
+                $balance = PtoBalance::where('user_id', $ptoRequest->user_id)
+                    ->where('pto_type_id', $ptoRequest->pto_type_id)
+                    ->first();
 
-            if ($pendingApprovals === 0) {
-                // All approvals are complete, update the request status
-                $ptoRequest->status = 'approved';
-                $ptoRequest->save();
-
-                // Update the user's balance
-                $ptoType = $ptoRequest->ptoType;
-                if ($ptoType->uses_balance) {
-                    $balance = PtoBalance::where('user_id', $ptoRequest->user_id)
-                        ->where('pto_type_id', $ptoRequest->pto_type_id)
-                        ->where('year', Carbon::parse($ptoRequest->start_date)->year)
-                        ->first();
-
-                    $balance->subtractPendingBalance($ptoRequest->total_days);
-                    $balance->subtractBalance($ptoRequest->total_days, "PTO Request #{$ptoRequest->id}");
+                if ($balance) {
+                    $balance->pending_balance = max(0, ($balance->pending_balance ?? 0) - $ptoRequest->total_days);
+                    $balance->used_balance = ($balance->used_balance ?? 0) + $ptoRequest->total_days;
+                    $balance->save();
                 }
             }
 
-            Log::info("PTO Request approval: ID {$ptoRequest->id}, Approver: {$approver->name}, Status: approved");
-            return response()->json(['message' => 'PTO request approved successfully.']);
-        } catch (\Exception $e) {
-            Log::error("Error approving PTO Request ID {$ptoRequest->id}: ".$e->getMessage());
+            Log::info("PTO Request approved: ID {$ptoRequest->id}, Approver: {$approver->name}");
+
             return response()->json([
-                'error' => 'Failed to approve PTO Request.',
-                'details' => App::environment('local') ? $e->getMessage() : 'An unexpected error occurred.'
+                'message' => 'Request approved successfully',
+                'request' => $ptoRequest->fresh()
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error("Error approving PTO Request ID {$id}: ".$e->getMessage());
+            return response()->json([
+                'error' => 'Failed to approve request: ' . $e->getMessage()
             ], 500);
         }
     }
 
     /**
-     * Deny a PTO request.
+     * Deny a PTO request - Updated to match frontend expectations.
      */
-    public function deny(Request $request, PtoRequest $ptoRequest): JsonResponse
+    public function deny(Request $request, $id): JsonResponse
     {
         $validator = Validator::make($request->all(), [
-            'comments' => 'required|string',
+            'comments' => 'required|string|max:1000',
         ]);
 
         if ($validator->fails()) {
-            return response()->json(['errors' => $validator->errors()], 422);
+            return response()->json([
+                'error' => 'Validation failed',
+                'messages' => $validator->errors()
+            ], 422);
         }
 
         try {
+            $ptoRequest = PtoRequest::findOrFail($id);
+
             // Get the current user (approver)
             $approver = Auth::user();
 
-            // Find the approval record for this approver
-            $approval = PtoApproval::where('pto_request_id', $ptoRequest->id)
-                ->where('approver_id', $approver->id)
-                ->where('status', 'pending')
-                ->first();
+            // Find or create the approval record for this approver
+            $approval = PtoApproval::updateOrCreate(
+                ['pto_request_id' => $ptoRequest->id, 'approver_id' => $approver->id],
+                [
+                    'status' => 'denied',
+                    'comments' => $request->get('comments'),
+                    'responded_at' => now(),
+                ]
+            );
 
-            if (!$approval) {
-                return response()->json([
-                    'error' => 'No pending approval found for this request and approver.'
-                ], 422);
-            }
-
-            // Deny the request
-            $approval->deny($request->comments);
-
-            // Update the request status
-            $ptoRequest->status = 'denied';
-            $ptoRequest->denial_reason = $request->comments;
-            $ptoRequest->save();
+            // Update the request
+            $ptoRequest->update([
+                'status' => 'denied',
+                'denied_at' => now(),
+                'denied_by_id' => Auth::id(),
+                'denial_reason' => $request->get('comments'),
+            ]);
 
             // Update the user's pending balance
             $ptoType = $ptoRequest->ptoType;
-            if ($ptoType->uses_balance) {
+            if ($ptoType->uses_balance ?? false) {
                 $balance = PtoBalance::where('user_id', $ptoRequest->user_id)
                     ->where('pto_type_id', $ptoRequest->pto_type_id)
-                    ->where('year', Carbon::parse($ptoRequest->start_date)->year)
                     ->first();
 
-                $balance->subtractPendingBalance($ptoRequest->total_days);
+                if ($balance) {
+                    $balance->pending_balance = max(0, ($balance->pending_balance ?? 0) - $ptoRequest->total_days);
+                    $balance->save();
+                }
             }
 
-            Log::info("PTO Request denial: ID {$ptoRequest->id}, Approver: {$approver->name}, Reason: {$request->comments}");
-            return response()->json(['message' => 'PTO request denied successfully.']);
-        } catch (\Exception $e) {
-            Log::error("Error denying PTO Request ID {$ptoRequest->id}: ".$e->getMessage());
+            Log::info("PTO Request denied: ID {$ptoRequest->id}, Approver: {$approver->name}, Reason: {$request->get('comments')}");
+
             return response()->json([
-                'error' => 'Failed to deny PTO Request.',
-                'details' => App::environment('local') ? $e->getMessage() : 'An unexpected error occurred.'
+                'message' => 'Request denied successfully',
+                'request' => $ptoRequest->fresh()
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error("Error denying PTO Request ID {$id}: ".$e->getMessage());
+            return response()->json([
+                'error' => 'Failed to deny request: ' . $e->getMessage()
             ], 500);
         }
     }

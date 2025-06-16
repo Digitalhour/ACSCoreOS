@@ -56,13 +56,20 @@ interface LinkCategory {
 // Ensure these route names exist in your web.php and are passed to the frontend
 const adminLinks: LinkCategory[] = [
     {
-        title: 'PTO Management',
+        title: 'Time Management',
         icon: Calendar,
         links: [
             {
+                routeName: 'holidays',
+                href: '/holidays',
+                label: 'Holidays',
+                icon: Calendar,
+                description: 'Holiday Controller',
+            },
+            {
                 routeName: 'admin.pto.dashboard',
                 href: '/admin/pto',
-                label: 'PTO Dashboard',
+                label: 'HR PTO Dashboard',
                 icon: Calendar,
                 description: 'Overview of PTO system.',
             },

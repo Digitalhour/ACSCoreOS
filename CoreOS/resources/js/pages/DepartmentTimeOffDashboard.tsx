@@ -11,9 +11,14 @@ import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head } from '@inertiajs/react';
 import axios from 'axios';
-import { CheckCircle, Loader2, ThumbsDown, ThumbsUp, X } from 'lucide-react';
-import { useCallback, useEffect, useState } from 'react';
+import { CheckCircle, Loader2, ThumbsDown, ThumbsUp, X, Users } from 'lucide-react';
+import { useCallback, useEffect, useState, useMemo } from 'react';
 import { toast } from 'sonner';
+import { Calendar, momentLocalizer, Views } from 'react-big-calendar';
+import moment from 'moment';
+import 'react-big-calendar/lib/css/react-big-calendar.css';
+
+const localizer = momentLocalizer(moment);
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
@@ -21,8 +26,8 @@ const breadcrumbs: BreadcrumbItem[] = [
         href: '/dashboard',
     },
     {
-        title: 'PTO Approvals',
-        href: '/admin/pto-approvals',
+        title: 'Department Time Off Dashboard',
+        href: '/department-pto',
     },
 ];
 
@@ -64,15 +69,46 @@ interface PtoApproval {
     responded_at?: string;
 }
 
-interface ApprovalAction {
-    request_id: number;
-    action: 'approve' | 'deny';
-    comments: string;
+interface DepartmentPtoRequest {
+    id: number;
+    user: {
+        id: number;
+        name: string;
+    };
+    pto_type: {
+        id: number;
+        name: string;
+        color: string;
+        code: string;
+    };
+    start_date: string;
+    end_date: string;
+    total_days: number;
+    status: 'pending' | 'approved' | 'denied' | 'cancelled';
 }
 
-export default function PtoApprovalDashboard() {
-    const [requests, setRequests] = useState<PtoRequest[]>([]);
-    const [loading, setLoading] = useState(true);
+interface CalendarEvent {
+    id: string;
+    title: string;
+    start: Date;
+    end: Date;
+    allDay: boolean;
+    resource: {
+        user: string;
+        type: string;
+        status: 'pending' | 'approved' | 'denied' | 'cancelled';
+        color: string;
+        days: number;
+    };
+}
+
+interface PageProps {
+    requests: PtoRequest[];
+    department_pto_requests: DepartmentPtoRequest[];
+}
+
+export default function DepartmentTimeOffDashboard({ requests, department_pto_requests }: PageProps) {
+    const [loading, setLoading] = useState(false);
     const [submitting, setSubmitting] = useState(false);
 
     // Modal state
@@ -85,26 +121,16 @@ export default function PtoApprovalDashboard() {
     const [activeTab, setActiveTab] = useState('pending');
     const [filteredRequests, setFilteredRequests] = useState<PtoRequest[]>([]);
 
-    // Fetch approval requests
-    const fetchApprovalRequests = useCallback(async () => {
-        try {
-            setLoading(true);
-            const response = await axios.get('/api/pto-approvals/dashboard');
-            setRequests(response.data.data || []);
-        } catch (error) {
-            console.error('Error fetching approval requests:', error);
-            toast.error('Failed to load approval requests.');
-        } finally {
-            setLoading(false);
-        }
-    }, []);
-
-    useEffect(() => {
-        fetchApprovalRequests();
-    }, [fetchApprovalRequests]);
-
     // Filter requests by tab
     useEffect(() => {
+        if (!requests) {
+            console.log('No requests data available');
+            return;
+        }
+
+        console.log('Total requests:', requests.length);
+        console.log('Requests data:', requests);
+
         const filtered = requests.filter((request) => {
             switch (activeTab) {
                 case 'pending':
@@ -120,6 +146,66 @@ export default function PtoApprovalDashboard() {
         });
         setFilteredRequests(filtered);
     }, [requests, activeTab]);
+
+    // Convert PTO requests to calendar events
+    const calendarEvents = useMemo((): CalendarEvent[] => {
+        if (!department_pto_requests) return [];
+
+        return department_pto_requests
+            .filter((request) => request.status === 'approved' || request.status === 'pending')
+            .map((request) => {
+                // Parse database dates correctly (they come as YYYY-MM-DD from Laravel)
+                const startDate = new Date(request.start_date);
+                const endDate = new Date(request.end_date);
+
+                // For React Big Calendar all-day events, end needs to be next day
+                const calendarEndDate = new Date(endDate);
+                calendarEndDate.setDate(calendarEndDate.getDate() + 1);
+
+                return {
+                    id: `pto-${request.id}`,
+                    title: `${request.user.name} - ${request.pto_type.code}${request.status === 'pending' ? ' *' : ''}`,
+                    start: startDate,
+                    end: calendarEndDate,
+                    allDay: true,
+                    resource: {
+                        user: request.user.name,
+                        type: request.pto_type.name,
+                        status: request.status,
+                        color: request.pto_type.color,
+                        days: request.total_days,
+                    },
+                };
+            });
+    }, [department_pto_requests]);
+
+    // Custom event style
+    const eventStyleGetter = useCallback((event: CalendarEvent) => {
+        const isPending = event.resource.status === 'pending';
+
+        return {
+            style: {
+                backgroundColor: isPending ? '#fef3c7' : event.resource.color + '80',
+                borderColor: isPending ? '#d97706' : '#22c55e',
+                borderWidth: '1px',
+                borderStyle: 'solid',
+                color: '#333',
+                borderRadius: '3px',
+                fontSize: '12px',
+                padding: '1px 3px',
+                lineHeight: '1.2',
+            },
+        };
+    }, []);
+
+    // Custom event component
+    const EventComponent = useCallback(({ event }: { event: CalendarEvent }) => (
+        <div className="overflow-hidden">
+            <div className="truncate font-medium text-xs leading-tight">
+                {event.resource.user} - {event.resource.type} {event.resource.status === 'pending' && ' * Pending'}
+            </div>
+        </div>
+    ), []);
 
     // Handle approval action
     const handleAction = useCallback((request: PtoRequest, action: 'approve' | 'deny') => {
@@ -142,7 +228,7 @@ export default function PtoApprovalDashboard() {
             setSubmitting(true);
 
             const endpoint =
-                actionType === 'approve' ? `/api/pto-requests/${selectedRequest.id}/approve` : `/api/pto-requests/${selectedRequest.id}/deny`;
+                actionType === 'approve' ? `/pto-requests/${selectedRequest.id}/approve` : `/pto-requests/${selectedRequest.id}/deny`;
 
             await axios.post(endpoint, {
                 comments: comments.trim(),
@@ -150,11 +236,8 @@ export default function PtoApprovalDashboard() {
 
             toast.success(`Request ${actionType === 'approve' ? 'approved' : 'denied'} successfully!`);
 
-            // Refresh data
-            fetchApprovalRequests();
-            setShowActionModal(false);
-            setSelectedRequest(null);
-            setComments('');
+            // Refresh page to get updated data
+            window.location.reload();
         } catch (error: any) {
             console.error('Error processing approval:', error);
             const errorMessage = error.response?.data?.error || `Failed to ${actionType} request.`;
@@ -162,7 +245,7 @@ export default function PtoApprovalDashboard() {
         } finally {
             setSubmitting(false);
         }
-    }, [selectedRequest, actionType, comments, fetchApprovalRequests]);
+    }, [selectedRequest, actionType, comments]);
 
     // Format date
     const formatDate = useCallback((dateString: string) => {
@@ -211,10 +294,10 @@ export default function PtoApprovalDashboard() {
 
             <div className="flex h-full flex-1 flex-col gap-6 p-4">
                 <div className="flex items-center justify-between">
-                    <h1 className="text-2xl font-bold">PTO Approval Dashboard</h1>
+                    <h1 className="text-2xl font-bold">Department Time Off Dashboard</h1>
                 </div>
 
-                {/* Stats Cards - Now using the extracted component */}
+                {/* Stats Cards */}
                 <PtoStatusCards requests={requests} />
 
                 {/* Request Tabs */}
@@ -330,6 +413,58 @@ export default function PtoApprovalDashboard() {
                                 )}
                             </TabsContent>
                         </Tabs>
+                    </CardContent>
+                </Card>
+
+                {/* Department PTO Calendar */}
+                <Card>
+                    <CardHeader>
+                        <div className="flex items-center gap-2">
+                            <Users className="h-5 w-5" />
+                            <CardTitle>Department PTO Calendar</CardTitle>
+                        </div>
+                    </CardHeader>
+                    <CardContent>
+                        <div className='h-dvh'>
+                            <Calendar
+                                localizer={localizer}
+                                events={calendarEvents}
+                                startAccessor="start"
+                                endAccessor="end"
+                                titleAccessor="title"
+                                allDayAccessor="allDay"
+                                views={['month', 'week', 'day']}
+                                defaultView={Views.MONTH}
+                                eventPropGetter={eventStyleGetter}
+                                components={{
+                                    event: EventComponent,
+                                }}
+                                popup
+                                showMultiDayTimes
+                                step={60}
+                                showAllEvents
+                                onSelectEvent={(event) => {
+                                    toast.info(
+                                        `${event.resource.user} - ${event.resource.type} (${event.resource.status}) - ${event.resource.days} days`
+                                    );
+                                }}
+                            />
+                        </div>
+
+                        {/* Legend */}
+                        <div className="mt-4 border-t pt-4">
+                            <div className="text-muted-foreground mb-2 text-sm">Legend:</div>
+                            <div className="flex flex-wrap gap-4 text-xs">
+                                <div className="flex items-center gap-1">
+                                    <div className="h-3 w-3 border-2 border-orange-600 bg-yellow-200"></div>
+                                    <span>Pending (*)</span>
+                                </div>
+                                <div className="flex items-center gap-1">
+                                    <div className="h-3 w-3 border-2 border-green-500 bg-green-200"></div>
+                                    <span>Approved</span>
+                                </div>
+                            </div>
+                        </div>
                     </CardContent>
                 </Card>
 
