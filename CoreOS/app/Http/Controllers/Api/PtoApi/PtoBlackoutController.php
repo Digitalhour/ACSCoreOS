@@ -3,259 +3,245 @@
 namespace App\Http\Controllers\Api\PtoApi;
 
 use App\Http\Controllers\Controller;
+use App\Models\Department;
+use App\Models\Holiday;
 use App\Models\Position;
 use App\Models\PtoModels\PtoBlackout;
-use Carbon\Carbon;
-use Illuminate\Http\JsonResponse;
+use App\Models\PtoModels\PtoType;
+use App\Models\User;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\App;
-use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Validator;
+use Inertia\Inertia;
+use Inertia\Response;
 
 class PtoBlackoutController extends Controller
 {
-    /**
-     * Display a listing of the resource.
-     */
-    public function index(Request $request): JsonResponse
+    public function index(): Response
     {
-        $query = PtoBlackout::with('position');
-
-        // Filter by position if provided
-        if ($request->has('position_id')) {
-            $query->where(function ($q) use ($request) {
-                $q->where('position_id', $request->position_id)
-                    ->orWhere('is_company_wide', true);
+        $blackouts = PtoBlackout::with('position')
+            ->orderBy('start_date', 'desc')
+            ->get()
+            ->map(function ($blackout) {
+                return [
+                    'id' => $blackout->id,
+                    'name' => $blackout->name,
+                    'description' => $blackout->description,
+                    'start_date' => $blackout->start_date->format('Y-m-d'),
+                    'end_date' => $blackout->end_date->format('Y-m-d'),
+                    'formatted_date_range' => $blackout->formatted_date_range,
+                    'position' => $blackout->position ? [
+                        'id' => $blackout->position->id,
+                        'name' => $blackout->position->name,
+                    ] : null,
+                    'departments' => $blackout->departments()->select('id', 'name')->get(),
+                    'users' => $blackout->users()->select('id', 'name')->get(),
+                    'is_company_wide' => $blackout->is_company_wide,
+                    'is_holiday' => $blackout->is_holiday,
+                    'is_strict' => $blackout->is_strict,
+                    'allow_emergency_override' => $blackout->allow_emergency_override,
+                    'restriction_type' => $blackout->restriction_type,
+                    'max_requests_allowed' => $blackout->max_requests_allowed,
+                    'is_active' => $blackout->is_active,
+                ];
             });
-        }
 
-        // Filter by company-wide if provided
-        if ($request->has('is_company_wide')) {
-            $query->where('is_company_wide', filter_var($request->is_company_wide, FILTER_VALIDATE_BOOLEAN));
-        }
-
-        // Filter by holiday if provided
-        if ($request->has('is_holiday')) {
-            $query->where('is_holiday', filter_var($request->is_holiday, FILTER_VALIDATE_BOOLEAN));
-        }
-
-        // Filter by date range if provided
-        if ($request->has('start_date')) {
-            $query->where('end_date', '>=', $request->start_date);
-        }
-
-        if ($request->has('end_date')) {
-            $query->where('start_date', '<=', $request->end_date);
-        }
-
-        $ptoBlackouts = $query->orderBy('start_date', 'asc')->get();
-        return response()->json($ptoBlackouts);
+        return Inertia::render('PtoBlackouts/Index', [
+            'blackouts' => $blackouts
+        ]);
     }
 
-    /**
-     * Store a newly created resource in storage.
-     */
-    public function store(Request $request): JsonResponse
+    public function create(): Response
     {
-        $validator = Validator::make($request->all(), [
+        $departments = Department::active()->select('id', 'name')->orderBy('name')->get();
+        $positions = Position::select('id', 'name')->orderBy('name')->get();
+        $users = User::select('id', 'name', 'email')->orderBy('name')->get();
+        $holidays = Holiday::active()->thisYear()->select('id', 'name', 'date')->orderBy('date')->get();
+        $ptoTypes = PtoType::select('id', 'name')->orderBy('name')->get();
+
+        return Inertia::render('PtoBlackouts/Create', [
+            'departments' => $departments,
+            'positions' => $positions,
+            'users' => $users,
+            'holidays' => $holidays,
+            'ptoTypes' => $ptoTypes,
+        ]);
+    }
+
+    public function store(Request $request)
+    {
+        $validated = $request->validate([
             'name' => 'required|string|max:255',
             'description' => 'nullable|string',
             'start_date' => 'required|date',
             'end_date' => 'required|date|after_or_equal:start_date',
             'position_id' => 'nullable|exists:positions,id',
+            'department_ids' => 'nullable|array',
+            'department_ids.*' => 'exists:departments,id',
+            'user_ids' => 'nullable|array',
+            'user_ids.*' => 'exists:users,id',
             'is_company_wide' => 'boolean',
             'is_holiday' => 'boolean',
             'is_strict' => 'boolean',
+            'allow_emergency_override' => 'boolean',
+            'restriction_type' => 'required|in:full_block,limit_requests,warning_only',
+            'max_requests_allowed' => 'nullable|integer|min:1',
+            'pto_type_ids' => 'nullable|array',
+            'pto_type_ids.*' => 'exists:pto_types,id',
         ]);
 
-        if ($validator->fails()) {
-            return response()->json(['errors' => $validator->errors()], 422);
-        }
+        PtoBlackout::create($validated);
 
-        try {
-            // If position_id is null and is_company_wide is false, return an error
-            if (!$request->position_id && !filter_var($request->is_company_wide ?? false, FILTER_VALIDATE_BOOLEAN)) {
-                return response()->json([
-                    'error' => 'A blackout must either be company-wide or associated with a position.'
-                ], 422);
-            }
-
-            // Verify that the position exists if provided
-            if ($request->position_id) {
-                $position = Position::findOrFail($request->position_id);
-            }
-
-            $ptoBlackout = PtoBlackout::create($request->all());
-
-            Log::info("PTO Blackout created: ID {$ptoBlackout->id}, Name: {$ptoBlackout->name}, Start: {$ptoBlackout->start_date}, End: {$ptoBlackout->end_date}");
-            return response()->json($ptoBlackout->load('position'), 201);
-        } catch (\Exception $e) {
-            Log::error("Error creating PTO Blackout: ".$e->getMessage());
-            return response()->json([
-                'error' => 'Failed to create PTO Blackout.',
-                'details' => App::environment('local') ? $e->getMessage() : 'An unexpected error occurred.'
-            ], 500);
-        }
+        return redirect()->route('pto-blackouts.index')
+            ->with('message', 'PTO Blackout created successfully!');
     }
 
-    /**
-     * Display the specified resource.
-     */
-    public function show(PtoBlackout $ptoBlackout): JsonResponse
+    public function show(PtoBlackout $ptoBlackout): Response
     {
-        return response()->json($ptoBlackout->load('position'));
+        $blackout = [
+            'id' => $ptoBlackout->id,
+            'name' => $ptoBlackout->name,
+            'description' => $ptoBlackout->description,
+            'start_date' => $ptoBlackout->start_date->format('Y-m-d'),
+            'end_date' => $ptoBlackout->end_date->format('Y-m-d'),
+            'formatted_date_range' => $ptoBlackout->formatted_date_range,
+            'position' => $ptoBlackout->position,
+            'departments' => $ptoBlackout->departments(),
+            'users' => $ptoBlackout->users(),
+            'is_company_wide' => $ptoBlackout->is_company_wide,
+            'is_holiday' => $ptoBlackout->is_holiday,
+            'is_strict' => $ptoBlackout->is_strict,
+            'allow_emergency_override' => $ptoBlackout->allow_emergency_override,
+            'restriction_type' => $ptoBlackout->restriction_type,
+            'max_requests_allowed' => $ptoBlackout->max_requests_allowed,
+            'pto_type_ids' => $ptoBlackout->pto_type_ids,
+            'is_active' => $ptoBlackout->is_active,
+        ];
+
+        return Inertia::render('PtoBlackouts/Show', [
+            'blackout' => $blackout
+        ]);
     }
 
-    /**
-     * Update the specified resource in storage.
-     */
-    public function update(Request $request, PtoBlackout $ptoBlackout): JsonResponse
+    public function edit(PtoBlackout $ptoBlackout): Response
     {
-        $validator = Validator::make($request->all(), [
+        $departments = Department::active()->select('id', 'name')->orderBy('name')->get();
+        $positions = Position::select('id', 'name')->orderBy('name')->get();
+        $users = User::select('id', 'name', 'email')->orderBy('name')->get();
+        $holidays = Holiday::active()->thisYear()->select('id', 'name', 'date')->orderBy('date')->get();
+        $ptoTypes = PtoType::select('id', 'name')->orderBy('name')->get();
+
+        $blackout = [
+            'id' => $ptoBlackout->id,
+            'name' => $ptoBlackout->name,
+            'description' => $ptoBlackout->description,
+            'start_date' => $ptoBlackout->start_date->format('Y-m-d'),
+            'end_date' => $ptoBlackout->end_date->format('Y-m-d'),
+            'position_id' => $ptoBlackout->position_id,
+            'department_ids' => $ptoBlackout->department_ids ?? [],
+            'user_ids' => $ptoBlackout->user_ids ?? [],
+            'is_company_wide' => $ptoBlackout->is_company_wide,
+            'is_holiday' => $ptoBlackout->is_holiday,
+            'is_strict' => $ptoBlackout->is_strict,
+            'allow_emergency_override' => $ptoBlackout->allow_emergency_override,
+            'restriction_type' => $ptoBlackout->restriction_type,
+            'max_requests_allowed' => $ptoBlackout->max_requests_allowed,
+            'pto_type_ids' => $ptoBlackout->pto_type_ids ?? [],
+            'is_active' => $ptoBlackout->is_active,
+        ];
+
+        return Inertia::render('PtoBlackouts/Edit', [
+            'blackout' => $blackout,
+            'departments' => $departments,
+            'positions' => $positions,
+            'users' => $users,
+            'holidays' => $holidays,
+            'ptoTypes' => $ptoTypes,
+        ]);
+    }
+
+    public function update(Request $request, PtoBlackout $ptoBlackout)
+    {
+        $validated = $request->validate([
             'name' => 'required|string|max:255',
             'description' => 'nullable|string',
             'start_date' => 'required|date',
             'end_date' => 'required|date|after_or_equal:start_date',
             'position_id' => 'nullable|exists:positions,id',
+            'department_ids' => 'nullable|array',
+            'department_ids.*' => 'exists:departments,id',
+            'user_ids' => 'nullable|array',
+            'user_ids.*' => 'exists:users,id',
             'is_company_wide' => 'boolean',
             'is_holiday' => 'boolean',
             'is_strict' => 'boolean',
+            'allow_emergency_override' => 'boolean',
+            'restriction_type' => 'required|in:full_block,limit_requests,warning_only',
+            'max_requests_allowed' => 'nullable|integer|min:1',
+            'pto_type_ids' => 'nullable|array',
+            'pto_type_ids.*' => 'exists:pto_types,id',
         ]);
 
-        if ($validator->fails()) {
-            return response()->json(['errors' => $validator->errors()], 422);
-        }
+        $ptoBlackout->update($validated);
 
-        try {
-            // If position_id is null and is_company_wide is false, return an error
-            if (!$request->position_id && !filter_var($request->is_company_wide ?? false, FILTER_VALIDATE_BOOLEAN)) {
-                return response()->json([
-                    'error' => 'A blackout must either be company-wide or associated with a position.'
-                ], 422);
-            }
-
-            // Verify that the position exists if provided
-            if ($request->position_id) {
-                $position = Position::findOrFail($request->position_id);
-            }
-
-            $ptoBlackout->update($request->all());
-
-            Log::info("PTO Blackout updated: ID {$ptoBlackout->id}, Name: {$ptoBlackout->name}, Start: {$ptoBlackout->start_date}, End: {$ptoBlackout->end_date}");
-            return response()->json($ptoBlackout->load('position'));
-        } catch (\Exception $e) {
-            Log::error("Error updating PTO Blackout ID {$ptoBlackout->id}: ".$e->getMessage());
-            return response()->json([
-                'error' => 'Failed to update PTO Blackout.',
-                'details' => App::environment('local') ? $e->getMessage() : 'An unexpected error occurred.'
-            ], 500);
-        }
+        return redirect()->route('pto-blackouts.index')
+            ->with('message', 'PTO Blackout updated successfully!');
     }
 
-    /**
-     * Remove the specified resource from storage.
-     */
-    public function destroy(PtoBlackout $ptoBlackout): JsonResponse
+    public function destroy(PtoBlackout $ptoBlackout)
     {
-        try {
-            $ptoBlackoutName = $ptoBlackout->name;
-            $ptoBlackoutId = $ptoBlackout->id;
-            $ptoBlackout->delete();
+        $ptoBlackout->delete();
 
-            Log::info("PTO Blackout deleted: ID {$ptoBlackoutId}, Name: {$ptoBlackoutName}");
-            return response()->json(['message' => "PTO Blackout '{$ptoBlackoutName}' deleted successfully."], 200);
-        } catch (\Exception $e) {
-            Log::error("Error deleting PTO Blackout ID {$ptoBlackout->id}: ".$e->getMessage());
-            return response()->json([
-                'error' => 'Failed to delete PTO Blackout.',
-                'details' => App::environment('local') ? $e->getMessage() : 'An unexpected error occurred.'
-            ], 500);
-        }
+        return redirect()->route('pto-blackouts.index')
+            ->with('message', 'PTO Blackout deleted successfully!');
     }
 
-    /**
-     * Check if a date range overlaps with any blackout periods for a user.
-     */
-    public function checkOverlap(Request $request): JsonResponse
+    public function checkConflicts(Request $request)
     {
-        $validator = Validator::make($request->all(), [
+        $request->validate([
+            'start_date' => 'required|date',
+            'end_date' => 'required|date|after_or_equal:start_date',
             'user_id' => 'required|exists:users,id',
-            'start_date' => 'required|date',
-            'end_date' => 'required|date|after_or_equal:start_date',
         ]);
 
-        if ($validator->fails()) {
-            return response()->json(['errors' => $validator->errors()], 422);
-        }
-
-        try {
-            $user = \App\Models\User::findOrFail($request->user_id);
-            $positionId = $user->position_id;
-
-            // Get blackouts that overlap with the date range and are either company-wide or for the user's position
-            $overlappingBlackouts = PtoBlackout::where(function ($query) use ($positionId) {
-                $query->where('position_id', $positionId)
-                    ->orWhere('is_company_wide', true);
+        $user = User::find($request->user_id);
+        $blackouts = PtoBlackout::active()
+            ->overlapping($request->start_date, $request->end_date)
+            ->where(function ($query) use ($user) {
+                $query->where('is_company_wide', true)
+                    ->orWhere('position_id', $user->position_id)
+                    ->orWhereJsonContains('department_ids', $user->departments()->pluck('id')->toArray())
+                    ->orWhereJsonContains('user_ids', $user->id);
             })
-                ->where(function ($query) use ($request) {
-                    $query->where('start_date', '<=', $request->end_date)
-                        ->where('end_date', '>=', $request->start_date);
-                })
-                ->get();
+            ->get();
 
-            $hasStrictBlackout = $overlappingBlackouts->contains('is_strict', true);
-
-            return response()->json([
-                'overlaps' => $overlappingBlackouts->count() > 0,
-                'has_strict_blackout' => $hasStrictBlackout,
-                'blackouts' => $overlappingBlackouts,
-            ]);
-        } catch (\Exception $e) {
-            Log::error("Error checking blackout overlap: ".$e->getMessage());
-            return response()->json([
-                'error' => 'Failed to check blackout overlap.',
-                'details' => App::environment('local') ? $e->getMessage() : 'An unexpected error occurred.'
-            ], 500);
-        }
+        return response()->json($blackouts);
     }
 
-    /**
-     * Get holidays for a specific year.
-     */
-    public function getHolidays(Request $request): JsonResponse
+    public function getBlackoutsForUser(User $user)
     {
-        $validator = Validator::make($request->all(), [
-            'year' => 'required|integer|min:2000|max:2100',
+        $blackouts = PtoBlackout::active()
+            ->where(function ($query) use ($user) {
+                $query->where('is_company_wide', true)
+                    ->orWhere('position_id', $user->position_id)
+                    ->orWhereJsonContains('user_ids', $user->id);
+
+                // Check department blackouts
+                $departmentIds = $user->departments()->pluck('id')->toArray();
+                foreach ($departmentIds as $deptId) {
+                    $query->orWhereJsonContains('department_ids', $deptId);
+                }
+            })
+            ->get();
+
+        return response()->json($blackouts);
+    }
+
+    public function toggleStatus(PtoBlackout $ptoBlackout)
+    {
+        $ptoBlackout->update(['is_active' => !$ptoBlackout->is_active]);
+
+        return response()->json([
+            'message' => 'Blackout status updated successfully',
+            'is_active' => $ptoBlackout->is_active
         ]);
-
-        if ($validator->fails()) {
-            return response()->json(['errors' => $validator->errors()], 422);
-        }
-
-        try {
-            $year = $request->year;
-            $startDate = Carbon::createFromDate($year, 1, 1)->startOfDay();
-            $endDate = Carbon::createFromDate($year, 12, 31)->endOfDay();
-
-            $holidays = PtoBlackout::where('is_holiday', true)
-                ->where(function ($query) use ($startDate, $endDate) {
-                    $query->whereBetween('start_date', [$startDate, $endDate])
-                        ->orWhereBetween('end_date', [$startDate, $endDate])
-                        ->orWhere(function ($query) use ($startDate, $endDate) {
-                            $query->where('start_date', '<=', $startDate)
-                                ->where('end_date', '>=', $endDate);
-                        });
-                })
-                ->orderBy('start_date', 'asc')
-                ->get();
-
-            return response()->json($holidays);
-        } catch (\Exception $e) {
-            Log::error("Error getting holidays for year {$request->year}: ".$e->getMessage());
-            return response()->json([
-                'error' => 'Failed to get holidays.',
-                'details' => App::environment('local') ? $e->getMessage() : 'An unexpected error occurred.'
-            ], 500);
-        }
     }
 }

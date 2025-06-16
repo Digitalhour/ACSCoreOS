@@ -12,6 +12,7 @@ use App\Http\Controllers\Api\CsvProcessController;
 use App\Http\Controllers\Api\ImportedDataController;
 use App\Http\Controllers\Api\PositionController;
 use App\Http\Controllers\Api\PtoApi\HRPtoDashboardController;
+use App\Http\Controllers\Api\PtoApi\PtoBlackoutController;
 use App\Http\Controllers\HolidayController;
 use App\Http\Controllers\DepartmentTimeOffController;
 use App\Http\Controllers\Api\PtoApi\PtoApprovalRuleController;
@@ -92,6 +93,13 @@ Route::middleware([
 
 
         Route::get('/api/pto-requests/user-details', [HRPtoDashboardController::class, 'getUserDetails'])->name('api.pto-requests.user-details');
+
+        Route::resource('pto-blackouts', PtoBlackoutController::class);
+
+        // Additional API routes for blackouts
+        Route::get('/api/pto-blackouts/check-conflicts', [PtoBlackoutController::class, 'checkConflicts']);
+        Route::get('/api/pto-blackouts/for-user/{user}', [PtoBlackoutController::class, 'getBlackoutsForUser']);
+        Route::post('/api/pto-blackouts/{blackout}/toggle-status', [PtoBlackoutController::class, 'toggleStatus']);
 // Historical PTO submission
 
         /*
