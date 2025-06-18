@@ -5,17 +5,14 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\PtoModels\PtoApproval;
 use App\Models\PtoModels\PtoBalance;
-use App\Models\PtoModels\PtoBlackout;
-use App\Models\PtoModels\PtoPolicy;
 use App\Models\PtoModels\PtoRequest;
 use App\Models\PtoModels\PtoType;
-use App\Models\PtoModels\PtoTransaction;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
 
 class PtoAdminController extends Controller
@@ -26,7 +23,7 @@ class PtoAdminController extends Controller
      */
     public function types()
     {
-        return Inertia::render('Admin/PTO/AdminPtoTypesView', [
+        return Inertia::render('human-resources/PtoTypesView', [
             'title' => 'PTO Types Administration',
         ]);
     }
@@ -36,7 +33,7 @@ class PtoAdminController extends Controller
      */
     public function policies()
     {
-        return Inertia::render('Admin/PTO/AdminPtoPoliciesView', [
+        return Inertia::render('human-resources/PtoPoliciesView', [
             'title' => 'PTO Policies Administration',
         ]);
     }
@@ -119,7 +116,7 @@ class PtoAdminController extends Controller
             }
         }
 
-        return Inertia::render('Admin/PTO/AdminPtoRequestsView', [
+        return Inertia::render('human-resources/PtoRequestsView', [
             'title' => 'PTO Requests Administration',
             'ptoRequests' => $ptoRequests,
             'users' => $users,

@@ -4,7 +4,6 @@ namespace App\Http\Controllers\Api\PtoApi;
 
 use App\Http\Controllers\Controller;
 use App\Models\PtoModels\PtoType;
-use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\App;
@@ -18,7 +17,7 @@ class PtoTypeController extends Controller
 {
     public function types()
     {
-        return Inertia::render('Admin/PTO/AdminPtoTypesView', [
+        return Inertia::render('human-resources/PtoTypesView', [
             'title' => 'PTO Types Administration',
         ]);
     }
@@ -195,4 +194,57 @@ class PtoTypeController extends Controller
     }
 
     // ... other methods
+    /**
+     * Remove the specified resource from storage.
+     */
+    public function destroy(PtoType $ptoType): JsonResponse
+    {
+        try {
+            DB::beginTransaction();
+
+            // Check if PTO type can be safely deleted
+            if (!$ptoType->canBeDeleted()) {
+                $stats = $ptoType->getUsageStats();
+                $usageDetails = [];
+
+                if ($stats['policies_count'] > 0) {
+                    $usageDetails[] = "{$stats['policies_count']} policy/policies";
+                }
+                if ($stats['requests_count'] > 0) {
+                    $usageDetails[] = "{$stats['requests_count']} request(s)";
+                }
+                if ($stats['users_with_balance_count'] > 0) {
+                    $usageDetails[] = "{$stats['users_with_balance_count']} user balance(s)";
+                }
+
+                return response()->json([
+                    'error' => 'Cannot delete PTO Type.',
+                    'message' => "This PTO type is being used by: " . implode(', ', $usageDetails) . ". Please reassign or resolve these dependencies first."
+                ], 422);
+            }
+
+            $ptoTypeName = $ptoType->name;
+            $ptoTypeId = $ptoType->id;
+
+            // Soft delete the PTO type
+            $ptoType->delete();
+
+            DB::commit();
+
+            Log::info("PTO Type soft deleted: ID {$ptoTypeId}, Name: {$ptoTypeName}");
+
+            return response()->json([
+                'message' => "PTO Type '{$ptoTypeName}' deleted successfully."
+            ], 200);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error("Error deleting PTO Type ID {$ptoType->id}: " . $e->getMessage());
+
+            return response()->json([
+                'error' => 'Failed to delete PTO Type.',
+                'details' => App::environment('local') ? $e->getMessage() : 'An unexpected error occurred.'
+            ], 500);
+        }
+    }
 }

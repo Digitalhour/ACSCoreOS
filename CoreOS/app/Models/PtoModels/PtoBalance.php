@@ -14,6 +14,8 @@ class PtoBalance extends Model
 {
     use HasFactory, LogsActivity;
 
+
+
     /**
      * The activity log options for the model.
      */

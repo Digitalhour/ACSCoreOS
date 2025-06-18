@@ -1,17 +1,18 @@
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
+import {Badge} from '@/components/ui/badge';
+import {Button} from '@/components/ui/button';
+import {Card, CardContent, CardHeader, CardTitle} from '@/components/ui/card';
+import {Checkbox} from '@/components/ui/checkbox';
+import {Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger} from '@/components/ui/dialog';
+import {Input} from '@/components/ui/input';
+import {Label} from '@/components/ui/label';
+import {Textarea} from '@/components/ui/textarea';
 import AppLayout from '@/layouts/app-layout';
 import SettingsLayout from '@/layouts/settings/layout';
-import { type BreadcrumbItem, EmergencyContact } from '@/types';
-import { Head, router, useForm } from '@inertiajs/react';
+import {type BreadcrumbItem, EmergencyContact} from '@/types';
+import {Head, useForm} from '@inertiajs/react';
 import {BadgeCheckIcon, Edit, Mail, MapPin, Phone, Plus, Trash2, User} from 'lucide-react';
-import React, { useState } from 'react';
+import React, {useState} from 'react';
+import InputError from "@/components/input-error";
 
 interface Props {
     emergencyContacts: EmergencyContact[];
@@ -26,32 +27,34 @@ export default function EmergencyContacts({ emergencyContacts }: Props) {
     const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
     const [editingContact, setEditingContact] = useState<EmergencyContact | null>(null);
 
-    const { data, setData, post, patch, reset, processing, errors } = useForm({
+    const { data, setData, post, patch, reset, processing, errors, delete: destroy} = useForm({
         name: '',
         relationship: '',
         phone: '',
         email: '',
         address: '',
-        is_primary: false,
+        is_primary: false as boolean,
     });
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
 
         if (editingContact) {
-            patch(`/settings/emergency-contacts/${editingContact.id}`, {
+            patch(route('emergency-contacts.update', editingContact.id), {
                 onSuccess: () => {
                     reset();
                     setEditingContact(null);
                 },
-            });
+            })
+
         } else {
-            post('/settings/emergency-contacts', {
+            post(route('emergency-contacts.store'), {
                 onSuccess: () => {
                     reset();
                     setIsAddDialogOpen(false);
                 },
-            });
+            })
+
         }
     };
 
@@ -63,13 +66,20 @@ export default function EmergencyContacts({ emergencyContacts }: Props) {
             email: contact.email || '',
             address: contact.address || '',
             is_primary: contact.is_primary,
+
         });
         setEditingContact(contact);
     };
 
     const handleDelete = (id: number) => {
         if (confirm('Are you sure you want to remove this emergency contact?')) {
-            router.delete(`/settings/emergency-contacts/${id}`);
+
+            destroy(route('emergency-contacts.destroy', id), {
+                onSuccess: () => {
+                    reset();
+                    setEditingContact(null);
+                },
+            })
         }
     };
 
@@ -104,7 +114,8 @@ export default function EmergencyContacts({ emergencyContacts }: Props) {
                             <form onSubmit={handleSubmit} className="space-y-4">
                                 <div>
                                     <Label htmlFor="name">Name</Label>
-                                    <Input id="name" value={data.name} onChange={(e) => setData('name', e.target.value)} error={errors.name} />
+                                    <Input id="name" value={data.name} onChange={(e) => setData('name', e.target.value)} />
+                                    <InputError className="mt-2" message={errors.name} />
                                 </div>
 
                                 <div>
@@ -120,6 +131,7 @@ export default function EmergencyContacts({ emergencyContacts }: Props) {
                                 <div>
                                     <Label htmlFor="phone">Phone</Label>
                                     <Input id="phone" value={data.phone} onChange={(e) => setData('phone', e.target.value)} />
+                                    <InputError className="mt-2" message={errors.phone} />
                                 </div>
 
                                 <div>
@@ -221,7 +233,8 @@ export default function EmergencyContacts({ emergencyContacts }: Props) {
                         <form onSubmit={handleSubmit} className="space-y-4">
                             <div>
                                 <Label htmlFor="edit-name">Name</Label>
-                                <Input id="edit-name" value={data.name} onChange={(e) => setData('name', e.target.value)} error={errors.name} />
+                                <Input id="edit-name" value={data.name} onChange={(e) => setData('name', e.target.value)}  />
+                                <InputError className="mt-2" message={errors.name} />
                             </div>
 
                             <div>
@@ -230,13 +243,16 @@ export default function EmergencyContacts({ emergencyContacts }: Props) {
                                     id="edit-relationship"
                                     value={data.relationship}
                                     onChange={(e) => setData('relationship', e.target.value)}
-                                    error={errors.relationship}
+
+
                                 />
+                                <InputError className="mt-2" message={errors.relationship} />
                             </div>
 
                             <div>
                                 <Label htmlFor="edit-phone">Phone</Label>
-                                <Input id="edit-phone" value={data.phone} onChange={(e) => setData('phone', e.target.value)} error={errors.phone} />
+                                <Input id="edit-phone" value={data.phone} onChange={(e) => setData('phone', e.target.value)}  />
+                                <InputError className="mt-2" message={errors.phone} />
                             </div>
 
                             <div>
@@ -246,7 +262,7 @@ export default function EmergencyContacts({ emergencyContacts }: Props) {
                                     type="email"
                                     value={data.email}
                                     onChange={(e) => setData('email', e.target.value)}
-                                    error={errors.email}
+
                                 />
                             </div>
 
@@ -256,7 +272,7 @@ export default function EmergencyContacts({ emergencyContacts }: Props) {
                                     id="edit-address"
                                     value={data.address}
                                     onChange={(e) => setData('address', e.target.value)}
-                                    error={errors.address}
+
                                 />
                             </div>
 

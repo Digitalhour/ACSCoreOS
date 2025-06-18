@@ -1,37 +1,13 @@
 <?php
 
 use App\Http\Controllers\ActivityLogController;
-use App\Http\Controllers\Admin\AdminAddUserController;
-use App\Http\Controllers\Admin\AdminEmergencyContactsController;
-use App\Http\Controllers\Admin\AdminShopifyController;
-use App\Http\Controllers\Admin\AdminStatsController;
-use App\Http\Controllers\Admin\ImpersonateController;
 use App\Http\Controllers\Admin\PtoAdminController;
-use App\Http\Controllers\Admin\UserActivityController;
-use App\Http\Controllers\Api\CsvProcessController;
-use App\Http\Controllers\Api\ImportedDataController;
 use App\Http\Controllers\Api\PositionController;
-use App\Http\Controllers\Api\PtoApi\HRPtoDashboardController;
-use App\Http\Controllers\Api\PtoApi\PtoBlackoutController;
-use App\Http\Controllers\HolidayController;
-use App\Http\Controllers\DepartmentTimeOffController;
+use App\Http\Controllers\Api\PtoApi\HRDashboardController;
 use App\Http\Controllers\Api\PtoApi\PtoApprovalRuleController;
-use App\Http\Controllers\Api\PtoApi\PtoBalanceController;
-use App\Http\Controllers\Api\PtoApi\PtoDetailController;
 use App\Http\Controllers\Api\PtoApi\PtoOverviewController;
-use App\Http\Controllers\Api\PtoApi\PtoPolicyController;
-use App\Http\Controllers\Api\PtoApi\PtoRequestController;
-use App\Http\Controllers\Api\PtoApi\PtoTypeController;
-use App\Http\Controllers\Api\QueueStatusController;
-use App\Http\Controllers\Api\UserHierarchyController;
 use App\Http\Controllers\Api\UserPtoController;
-use App\Http\Controllers\BillyAIController;
-use App\Http\Controllers\DepartmentController;
-use App\Http\Controllers\Employee\EmergencyContactsController;
-use App\Http\Controllers\PartsCatalogController;
-use App\Http\Controllers\RolePermissionController;
-use App\Http\Controllers\UserController;
-use App\Http\Controllers\EmployeePtoController;
+use App\Http\Controllers\HolidayController;
 use App\Models\User;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -79,10 +55,8 @@ Route::middleware([
             ]);
         })->name('admin.index');
 
-        Route::get('/admin/pto-types', [PtoAdminController::class, 'types'])->name('admin.pto.types');
-        Route::get('/admin/pto-policies', [PtoAdminController::class, 'policies'])->name('admin.pto.policies');
-        Route::get('/admin/pto-requests', [PtoAdminController::class, 'requests'])->name('admin.pto.requests');
-        Route::get('/admin/pto-balances', [PtoOverviewController::class, 'index'])->name('admin.pto.balances');
+
+       Route::get('/admin/pto-balances', [PtoOverviewController::class, 'index'])->name('admin.pto.balances');
         Route::get('/admin/pto-blackouts', [PtoAdminController::class, 'blackouts'])->name('admin.pto.blackouts');
 
 // Admin PTO request approval/denial (from admin interface)
@@ -92,15 +66,9 @@ Route::middleware([
             [PtoAdminController::class, 'denyRequest'])->name('admin.pto-requests.deny');
 
 
-        Route::get('/api/pto-requests/user-details', [HRPtoDashboardController::class, 'getUserDetails'])->name('api.pto-requests.user-details');
+        Route::get('/api/pto-requests/user-details', [HRDashboardController::class, 'getUserDetails'])->name('api.pto-requests.user-details');
 
-        Route::resource('pto-blackouts', PtoBlackoutController::class);
-
-        // Additional API routes for blackouts
-        Route::get('/api/pto-blackouts/check-conflicts', [PtoBlackoutController::class, 'checkConflicts']);
-        Route::get('/api/pto-blackouts/for-user/{user}', [PtoBlackoutController::class, 'getBlackoutsForUser']);
-        Route::post('/api/pto-blackouts/{blackout}/toggle-status', [PtoBlackoutController::class, 'toggleStatus']);
-// Historical PTO submission
+        // Historical PTO submission
 
         /*
         |--------------------------------------------------------------------------
@@ -676,7 +644,7 @@ Route::middleware([
 });
 require __DIR__.'/settings.php';
 require __DIR__.'/impersonate.php';
-//require __DIR__.'/emergency-contacts.php';
+require __DIR__.'/emergency-contacts.php';
 require __DIR__.'/pto-routes.php';
 //require __DIR__.'/parts-database.php';
 //require __DIR__.'/admin-routes.php';.

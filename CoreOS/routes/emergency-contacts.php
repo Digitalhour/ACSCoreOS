@@ -1,6 +1,6 @@
 <?php
 
-use App\Http\Controllers\Employee\EmergencyContactsController;
+use App\Http\Controllers\Settings\EmergencyContactsController;
 use Laravel\WorkOS\Http\Middleware\ValidateSessionWithWorkOS;
 
 Route::middleware([

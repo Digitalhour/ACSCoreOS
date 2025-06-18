@@ -32,8 +32,8 @@ class PtoBlackoutController extends Controller
                         'id' => $blackout->position->id,
                         'name' => $blackout->position->name,
                     ] : null,
-                    'departments' => $blackout->departments()->select('id', 'name')->get(),
-                    'users' => $blackout->users()->select('id', 'name')->get(),
+                    'departments' => $blackout->departments(),
+                    'users' => $blackout->users(),
                     'is_company_wide' => $blackout->is_company_wide,
                     'is_holiday' => $blackout->is_holiday,
                     'is_strict' => $blackout->is_strict,
@@ -45,10 +45,26 @@ class PtoBlackoutController extends Controller
             });
 
         return Inertia::render('PtoBlackouts/Index', [
-            'blackouts' => $blackouts
+            'blackouts' => PtoBlackout::all(),
+            'filter' => request()->all('search', 'trashed'),
         ]);
     }
+    public function getFormResources()
+    {
+        $departments = Department::active()->select('id', 'name')->orderBy('name')->get();
+        $positions = Position::select('id', 'name')->orderBy('name')->get();
+        $users = User::select('id', 'name', 'email')->orderBy('name')->get();
+        $holidays = Holiday::active()->thisYear()->select('id', 'name', 'date')->orderBy('date')->get();
+        $ptoTypes = PtoType::select('id', 'name')->orderBy('name')->get();
 
+        return response()->json([
+            'departments' => $departments,
+            'positions' => $positions,
+            'users' => $users,
+            'holidays' => $holidays,
+            'ptoTypes' => $ptoTypes,
+        ]);
+    }
     public function create(): Response
     {
         $departments = Department::active()->select('id', 'name')->orderBy('name')->get();
@@ -157,7 +173,37 @@ class PtoBlackoutController extends Controller
             'ptoTypes' => $ptoTypes,
         ]);
     }
+    public function apiIndex()
+    {
+        $blackouts = PtoBlackout::with('position')
+            ->orderBy('start_date', 'desc')
+            ->get()
+            ->map(function ($blackout) {
+                return [
+                    'id' => $blackout->id,
+                    'name' => $blackout->name,
+                    'description' => $blackout->description,
+                    'start_date' => $blackout->start_date->format('Y-m-d'),
+                    'end_date' => $blackout->end_date->format('Y-m-d'),
+                    'formatted_date_range' => $blackout->formatted_date_range,
+                    'position' => $blackout->position ? [
+                        'id' => $blackout->position->id,
+                        'name' => $blackout->position->name,
+                    ] : null,
+                    'departments' => $blackout->departments(),
+                    'users' => $blackout->users(),
+                    'is_company_wide' => $blackout->is_company_wide,
+                    'is_holiday' => $blackout->is_holiday,
+                    'is_strict' => $blackout->is_strict,
+                    'allow_emergency_override' => $blackout->allow_emergency_override,
+                    'restriction_type' => $blackout->restriction_type,
+                    'max_requests_allowed' => $blackout->max_requests_allowed,
+                    'is_active' => $blackout->is_active,
+                ];
+            });
 
+        return response()->json(['blackouts' => $blackouts]);
+    }
     public function update(Request $request, PtoBlackout $ptoBlackout)
     {
         $validated = $request->validate([
