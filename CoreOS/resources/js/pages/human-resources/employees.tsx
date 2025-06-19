@@ -486,7 +486,7 @@ export default function Employees({ users }: { users: User[] }) {
                 </div>
 
                 <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
-                    <SheetContent side="right" className="min-w-6/12  p-0 overflow-hidden">
+                    <SheetContent side="right" className="min-w-7/12  p-0 overflow-hidden">
                         {selectedUser && (
                             <>
                                 <SheetHeader className="p-6 border-b bg-gradient-to-r from-gray-50 to-indigo-50">
@@ -971,7 +971,7 @@ export default function Employees({ users }: { users: User[] }) {
                                                                                                                             </Badge>
                                                                                                                         </div>
                                                                                                                         <div className={`text-sm mb-1 ${blackout.type === 'conflict' ? 'text-red-700' : 'text-amber-700'}`}>
-                                                                                                                            {blackout.date_range}
+                                                                                                                            {formatDate(request.start_date)} - {formatDate(request.end_date)}
                                                                                                                         </div>
                                                                                                                         <div className={`text-balance text-sm ${blackout.type === 'conflict' ? 'text-red-600' : 'text-amber-600'}`}>
                                                                                                                             {blackout.message}

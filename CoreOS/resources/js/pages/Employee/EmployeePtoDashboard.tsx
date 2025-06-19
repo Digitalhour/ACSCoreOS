@@ -992,7 +992,7 @@ export default function EmployeePtoDashboard() {
                 </div>
 
                 {/* Time Off Policy Overview */}
-                <div className="flex flex-col w-sm gap-2 justify-between">
+                <div className="flex flex-col-4 gap-2 ">
                     {pto_data.map((item) => (
                         <Card key={item.pto_type.id}>
                             <CardHeader className="pb-4">

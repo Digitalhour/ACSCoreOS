@@ -88,8 +88,8 @@ export default function HrLayout({ children }: PropsWithChildren) {
 
                 <Separator className="my-1 md:hidden" />
 
-                <div className="flex-1 md:max-w-11/12">
-                    <section className="max-w-11/12 space-y-12">{children}</section>
+                <div className="flex-1 ">
+                    <section className="max-w-full space-y-12">{children}</section>
                 </div>
             </div>
         </div>

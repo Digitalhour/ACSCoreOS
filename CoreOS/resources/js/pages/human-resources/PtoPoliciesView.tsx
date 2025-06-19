@@ -357,7 +357,7 @@ export default function PtoPoliciesView() {
 
             <Head title="Manage PTO Policies" />
                 <HrLayout>
-            <div className="flex h-full flex-1 flex-col gap-6 p-4">
+            <div className="flex h-full flex-1 flex-col gap-6">
                 <div className="flex items-center justify-between">
                     <h1 className="text-2xl font-bold">Manage PTO Policies</h1>
                     <Button onClick={handleCreate} className="gap-2">
@@ -425,13 +425,13 @@ export default function PtoPoliciesView() {
                 </Card>
 
                 {/* Policies List */}
-                <Card>
+                <Card className={"w-full"}>
                     <CardHeader>
                         <CardTitle>PTO Policies ({filteredPolicies.length})</CardTitle>
                     </CardHeader>
                     <CardContent>
                         {loading ? (
-                            <div className="flex items-center justify-center p-8">
+                            <div className="flex items-center justify-center p-1">
                                 <Loader2 className="h-8 w-8 animate-spin" />
                             </div>
                         ) : filteredPolicies.length === 0 ? (
