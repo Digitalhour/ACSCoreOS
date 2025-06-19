@@ -1,20 +1,28 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Head, useForm, usePage, router } from '@inertiajs/react';
+import React, {useCallback, useEffect, useMemo, useState} from 'react';
+import {Head, router, useForm, usePage} from '@inertiajs/react';
 import AppLayout from '@/layouts/app-layout';
-import { type BreadcrumbItem } from '@/types';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Textarea } from '@/components/ui/textarea';
-import { Loader2, Save, Users, X, Calendar as CalendarIcon } from 'lucide-react';
-import { Calendar, momentLocalizer, Views } from 'react-big-calendar';
+import {type BreadcrumbItem} from '@/types';
+import {Badge} from '@/components/ui/badge';
+import {Button} from '@/components/ui/button';
+import {Card, CardContent, CardHeader, CardTitle} from '@/components/ui/card';
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle
+} from '@/components/ui/dialog';
+import {Input} from '@/components/ui/input';
+import {Label} from '@/components/ui/label';
+import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from '@/components/ui/select';
+import {Textarea} from '@/components/ui/textarea';
+import {AlertCircle, AlertTriangle, Calendar, CheckCircle, Loader2, Save, Shield, Users, X} from 'lucide-react';
+import {Calendar as BigCalendar, momentLocalizer, Views} from 'react-big-calendar';
+import {Checkbox} from '@/components/ui/checkbox';
 import moment from 'moment';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
-import { toast } from 'sonner';
+import {toast} from 'sonner';
 
 const localizer = momentLocalizer(moment);
 
@@ -70,6 +78,11 @@ interface PtoRequest {
     can_be_cancelled?: boolean;
     cancellation_reason?: string;
     denial_reason?: string;
+    // New blackout fields
+    has_blackout_conflicts?: boolean;
+    has_blackout_warnings?: boolean;
+    has_emergency_override?: boolean;
+    override_approved?: boolean;
 }
 
 interface DepartmentPtoRequest {
@@ -119,6 +132,8 @@ interface PageProps {
     pto_types: PtoType[];
     upcoming_holidays: Holiday[];
     holidays: Holiday[];
+    blackout_conflicts?: BlackoutConflict[];
+    blackout_warnings?: BlackoutConflict[];
     [key: string]: any;
 }
 
@@ -127,6 +142,28 @@ interface DayOption {
     type: 'full' | 'half';
     isHoliday?: boolean;
     holidayName?: string;
+}
+
+interface BlackoutConflict {
+    id: number;
+    name: string;
+    description?: string;
+    message: string;
+    type: 'conflict' | 'warning';
+    can_override: boolean;
+    restriction_details?: {
+        period?: string;
+        type?: string;
+        remaining_slots?: number;
+        will_consume_slot?: boolean;
+    };
+    blackout?: {
+        id: number;
+        name: string;
+        restriction_type: string;
+        is_strict: boolean;
+        allow_emergency_override: boolean;
+    };
 }
 
 interface CalendarEvent {
@@ -144,7 +181,6 @@ interface CalendarEvent {
     };
 }
 
-// Donut chart component for PTO visualization
 const DonutChart = ({ data, size = 120 }: { data: Array<{ label: string; value: number; color: string; description?: string }>, size?: number }) => {
     const total = data.reduce((sum, item) => sum + item.value, 0);
     const strokeWidth = 12;
@@ -215,8 +251,226 @@ const DonutChart = ({ data, size = 120 }: { data: Array<{ label: string; value: 
     );
 };
 
+// BlackoutHandler component
+const BlackoutHandler = ({ conflicts = [], warnings = [], onAcknowledgeWarnings, onEmergencyOverride, showActions = true, className = '' }: {
+    conflicts: BlackoutConflict[];
+    warnings: BlackoutConflict[];
+    onAcknowledgeWarnings?: (acknowledged: boolean) => void;
+    onEmergencyOverride?: (enabled: boolean, reason?: string) => void;
+    showActions?: boolean;
+    className?: string;
+}) => {
+    const [warningsAcknowledged, setWarningsAcknowledged] = useState(false);
+    const [emergencyOverride, setEmergencyOverride] = useState(false);
+    const [overrideReason, setOverrideReason] = useState('');
+    const [showOverrideForm, setShowOverrideForm] = useState(false);
+
+    const hasConflicts = conflicts.length > 0;
+    const hasWarnings = warnings.length > 0;
+    const canOverride = conflicts.some(c => c.can_override);
+
+    useEffect(() => {
+        if (onAcknowledgeWarnings) {
+            onAcknowledgeWarnings(warningsAcknowledged);
+        }
+    }, [warningsAcknowledged, onAcknowledgeWarnings]);
+
+    useEffect(() => {
+        if (onEmergencyOverride) {
+            onEmergencyOverride(emergencyOverride, overrideReason);
+        }
+    }, [emergencyOverride, overrideReason, onEmergencyOverride]);
+
+    const handleWarningAcknowledgment = useCallback((checked: boolean) => {
+        setWarningsAcknowledged(checked);
+    }, []);
+
+    const handleEmergencyOverrideToggle = useCallback((checked: boolean) => {
+        setEmergencyOverride(checked);
+        if (!checked) {
+            setOverrideReason('');
+            setShowOverrideForm(false);
+        } else if (hasConflicts && canOverride) {
+            setShowOverrideForm(true);
+        }
+    }, [hasConflicts, canOverride]);
+
+    if (!hasConflicts && !hasWarnings) {
+        return null;
+    }
+
+    return (
+        <div className={`space-y-4 ${className}`}>
+            {/* Conflicts Section */}
+            {hasConflicts && (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                    <div className="flex items-start">
+                        <AlertCircle className="h-5 w-5 text-red-600 mt-0.5 mr-3 flex-shrink-0" />
+                        <div className="flex-1">
+                            <h3 className="text-sm font-medium text-red-800 mb-2">
+                                Blackout Period Conflicts
+                            </h3>
+                            <div className="space-y-3">
+                                {conflicts.map((conflict, index) => (
+                                    <div key={index} className="bg-white rounded border border-red-200 p-3">
+                                        <div className="font-medium text-red-900 text-sm">
+                                            {conflict.blackout?.name || conflict.name}
+                                        </div>
+                                        <div className="text-red-700 text-sm mt-1">
+                                            {conflict.message}
+                                        </div>
+                                        <div className="text-red-600 text-xs mt-1">
+                                            Period: {conflict.restriction_details?.period || 'Unknown period'}
+                                        </div>
+                                        {conflict.blackout?.is_strict && (
+                                            <div className="text-red-800 text-xs mt-1 font-medium">
+                                                ⚠️ Strict blackout - No exceptions
+                                            </div>
+                                        )}
+                                        {conflict.can_override && !conflict.blackout?.is_strict && (
+                                            <div className="text-orange-600 text-xs mt-1">
+                                                Emergency override available
+                                            </div>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+
+                            {/* Emergency Override Section */}
+                            {canOverride && showActions && (
+                                <div className="mt-4 pt-3 border-t border-red-200">
+                                    <div className="bg-orange-50 border border-orange-200 rounded p-3">
+                                        <div className="flex items-start gap-3">
+                                            <Shield className="h-5 w-5 text-orange-600 mt-0.5" />
+                                            <div className="flex-1">
+                                                <div className="flex items-center gap-2 mb-2">
+                                                    <Checkbox
+                                                        id="emergency_override"
+                                                        checked={emergencyOverride}
+                                                        onCheckedChange={handleEmergencyOverrideToggle}
+                                                    />
+                                                    <Label htmlFor="emergency_override" className="text-sm font-medium text-orange-800">
+                                                        Submit as Emergency Override
+                                                    </Label>
+                                                </div>
+                                                <p className="text-xs text-orange-700 mb-2">
+                                                    This will override blackout restrictions for urgent situations.
+                                                    Your manager will be notified that this is an emergency request.
+                                                </p>
+
+                                                {showOverrideForm && emergencyOverride && (
+                                                    <div className="mt-3 space-y-2">
+                                                        <Label className="text-xs font-medium text-orange-800">
+                                                            Emergency Justification (Required)
+                                                        </Label>
+                                                        <Textarea
+                                                            value={overrideReason}
+                                                            onChange={(e) => setOverrideReason(e.target.value)}
+                                                            placeholder="Please explain why this emergency override is necessary..."
+                                                            className="text-sm"
+                                                            rows={3}
+                                                        />
+                                                        {overrideReason.trim().length < 10 && (
+                                                            <p className="text-xs text-red-600">
+                                                                Please provide a detailed explanation (minimum 10 characters).
+                                                            </p>
+                                                        )}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Warnings Section */}
+            {hasWarnings && (
+                <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+                    <div className="flex items-start">
+                        <AlertTriangle className="h-5 w-5 text-amber-600 mt-0.5 mr-3 flex-shrink-0" />
+                        <div className="flex-1">
+                            <h3 className="text-sm font-medium text-amber-800 mb-2">
+                                Blackout Period Warnings
+                            </h3>
+                            <div className="space-y-3">
+                                {warnings.map((warning, index) => (
+                                    <div key={index} className="bg-white rounded border border-amber-200 p-3">
+                                        <div className="font-medium text-amber-900 text-sm">
+                                            {warning.blackout?.name || warning.name}
+                                        </div>
+                                        <div className="text-amber-700 text-sm mt-1">
+                                            {warning.message}
+                                        </div>
+                                        <div className="text-amber-600 text-xs mt-1">
+                                            Period: {warning.restriction_details?.period || 'Unknown period'}
+                                        </div>
+                                        {warning.restriction_details?.will_consume_slot && (
+                                            <div className="text-amber-700 text-xs mt-1">
+                                                ⚠️ Will consume one of the limited slots for this period
+                                            </div>
+                                        )}
+                                        {warning.restriction_details?.remaining_slots !== undefined && (
+                                            <div className="text-amber-600 text-xs mt-1">
+                                                Remaining slots: {warning.restriction_details.remaining_slots}
+                                            </div>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+
+                            {/* Warning Acknowledgment Section */}
+                            {showActions && (
+                                <div className="mt-4 pt-3 border-t border-amber-200">
+                                    {warningsAcknowledged ? (
+                                        <div className="flex items-center text-sm text-green-700">
+                                            <CheckCircle className="h-4 w-4 mr-2" />
+                                            Warnings acknowledged
+                                        </div>
+                                    ) : (
+                                        <div className="space-y-2">
+                                            <div className="flex items-start gap-2">
+                                                <Checkbox
+                                                    id="acknowledge_warnings"
+                                                    checked={warningsAcknowledged}
+                                                    onCheckedChange={handleWarningAcknowledgment}
+                                                />
+                                                <Label htmlFor="acknowledge_warnings" className="text-sm text-amber-700 leading-relaxed">
+                                                    I understand these restrictions and acknowledge that my request falls during a restricted period.
+                                                </Label>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Summary for submission requirements */}
+            {(hasConflicts || hasWarnings) && showActions && (
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                    <div className="text-sm text-blue-800">
+                        <strong>Submission Requirements:</strong>
+                        {hasConflicts && !emergencyOverride && ' Cannot submit due to blackout conflicts.'}
+                        {hasConflicts && emergencyOverride && overrideReason.trim().length >= 10 && ' Ready to submit with emergency override.'}
+                        {hasConflicts && emergencyOverride && overrideReason.trim().length < 10 && ' Emergency justification required.'}
+                        {!hasConflicts && hasWarnings && !warningsAcknowledged && ' Must acknowledge warnings to proceed.'}
+                        {!hasConflicts && hasWarnings && warningsAcknowledged && ' Ready to submit with acknowledged warnings.'}
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+};
+
+
 export default function EmployeePtoDashboard() {
-    const { pto_data, recent_requests, department_pto_requests, upcoming_holidays, holidays = [] } = usePage<PageProps>().props;
+    const { pto_data, recent_requests, department_pto_requests, upcoming_holidays, holidays = [], user, blackout_conflicts = [], blackout_warnings = [] } = usePage<PageProps>().props;
 
     // Request form state
     const [showRequestForm, setShowRequestForm] = useState(false);
@@ -225,6 +479,14 @@ export default function EmployeePtoDashboard() {
     const [showCancelDialog, setShowCancelDialog] = useState(false);
     const [requestToCancel, setRequestToCancel] = useState<PtoRequest | null>(null);
     const [loadingHolidays, setLoadingHolidays] = useState(false);
+    const [blackoutConflicts, setBlackoutConflicts] = useState<BlackoutConflict[]>(blackout_conflicts);
+    const [blackoutWarnings, setBlackoutWarnings] = useState<BlackoutConflict[]>(blackout_warnings);
+    const [checkingBlackouts, setCheckingBlackouts] = useState(false);
+
+    // Blackout handling state
+    const [warningsAcknowledged, setWarningsAcknowledged] = useState(false);
+    const [isEmergencyOverride, setIsEmergencyOverride] = useState(false);
+    const [emergencyReason, setEmergencyReason] = useState('');
 
     // Inertia form for PTO requests
     const { data, setData, post, processing, errors, reset } = useForm({
@@ -234,6 +496,8 @@ export default function EmployeePtoDashboard() {
         reason: '',
         total_days: 0,
         day_options: [] as Array<{ date: string; type: 'full' | 'half' }>,
+        is_emergency_override: false,
+        acknowledge_warnings: false,
     });
 
     // Inertia form for cancellation
@@ -251,11 +515,45 @@ export default function EmployeePtoDashboard() {
         }, {
             preserveState: true,
             preserveScroll: true,
-            only: ['holidays'], // <-- THIS IS THE MAGIC!
+            only: ['holidays'],
             onStart: () => setLoadingHolidays(true),
             onFinish: () => setLoadingHolidays(false),
         });
     }, []);
+
+    // Check blackouts for date range
+    const checkBlackouts = useCallback((startDate: string, endDate: string, ptoTypeId: string) => {
+        if (!startDate || !endDate || !ptoTypeId) {
+            setBlackoutConflicts([]);
+            setBlackoutWarnings([]);
+            return;
+        }
+
+        router.get(route('pto.dashboard'), {
+            start_date: startDate,
+            end_date: endDate,
+            pto_type_id: ptoTypeId,
+            user_id: user.id,
+        }, {
+            preserveState: true,
+            preserveScroll: true,
+            only: ['blackout_conflicts', 'blackout_warnings'],
+            onStart: () => setCheckingBlackouts(true),
+            onFinish: () => setCheckingBlackouts(false),
+            onSuccess: (page) => {
+                const conflicts = page.props.blackout_conflicts || [];
+                const warnings = page.props.blackout_warnings || [];
+
+                setBlackoutConflicts(conflicts);
+                setBlackoutWarnings(warnings);
+            },
+            onError: () => {
+                toast.error('Failed to check blackout periods');
+                setBlackoutConflicts([]);
+                setBlackoutWarnings([]);
+            },
+        });
+    }, [user.id]);
 
     const handleCancelRequest = useCallback((request: PtoRequest) => {
         setRequestToCancel(request);
@@ -286,11 +584,8 @@ export default function EmployeePtoDashboard() {
         return department_pto_requests
             .filter((request) => request.status === 'approved' || request.status === 'pending')
             .map((request) => {
-                // Parse database dates correctly (they come as YYYY-MM-DD from Laravel)
                 const startDate = new Date(request.start_date);
                 const endDate = new Date(request.end_date);
-
-                // For React Big Calendar all-day events, end needs to be next day
                 const calendarEndDate = new Date(endDate);
                 calendarEndDate.setDate(calendarEndDate.getDate() + 1);
 
@@ -356,7 +651,6 @@ export default function EmployeePtoDashboard() {
 
         return businessDays.map((date) => {
             const dateString = date.toISOString().split('T')[0];
-            // Use the `holidays` prop here instead of `holidaysInRange`
             const holiday = holidays.find(h => h.date === dateString);
 
             return {
@@ -368,27 +662,45 @@ export default function EmployeePtoDashboard() {
         });
     }, [holidays]);
 
-    // Update day options and requested days when dates change
+    // Handle blackout warnings acknowledgment
+    const handleWarningsAcknowledgment = useCallback((acknowledged: boolean) => {
+        setWarningsAcknowledged(acknowledged);
+        setData('acknowledge_warnings', acknowledged);
+    }, [setData]);
+
+    // Handle emergency override
+    const handleEmergencyOverride = useCallback((enabled: boolean, reason?: string) => {
+        setIsEmergencyOverride(enabled);
+        setEmergencyReason(reason || '');
+        setData('is_emergency_override', enabled);
+    }, [setData]);
+
+    // Update useEffect to handle date changes and blackout checking
     useEffect(() => {
-        if (data.start_date && data.end_date) {
+        if (data.start_date && data.end_date && data.pto_type_id) {
             const start = new Date(data.start_date);
             const end = new Date(data.end_date);
 
             if (start <= end) {
                 fetchHolidaysInRange(data.start_date, data.end_date);
+                checkBlackouts(data.start_date, data.end_date, data.pto_type_id);
             } else {
                 setDayOptions([]);
                 setRequestedDays(null);
                 setData('total_days', 0);
                 setData('day_options', []);
+                setBlackoutConflicts([]);
+                setBlackoutWarnings([]);
             }
         } else {
             setDayOptions([]);
             setRequestedDays(null);
             setData('total_days', 0);
             setData('day_options', []);
+            setBlackoutConflicts([]);
+            setBlackoutWarnings([]);
         }
-    }, [data.start_date, data.end_date]);
+    }, [data.start_date, data.end_date, data.pto_type_id, fetchHolidaysInRange, checkBlackouts]);
 
     // Update day options when holidays are loaded
     useEffect(() => {
@@ -423,7 +735,6 @@ export default function EmployeePtoDashboard() {
 
         setDayOptions(updatedOptions);
 
-        // Calculate total days excluding holidays
         const totalDays = updatedOptions
             .filter(day => !day.isHoliday)
             .reduce((sum, day) => sum + (day.type === 'full' ? 1.0 : 0.5), 0);
@@ -461,13 +772,16 @@ export default function EmployeePtoDashboard() {
         reset();
         setRequestedDays(null);
         setDayOptions([]);
-
+        setBlackoutConflicts([]);
+        setBlackoutWarnings([]);
+        setWarningsAcknowledged(false);
+        setIsEmergencyOverride(false);
+        setEmergencyReason('');
         setShowRequestForm(false);
     }, [reset]);
 
     // Handle form submission
-    const handleSubmit = useCallback((e: React.FormEvent) => {
-        e.preventDefault();
+    const handleSubmit = useCallback(() => {
 
         if (!data.pto_type_id || !data.start_date || !data.end_date) {
             toast.error('Please fill in all required fields.');
@@ -484,6 +798,24 @@ export default function EmployeePtoDashboard() {
             return;
         }
 
+        // Check if there are blocking conflicts without emergency override
+        if (blackoutConflicts.length > 0 && !isEmergencyOverride) {
+            toast.error('Cannot submit request due to blackout period conflicts. Enable emergency override if available.');
+            return;
+        }
+
+        // Check if emergency override requires reason
+        if (isEmergencyOverride && emergencyReason.trim().length < 10) {
+            toast.error('Emergency override requires a detailed justification (minimum 10 characters).');
+            return;
+        }
+
+        // Check if warnings need acknowledgment
+        if (blackoutWarnings.length > 0 && !warningsAcknowledged) {
+            toast.error('Please acknowledge blackout period warnings before submitting.');
+            return;
+        }
+
         // Check balance
         const selectedType = pto_data.find((item) => item.pto_type.id === parseInt(data.pto_type_id));
         if (selectedType && requestedDays > selectedType.available_balance) {
@@ -494,13 +826,23 @@ export default function EmployeePtoDashboard() {
         post(route('pto.requests.store'), {
             onSuccess: () => {
                 resetForm();
-                toast.success('PTO request submitted successfully! Holidays were automatically excluded.');
+                if (isEmergencyOverride) {
+                    toast.success('PTO request submitted with emergency override! Please check with your manager.');
+                } else if (blackoutWarnings.length > 0) {
+                    toast.success('PTO request submitted successfully! Note: Request has blackout period warnings.');
+                } else {
+                    toast.success('PTO request submitted successfully! Holidays were automatically excluded.');
+                }
             },
-            onError: () => {
-                toast.error('Failed to submit PTO request.');
+            onError: (errors) => {
+                if (errors.blackout_conflicts) {
+                    toast.error('PTO request conflicts with blackout periods.');
+                } else {
+                    toast.error('Failed to submit PTO request.');
+                }
             },
         });
-    }, [data, requestedDays, pto_data, holidays, post, resetForm]);
+    }, [data, requestedDays, pto_data, holidays, blackoutConflicts, blackoutWarnings, isEmergencyOverride, emergencyReason, warningsAcknowledged, post, resetForm]);
 
     // Helper function to check if request can be cancelled
     const canCancelRequest = useCallback((request: PtoRequest) => {
@@ -520,7 +862,6 @@ export default function EmployeePtoDashboard() {
 
     // Format date for display
     const formatDate = useCallback((dateString: string) => {
-        // Parse the date string directly from Laravel (YYYY-MM-DD format)
         const date = new Date(dateString);
         return date.toLocaleDateString('en-US', {
             year: 'numeric',
@@ -666,6 +1007,18 @@ export default function EmployeePtoDashboard() {
                                                 <div className="flex items-center gap-2 text-sm">
                                                     <div className="h-3 w-3 rounded-full" style={{ backgroundColor: request.pto_type.color }} />
                                                     <span className="text-xs">{request.pto_type.code}</span>
+                                                    {/* Show blackout indicators */}
+                                                    {request.has_blackout_conflicts && (
+                                                        <AlertTriangle className="h-3 w-3 text-red-500" title="Has blackout conflicts" />
+                                                    )}
+                                                    {request.has_blackout_warnings && (
+                                                        <AlertTriangle className="h-3 w-3 text-yellow-500" title="Has blackout warnings" />
+                                                    )}
+                                                    {request.has_emergency_override && (
+                                                        <Badge variant="outline" className="text-xs px-1 py-0">
+                                                            {request.override_approved ? 'Override ✓' : 'Override Pending'}
+                                                        </Badge>
+                                                    )}
                                                 </div>
                                                 <div>
                                                     <Badge className={getStatusColor(request.status)}>
@@ -715,7 +1068,7 @@ export default function EmployeePtoDashboard() {
                     <Card>
                         <CardHeader>
                             <CardTitle className="flex items-center gap-2 text-gray-600">
-                                <CalendarIcon className="h-5 w-5" />
+                                <Calendar className="h-5 w-5" />
                                 Upcoming Company Holidays
                             </CardTitle>
                         </CardHeader>
@@ -843,7 +1196,7 @@ export default function EmployeePtoDashboard() {
                     </CardHeader>
                     <CardContent>
                         <div className='h-dvh'>
-                            <Calendar
+                            <BigCalendar
                                 localizer={localizer}
                                 events={calendarEvents}
                                 startAccessor="start"
@@ -893,7 +1246,7 @@ export default function EmployeePtoDashboard() {
                             <DialogDescription>Submit a new paid time off request. Holidays will be automatically excluded.</DialogDescription>
                         </DialogHeader>
 
-                        <form onSubmit={handleSubmit} className="space-y-4">
+                        <div onSubmit={handleSubmit} className="space-y-4">
                             <div className="space-y-2">
                                 <Label htmlFor="pto_type_id">
                                     PTO Type <span className="text-red-500">*</span>
@@ -947,10 +1300,10 @@ export default function EmployeePtoDashboard() {
                             </div>
 
                             {/* Holiday Notice */}
-                            {holidays.length > 0 && (
+                            {data.start_date && data.end_date && holidays.length > 0 && (
                                 <div className="rounded-md bg-blue-50 border border-blue-200 p-3">
                                     <div className="flex items-center gap-2">
-                                        <CalendarIcon className="h-4 w-4 text-blue-600" />
+                                        <Calendar className="h-4 w-4 text-blue-600" />
                                         <p className="text-sm font-medium text-blue-800">Holidays in your date range:</p>
                                     </div>
                                     <div className="mt-2 space-y-1">
@@ -966,6 +1319,26 @@ export default function EmployeePtoDashboard() {
                                 </div>
                             )}
 
+                            {/* Blackout Handler Component */}
+                            {data.start_date && data.end_date && data.pto_type_id && (
+                                checkingBlackouts ? (
+                                    <div className="rounded-md bg-gray-50 border border-gray-200 p-4">
+                                        <div className="flex items-center gap-2">
+                                            <Loader2 className="h-4 w-4 animate-spin" />
+                                            <span className="text-sm">Checking blackout periods...</span>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <BlackoutHandler
+                                        conflicts={blackoutConflicts}
+                                        warnings={blackoutWarnings}
+                                        onAcknowledgeWarnings={handleWarningsAcknowledgment}
+                                        onEmergencyOverride={handleEmergencyOverride}
+                                        showActions={true}
+                                        className="my-4"
+                                    />
+                                )
+                            )}
 
                             {requestedDays !== null && (
                                 <div className="rounded-md bg-gray-50 p-3">
@@ -1053,22 +1426,38 @@ export default function EmployeePtoDashboard() {
                             {errors.total_days && <div className="text-red-500 text-sm">{errors.total_days}</div>}
 
                             <DialogFooter>
-                                <Button type="button" variant="outline" onClick={resetForm} disabled={processing || loadingHolidays}>
+                                <Button type="button" variant="outline" onClick={resetForm} disabled={processing || loadingHolidays || checkingBlackouts}>
                                     <X className="mr-2 h-4 w-4" />
                                     Cancel
                                 </Button>
-                                <Button type="submit" disabled={processing || loadingHolidays}>
+                                <Button
+                                    type="button"
+                                    onClick={handleSubmit}
+                                    disabled={
+                                        processing ||
+                                        loadingHolidays ||
+                                        checkingBlackouts ||
+                                        (blackoutConflicts.length > 0 && !isEmergencyOverride) ||
+                                        (blackoutWarnings.length > 0 && !warningsAcknowledged) ||
+                                        (isEmergencyOverride && emergencyReason.trim().length < 10)
+                                    }
+                                >
                                     {processing ? (
                                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                                     ) : loadingHolidays ? (
                                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                    ) : checkingBlackouts ? (
+                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                                     ) : (
                                         <Save className="mr-2 h-4 w-4" />
                                     )}
-                                    {loadingHolidays ? 'Checking Holidays...' : 'Submit Request'}
+                                    {checkingBlackouts ? 'Checking Blackouts...' :
+                                        loadingHolidays ? 'Checking Holidays...' :
+                                            isEmergencyOverride ? 'Submit Emergency Override' :
+                                                'Submit Request'}
                                 </Button>
                             </DialogFooter>
-                        </form>
+                        </div>
                     </DialogContent>
                 </Dialog>
             </div>

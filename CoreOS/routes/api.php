@@ -55,6 +55,30 @@ ValidateSessionWithWorkOS::class,
         | PTO Types API
         |--------------------------------------------------------------------------
         */
+        Route::prefix('pto-requests')->group(function () {
+            Route::get('/', [PtoRequestController::class, 'index']);
+            Route::post('/', [PtoRequestController::class, 'store']);
+            Route::get('/users', [PtoRequestController::class, 'getUsersList']);
+            Route::get('/pto-types', [PtoRequestController::class, 'getPtoTypes']);
+
+            // New blackout-related routes
+            Route::post('/preview-blackouts', [PtoRequestController::class, 'previewBlackouts']);
+
+            Route::prefix('{ptoRequest}')->group(function () {
+                Route::get('/', [PtoRequestController::class, 'show']);
+                Route::put('/', [PtoRequestController::class, 'update']);
+                Route::delete('/', [PtoRequestController::class, 'cancel']);
+                Route::post('/approve', [PtoRequestController::class, 'approve'])->name('api.pto-request.approve');
+                Route::post('/deny', [PtoRequestController::class, 'deny'])->name('api.pto-request.deny');;
+
+                // New blackout-related routes
+                Route::get('/blackout-analysis', [PtoRequestController::class, 'getBlackoutAnalysis']);
+                Route::post('/approve-override', [PtoRequestController::class, 'approveOverride']);
+                Route::post('/approve-with-blackout-review', [PtoRequestController::class, 'approveWithBlackoutReview']);
+            });
+
+            Route::post('/{ptoRequest}/cancel-own', [PtoRequestController::class, 'cancelOwnRequest']);
+        });
 
         Route::get('/users/list', [UserController::class, 'list'])->middleware('auth');
         Route::prefix('pto-types')->name('pto-types.')->group(function () {
@@ -114,13 +138,7 @@ ValidateSessionWithWorkOS::class,
         | User PTO API
         |--------------------------------------------------------------------------
         */
-        Route::prefix('user-pto')->name('user-pto.')->group(function () {
-            Route::get('dashboard',
-                [UserPtoController::class, 'dashboard'])->name('dashboard');
-            Route::get('summary', [UserPtoController::class, 'summary'])->name('summary');
-            Route::get('my-requests',
-                [UserPtoController::class, 'myRequests'])->name('my-requests');
-        });
+
         /*
         |--------------------------------------------------------------------------
         | PTO Balances API
@@ -137,10 +155,7 @@ ValidateSessionWithWorkOS::class,
         | PTO Transactions API (Admin only)
         |--------------------------------------------------------------------------
         */
-        Route::prefix('pto-transactions')->name('pto-transactions.')->group(function () {
-            Route::get('/', [PtoTransactionController::class, 'index'])->name('index');
-            Route::get('user/{user}', [PtoTransactionController::class, 'getUserTransactions'])->name('user');
-        });
+
 
         /*
         |--------------------------------------------------------------------------
@@ -202,7 +217,7 @@ ValidateSessionWithWorkOS::class,
         Route::apiResource('positions', PositionController::class);
 
 // User Hierarchy API
-        Route::get('/hierarchy-tree', [HierarchyController::class, 'getTreeData']);
+
         Route::get('/users/hierarchy', [UserHierarchyController::class, 'getHierarchy'])->name('users.hierarchy');
 
 // User Hierarchy detailed routes

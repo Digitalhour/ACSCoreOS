@@ -127,8 +127,8 @@ export default function PtoBlackoutsComponent() {
             const responseData = response.data.blackouts || response.data;
             setBlackouts(Array.isArray(responseData) ? responseData : []);
         } catch (error) {
-            console.error('Error fetching blackouts:', error);
-            toast.error('Failed to load blackouts. Please try again.');
+            console.error('Error fetching Blackouts:', error);
+            toast.error('Failed to load Blackouts. Please try again.');
         } finally {
             setLoading(false);
         }
@@ -732,8 +732,8 @@ export default function PtoBlackoutsComponent() {
                             <h3 className="text-lg font-medium text-gray-900 mb-2">No blackouts found</h3>
                             <p className="text-gray-500 mb-4">
                                 {searchTerm || filterType !== 'all'
-                                    ? 'No blackouts match your search criteria.'
-                                    : 'No PTO blackouts have been created yet.'
+                                    ? 'No Blackouts match your search criteria.'
+                                    : 'No PTO Blackouts have been created yet.'
                                 }
                             </p>
                             {(!searchTerm && filterType === 'all') && (

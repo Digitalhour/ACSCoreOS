@@ -7,6 +7,7 @@ use App\Models\PtoModels\PtoBalance;
 use App\Models\PtoModels\PtoRequest;
 use App\Models\PtoModels\PtoType;
 use App\Models\User;
+use App\Services\BlackoutValidationService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -16,6 +17,10 @@ use Inertia\Inertia;
 
 class EmployeePtoController extends Controller
 {
+    public function __construct(
+        private BlackoutValidationService $blackoutService
+    ) {}
+
     /**
      * Display the user PTO dashboard.
      */
@@ -24,8 +29,14 @@ class EmployeePtoController extends Controller
         $request->validate([
             'start_date' => 'nullable|date',
             'end_date'   => 'nullable|date|after_or_equal:start_date',
+            'pto_type_id' => 'nullable|exists:pto_types,id',
+            'user_id' => 'nullable|exists:users,id',
         ]);
+
         $holidaysInRange = [];
+        $blackoutConflicts = [];
+        $blackoutWarnings = [];
+
         if ($request->filled('start_date') && $request->filled('end_date')) {
             $holidaysInRange = Holiday::active()
                 ->whereBetween('date', [$request->start_date, $request->end_date])
@@ -38,6 +49,20 @@ class EmployeePtoController extends Controller
                         'formatted_date' => $holiday->date->format('M d, Y'),
                     ];
                 });
+        }
+
+        // Handle blackout checking using the service
+        if ($request->filled(['start_date', 'end_date', 'pto_type_id', 'user_id'])) {
+            $user = User::findOrFail($request->user_id);
+            $validation = $this->blackoutService->validatePtoRequest(
+                $user,
+                $request->start_date,
+                $request->end_date,
+                $request->pto_type_id
+            );
+
+            $blackoutConflicts = $validation['conflicts'] ?? [];
+            $blackoutWarnings = $validation['warnings'] ?? [];
         }
 
         $user = Auth::user();
@@ -90,6 +115,8 @@ class EmployeePtoController extends Controller
             'pto_types' => $ptoTypes,
             'upcoming_holidays' => $upcomingHolidays,
             'holidays' => $holidaysInRange,
+            'blackout_conflicts' => $blackoutConflicts,
+            'blackout_warnings' => $blackoutWarnings,
         ]);
     }
 
@@ -109,6 +136,8 @@ class EmployeePtoController extends Controller
             'day_options' => 'required|array',
             'day_options.*.date' => 'required|date',
             'day_options.*.type' => 'required|in:full,half',
+            'is_emergency_override' => 'nullable|boolean',
+            'acknowledge_warnings' => 'nullable|boolean',
         ]);
 
         // Calculate actual PTO days (excluding holidays)
@@ -156,18 +185,57 @@ class EmployeePtoController extends Controller
         DB::beginTransaction();
 
         try {
-            // Create the request - Laravel will handle datetime conversion
+            // Create the request
             $ptoRequest = PtoRequest::create([
                 'user_id' => $user->id,
                 'pto_type_id' => $validated['pto_type_id'],
                 'request_number' => $requestNumber,
-                'start_date' => $validated['start_date'], // Will be stored as 2025-07-03 00:00:00
-                'end_date' => $validated['end_date'], // Will be stored as 2025-07-03 00:00:00
+                'start_date' => $validated['start_date'],
+                'end_date' => $validated['end_date'],
                 'total_days' => $validated['total_days'],
                 'reason' => $validated['reason'],
                 'status' => 'pending',
                 'submitted_at' => now(),
             ]);
+
+            // Validate and store blackout information using the service
+            $blackoutValidation = $this->blackoutService->validateAndStorePtoRequest(
+                $ptoRequest,
+                $validated['is_emergency_override'] ?? false
+            );
+
+            // Handle warning acknowledgment
+            if ($validated['acknowledge_warnings'] ?? false) {
+                $this->blackoutService->processBlackoutAcknowledgment($ptoRequest, $user);
+            }
+
+            // If there are unresolved conflicts without emergency override, reject
+            if ($blackoutValidation['has_conflicts'] && !($validated['is_emergency_override'] ?? false)) {
+                // Check if any conflicts allow override
+                $canOverride = collect($blackoutValidation['conflicts'])->some('can_override');
+
+                if ($canOverride) {
+                    DB::rollBack();
+                    return back()->withErrors([
+                        'blackout_conflicts' => $blackoutValidation['conflicts'],
+                        'error' => 'Your request conflicts with blackout periods. Please enable emergency override if this is urgent.',
+                        'can_override' => true,
+                    ])->withInput();
+                } else {
+                    // Auto-reject strict blackouts
+                    $ptoRequest->update([
+                        'status' => 'denied',
+                        'denied_at' => now(),
+                        'denial_reason' => 'Request conflicts with strict blackout periods that do not allow override.',
+                    ]);
+
+                    DB::commit();
+
+                    return redirect()->route('pto.dashboard')->withErrors([
+                        'error' => 'Request was automatically rejected due to blackout period conflicts.'
+                    ]);
+                }
+            }
 
             // Update pending balance
             if ($balance) {
@@ -189,7 +257,16 @@ class EmployeePtoController extends Controller
 
             DB::commit();
 
-            return redirect()->route('pto.dashboard')->with('success', 'PTO request submitted successfully! Holidays in your date range were automatically excluded.');
+            // Determine success message based on blackout status
+            $successMessage = 'PTO request submitted successfully! Holidays in your date range were automatically excluded.';
+
+            if ($validated['is_emergency_override'] ?? false) {
+                $successMessage = 'PTO request submitted with emergency override! Your manager will be notified of the urgent circumstances.';
+            } elseif ($blackoutValidation['has_warnings']) {
+                $successMessage .= ' Note: Your request has blackout period warnings.';
+            }
+
+            return redirect()->route('pto.dashboard')->with('success', $successMessage);
 
         } catch (\Exception $e) {
             DB::rollBack();
@@ -203,31 +280,6 @@ class EmployeePtoController extends Controller
             return back()->withErrors(['error' => 'Failed to submit PTO request. Please try again.']);
         }
     }
-
-    /**
-     * Get holidays in date range for frontend
-     */
-//    public function getHolidaysInRange(Request $request)
-//    {
-//        $request->validate([
-//            'start_date' => 'required|date',
-//            'end_date' => 'required|date|after_or_equal:start_date',
-//        ]);
-//
-//        $holidays = Holiday::active()
-//            ->whereBetween('date', [$request->start_date, $request->end_date])
-//            ->get()
-//            ->map(function ($holiday) {
-//                return [
-//                    'date' => $holiday->date->format('Y-m-d'),
-//                    'name' => $holiday->name,
-//                    'type' => $holiday->type,
-//                    'formatted_date' => $holiday->date->format('M d, Y'),
-//                ];
-//            });
-//
-//        return $holidays;
-//    }
 
     /**
      * Cancel a PTO request.
@@ -489,6 +541,11 @@ class EmployeePtoController extends Controller
                     'can_be_cancelled' => $this->canCancelRequest($request),
                     'cancellation_reason' => $request->cancellation_reason,
                     'denial_reason' => $request->denial_reason,
+                    // Include blackout information
+                    'has_blackout_conflicts' => $request->hasBlackoutConflicts(),
+                    'has_blackout_warnings' => $request->hasBlackoutWarnings(),
+                    'has_emergency_override' => $request->hasEmergencyOverride(),
+                    'override_approved' => $request->isOverrideApproved(),
                 ];
             })
             ->toArray();

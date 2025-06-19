@@ -1,9 +1,9 @@
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import {Card, CardContent, CardHeader, CardTitle} from '@/components/ui/card';
 import UserCount from '@/components/UserCount';
 import AppLayout from '@/layouts/app-layout';
 import QueueDashboardPage from '@/pages/quese-status'; // Ensured all icons are imported
-import { type BreadcrumbItem } from '@/types';
-import { Head, Link as InertiaLink } from '@inertiajs/react'; // Renamed Link to InertiaLink to avoid conflict
+import {type BreadcrumbItem} from '@/types';
+import {Head, Link as InertiaLink} from '@inertiajs/react'; // Renamed Link to InertiaLink to avoid conflict
 import {
     Activity,
     BookOpen,
@@ -109,8 +109,8 @@ const adminLinks: LinkCategory[] = [
                 description: 'Manage Employee PTO balances.',
             },
             {
-                routeName: 'admin.pto.blackouts',
-                href: '/admin/pto-blackouts',
+                routeName: 'admin.pto.Blackouts',
+                href: '/admin/Blackouts',
                 label: 'Blackout Periods',
                 icon: CalendarOff,
                 description: 'Manage holidays and blackout periods.',
@@ -276,6 +276,7 @@ export default function adminDashboard({ userStats }: { userStats: { totalUsers:
                 <div className="mb-8">
                     <h1 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white">Admin Dashboard</h1>
                     <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">Manage various aspects of the application.</p>
+
                 </div>
 
                 {/* Grid layout for link categories */}

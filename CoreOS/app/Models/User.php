@@ -11,9 +11,9 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Collection;
 use Lab404\Impersonate\Models\Impersonate;
 use Spatie\Activitylog\LogOptions;
 use Spatie\Activitylog\Traits\LogsActivity;
@@ -196,4 +196,23 @@ class User extends Authenticatable
     {
         return $this->hasMany(EmergencyContact::class);
     }
+    public function getVisibleUsers(): Collection
+    {
+        $users = collect([$this]); // Always include self
+
+        // Add direct reports
+        $users = $users->merge($this->directReports);
+
+        // Add department members if user is a manager
+        if ($this->canApprovePto()) {
+            $departmentUsers = User::whereHas('departments', function ($query) {
+                $query->whereIn('departments.id', $this->departments->pluck('id'));
+            })->get();
+
+            $users = $users->merge($departmentUsers);
+        }
+
+        return $users->unique('id');
+    }
+
 }

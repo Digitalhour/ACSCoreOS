@@ -169,7 +169,7 @@ class HRDashboardController extends Controller
             'stats' => $stats,
             'users' => $users,
             'ptoTypes' => $ptoTypes,
-            'blackouts' => $blackouts,
+            'Blackouts' => $blackouts,
             'overviewUsers' => $overviewUsers,
             'overviewPtoTypes' => $overviewPtoTypes,
             'currentYear' => (int)$currentYear,

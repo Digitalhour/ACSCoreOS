@@ -7,6 +7,7 @@ use App\Http\Controllers\Api\PtoApi\HRDashboardController;
 use App\Http\Controllers\Api\PtoApi\PtoApprovalRuleController;
 use App\Http\Controllers\Api\PtoApi\PtoOverviewController;
 use App\Http\Controllers\Api\UserPtoController;
+use App\Http\Controllers\DepartmentTimeOffController;
 use App\Http\Controllers\HolidayController;
 use App\Models\User;
 use Illuminate\Support\Facades\Route;
@@ -25,7 +26,25 @@ Route::middleware([
         return Inertia::render('dashboard');
     })->name('dashboard');
 
+
+
+
     Route::middleware(['auth', 'verified'])->group(function () {
+        Route::post('/department-pto/{ptoRequest}/approve', [DepartmentTimeOffController::class, 'approve'])
+            ->name('department.pto.approve');
+
+        // Deny PTO Request
+        Route::post('/department-pto/{ptoRequest}/deny', [DepartmentTimeOffController::class, 'deny'])
+            ->name('department.pto.deny');
+
+        // Approve Emergency Override
+        Route::post('/department-pto/{ptoRequest}/approve-override', [DepartmentTimeOffController::class, 'approveOverride'])
+            ->name('department.pto.approve-override');
+
+
+
+
+
         Route::get('/activity-log', [ActivityLogController::class, 'index'])->name('activity-log.index');
         Route::get('/activity-log/{activity}', [ActivityLogController::class, 'show'])->name('activity-log.show');
 
@@ -56,8 +75,8 @@ Route::middleware([
         })->name('admin.index');
 
 
-       Route::get('/admin/pto-balances', [PtoOverviewController::class, 'index'])->name('admin.pto.balances');
-        Route::get('/admin/pto-blackouts', [PtoAdminController::class, 'blackouts'])->name('admin.pto.blackouts');
+//       Route::get('/admin/pto-balances', [PtoOverviewController::class, 'index'])->name('admin.pto.balances');
+//        Route::get('/admin/pto-Blackouts', [PtoAdminController::class, 'blackouts'])->name('admin.pto.Blackouts');
 
 // Admin PTO request approval/denial (from admin interface)
         Route::post('/admin/pto-requests/{ptoRequest}/approve',
@@ -82,7 +101,7 @@ Route::middleware([
         | PTO Overview for Admins
         |--------------------------------------------------------------------------
         */
-        Route::get('/pto/overview', [PtoOverviewController::class, 'index'])->name('pto.overview');
+        Route::get('/hr/overview', [PtoOverviewController::class, 'index'])->name('pto.overview');
 //            Route::get('/users/hierarchy', [UserHierarchyController::class, 'getHierarchy'])->name('users.hierarchy');
 //
 //            // User Hierarchy detailed routes
@@ -298,8 +317,8 @@ Route::middleware([
 //        Route::get('/admin/pto-balances', [PtoOverviewController::class, 'index'])
 //            ->name('admin.pto.balances');
 //
-//        Route::get('/admin/pto-blackouts', [PtoAdminController::class, 'blackouts'])
-//            ->name('admin.pto.blackouts');
+//        Route::get('/admin/pto-Blackouts', [PtoAdminController::class, 'Blackouts'])
+//            ->name('admin.pto.Blackouts');
 //        Route::post('/admin/pto/submit-historical',
 //            [PtoAdminController::class, 'submitHistoricalPto'])->name('submit-historical');
 //

@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Admin\BlackoutController;
 use App\Http\Controllers\Admin\PtoAdminController;
 use App\Http\Controllers\Api\PtoApi\HREmployeesController;
 use App\Http\Controllers\Api\PtoApi\PtoOverviewController;
@@ -10,7 +11,17 @@ use Laravel\WorkOS\Http\Middleware\ValidateSessionWithWorkOS;
 
 Route::middleware(['auth', ValidateSessionWithWorkOS::class,])->group(function () {
 
-    Route::middleware(['auth', 'verified'])->group(function () {
+    Route::prefix('admin')->name('admin.')->group(function () {
+        Route::resource('blackouts', BlackoutController::class);
+        Route::post('/blackouts/user-check', [BlackoutController::class, 'getBlackoutsForUser'])->name('blackouts.user-check');
+
+    });
+
+    Route::post('/admin/blackouts/get-blackouts-for-user', [BlackoutController::class, 'getBlackoutsForUser'])
+        ->name('admin.blackouts.get-blackouts-for-user');
+
+
+
         Route::get('/hr/employees', [HREmployeesController::class, 'index'])
             ->name('hr.employees');
 
@@ -29,6 +40,6 @@ Route::middleware(['auth', ValidateSessionWithWorkOS::class,])->group(function (
             Route::get('/pto-overview/dashboard', [PtoOverviewController::class, 'getDashboardData']);
             Route::get('/pto-overview/stats', [PtoOverviewController::class, 'getStats']);
 
-    });
+
     });
 });

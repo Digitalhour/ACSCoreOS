@@ -10,7 +10,6 @@ use Inertia\Inertia;
 use Laravel\WorkOS\Http\Middleware\ValidateSessionWithWorkOS;
 
 
-
 Route::middleware([
     'auth',
     ValidateSessionWithWorkOS::class,
@@ -43,8 +42,8 @@ Route::middleware([
     Route::get('/admin/pto-balances', [PtoOverviewController::class, 'index'])
         ->name('admin.pto.balances');
 
-    Route::get('/admin/pto-blackouts', [PtoAdminController::class, 'blackouts'])
-        ->name('admin.pto.blackouts');
+//    Route::get('/admin/pto-Blackouts', [PtoAdminController::class, 'blackouts'])
+//        ->name('admin.pto.Blackouts');
     Route::post('/admin/pto/submit-historical',
         [PtoAdminController::class, 'submitHistoricalPto'])->name('submit-historical');
 

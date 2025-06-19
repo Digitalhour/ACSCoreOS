@@ -137,7 +137,7 @@ class PtoAdminController extends Controller
     }
 
     /**
-     * Display the PTO blackouts admin page.
+     * Display the PTO Blackouts admin page.
      */
     public function blackouts()
     {

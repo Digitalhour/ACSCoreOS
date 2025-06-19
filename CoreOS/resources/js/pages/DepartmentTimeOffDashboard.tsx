@@ -1,20 +1,25 @@
 import PtoStatusCards from '@/components/pto/PtoStatusCards';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Label } from '@/components/ui/label';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Textarea } from '@/components/ui/textarea';
+import {Badge} from '@/components/ui/badge';
+import {Button} from '@/components/ui/button';
+import {Card, CardContent, CardHeader, CardTitle} from '@/components/ui/card';
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle
+} from '@/components/ui/dialog';
+import {Label} from '@/components/ui/label';
+import {Tabs, TabsContent, TabsList, TabsTrigger} from '@/components/ui/tabs';
+import {Textarea} from '@/components/ui/textarea';
 import AppLayout from '@/layouts/app-layout';
-import { type BreadcrumbItem } from '@/types';
-import { Head } from '@inertiajs/react';
-import axios from 'axios';
-import { CheckCircle, Loader2, ThumbsDown, ThumbsUp, X, Users } from 'lucide-react';
-import { useCallback, useEffect, useState, useMemo } from 'react';
-import { toast } from 'sonner';
-import { Calendar, momentLocalizer, Views } from 'react-big-calendar';
+import {type BreadcrumbItem} from '@/types';
+import {Head, useForm} from '@inertiajs/react';
+import {AlertTriangle, CheckCircle, Loader2, Shield, ThumbsDown, ThumbsUp, Users, X} from 'lucide-react';
+import {useCallback, useEffect, useMemo, useState} from 'react';
+import {toast} from 'sonner';
+import {Calendar, momentLocalizer, Views} from 'react-big-calendar';
 import moment from 'moment';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
 
@@ -57,6 +62,11 @@ interface PtoRequest {
     submitted_at: string;
     requires_multi_level_approval: boolean;
     approvals: PtoApproval[];
+    // New blackout-related fields
+    has_blackout_conflicts?: boolean;
+    has_blackout_warnings?: boolean;
+    has_emergency_override?: boolean;
+    override_approved?: boolean;
 }
 
 interface PtoApproval {
@@ -108,18 +118,24 @@ interface PageProps {
 }
 
 export default function DepartmentTimeOffDashboard({ requests, department_pto_requests }: PageProps) {
-    const [loading, setLoading] = useState(false);
-    const [submitting, setSubmitting] = useState(false);
-
     // Modal state
     const [showActionModal, setShowActionModal] = useState(false);
     const [selectedRequest, setSelectedRequest] = useState<PtoRequest | null>(null);
     const [actionType, setActionType] = useState<'approve' | 'deny'>('approve');
-    const [comments, setComments] = useState('');
 
     // Filter state
     const [activeTab, setActiveTab] = useState('pending');
     const [filteredRequests, setFilteredRequests] = useState<PtoRequest[]>([]);
+
+    // Inertia forms
+    const { data: actionData, setData: setActionData, post: postAction, processing: actionProcessing, reset: resetAction } = useForm({
+        comments: '',
+    });
+
+    const { post: postOverride, processing: overrideProcessing, setData: setOverrideData } = useForm({
+        approved: false as boolean,
+        reason: '',
+    });
 
     // Filter requests by tab
     useEffect(() => {
@@ -127,9 +143,6 @@ export default function DepartmentTimeOffDashboard({ requests, department_pto_re
             console.log('No requests data available');
             return;
         }
-
-        console.log('Total requests:', requests.length);
-        console.log('Requests data:', requests);
 
         const filtered = requests.filter((request) => {
             switch (activeTab) {
@@ -139,6 +152,8 @@ export default function DepartmentTimeOffDashboard({ requests, department_pto_re
                     return request.status === 'approved';
                 case 'denied':
                     return request.status === 'denied';
+                case 'blackout_issues':
+                    return request.has_blackout_conflicts || request.has_blackout_warnings;
                 case 'all':
                 default:
                     return true;
@@ -154,11 +169,8 @@ export default function DepartmentTimeOffDashboard({ requests, department_pto_re
         return department_pto_requests
             .filter((request) => request.status === 'approved' || request.status === 'pending')
             .map((request) => {
-                // Parse database dates correctly (they come as YYYY-MM-DD from Laravel)
                 const startDate = new Date(request.start_date);
                 const endDate = new Date(request.end_date);
-
-                // For React Big Calendar all-day events, end needs to be next day
                 const calendarEndDate = new Date(endDate);
                 calendarEndDate.setDate(calendarEndDate.getDate() + 1);
 
@@ -211,41 +223,65 @@ export default function DepartmentTimeOffDashboard({ requests, department_pto_re
     const handleAction = useCallback((request: PtoRequest, action: 'approve' | 'deny') => {
         setSelectedRequest(request);
         setActionType(action);
-        setComments('');
+        resetAction();
         setShowActionModal(true);
-    }, []);
+    }, [resetAction]);
 
-    // Submit approval action
-    const submitAction = useCallback(async () => {
+    // Submit approval action using Inertia - following the new pattern
+    const submitAction = (e: React.FormEvent) => {
+        e.preventDefault();
+
         if (!selectedRequest) return;
 
-        if (actionType === 'deny' && !comments.trim()) {
+        if (actionType === 'deny' && !actionData.comments.trim()) {
             toast.error('Comments are required when denying a request.');
             return;
         }
 
-        try {
-            setSubmitting(true);
-
-            const endpoint =
-                actionType === 'approve' ? `/pto-requests/${selectedRequest.id}/approve` : `/pto-requests/${selectedRequest.id}/deny`;
-
-            await axios.post(endpoint, {
-                comments: comments.trim(),
+        if (actionType === 'approve') {
+            postAction(route('department.pto.approve', selectedRequest.id), {
+                onSuccess: () => {
+                    toast.success('Request approved successfully!');
+                    setShowActionModal(false);
+                    resetAction();
+                },
+                onError: (errors) => {
+                    const errorMessage = Object.values(errors)[0] as string || 'Failed to approve request.';
+                    toast.error(errorMessage);
+                },
             });
-
-            toast.success(`Request ${actionType === 'approve' ? 'approved' : 'denied'} successfully!`);
-
-            // Refresh page to get updated data
-            window.location.reload();
-        } catch (error: any) {
-            console.error('Error processing approval:', error);
-            const errorMessage = error.response?.data?.error || `Failed to ${actionType} request.`;
-            toast.error(errorMessage);
-        } finally {
-            setSubmitting(false);
+        } else {
+            postAction(route('department.pto.deny', selectedRequest.id), {
+                onSuccess: () => {
+                    toast.success('Request denied successfully!');
+                    setShowActionModal(false);
+                    resetAction();
+                },
+                onError: (errors) => {
+                    const errorMessage = Object.values(errors)[0] as string || 'Failed to deny request.';
+                    toast.error(errorMessage);
+                },
+            });
         }
-    }, [selectedRequest, actionType, comments]);
+    };
+
+    // Handle emergency override approval using Inertia
+    const handleOverrideApproval = useCallback((request: PtoRequest, approved: boolean) => {
+        setOverrideData({
+            approved,
+            reason: approved ? 'Override approved by manager' : 'Override denied by manager'
+        });
+
+        postOverride(route('department.pto.approve-override', request.id), {
+            onSuccess: () => {
+                toast.success(`Emergency override ${approved ? 'approved' : 'denied'} successfully!`);
+            },
+            onError: (errors) => {
+                const errorMessage = Object.values(errors)[0] as string || 'Failed to process emergency override';
+                toast.error(errorMessage);
+            },
+        });
+    }, [postOverride, setOverrideData]);
 
     // Format date
     const formatDate = useCallback((dateString: string) => {
@@ -273,24 +309,39 @@ export default function DepartmentTimeOffDashboard({ requests, department_pto_re
     // Check if current user can act on request
     const canApprove = useCallback((request: PtoRequest) => {
         return request.approvals.some(
-            (approval) => approval.status === 'pending', // && approval.approver.id === currentUser.id
+            (approval) => approval.status === 'pending',
         );
     }, []);
 
-    if (loading) {
-        return (
-            <AppLayout breadcrumbs={breadcrumbs}>
-                <Head title="PTO Approvals" />
-                <div className="flex h-full flex-1 items-center justify-center">
-                    <Loader2 className="h-8 w-8 animate-spin" />
+    // Get blackout status indicator
+    const getBlackoutStatusIndicator = useCallback((request: PtoRequest) => {
+        if (request.has_blackout_conflicts) {
+            return (
+                <div className="flex items-center gap-1 text-red-600">
+                    <AlertTriangle className="h-3 w-3" />
+                    <span className="text-xs">Conflicts</span>
+                    {request.has_emergency_override && (
+                        <Shield className="h-3 w-3"  />
+                    )}
                 </div>
-            </AppLayout>
-        );
-    }
+            );
+        }
+
+        if (request.has_blackout_warnings) {
+            return (
+                <div className="flex items-center gap-1 text-amber-600">
+                    <AlertTriangle className="h-3 w-3" />
+                    <span className="text-xs">Warnings</span>
+                </div>
+            );
+        }
+
+        return null;
+    }, []);
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
-            <Head title="PTO Approvals" />
+            <Head title="Department PTO Dashboard" />
 
             <div className="flex h-full flex-1 flex-col gap-6 p-4">
                 <div className="flex items-center justify-between">
@@ -308,82 +359,104 @@ export default function DepartmentTimeOffDashboard({ requests, department_pto_re
                     <CardContent>
                         <Tabs value={activeTab} onValueChange={setActiveTab}>
                             <TabsList>
-                                <TabsTrigger value="pending">Pending ({requests.filter((r) => r.status === 'pending').length})</TabsTrigger>
-                                <TabsTrigger value="approved">Approved ({requests.filter((r) => r.status === 'approved').length})</TabsTrigger>
-                                <TabsTrigger value="denied">Denied ({requests.filter((r) => r.status === 'denied').length})</TabsTrigger>
-                                <TabsTrigger value="all">All ({requests.length})</TabsTrigger>
+                                <TabsTrigger value="pending">
+                                    Pending ({requests.filter((r) => r.status === 'pending').length})
+                                </TabsTrigger>
+                                <TabsTrigger value="approved">
+                                    Approved ({requests.filter((r) => r.status === 'approved').length})
+                                </TabsTrigger>
+                                <TabsTrigger value="denied">
+                                    Denied ({requests.filter((r) => r.status === 'denied').length})
+                                </TabsTrigger>
+                                <TabsTrigger value="blackout_issues" className="text-orange-600">
+                                    Blackout Issues ({requests.filter((r) => r.has_blackout_conflicts || r.has_blackout_warnings).length})
+                                </TabsTrigger>
+                                <TabsTrigger value="all">
+                                    All ({requests.length})
+                                </TabsTrigger>
                             </TabsList>
 
                             <TabsContent value={activeTab} className="mt-4">
                                 {filteredRequests.length === 0 ? (
                                     <div className="text-muted-foreground py-8 text-center">
-                                        No {activeTab === 'all' ? '' : activeTab} requests found.
+                                        No {activeTab === 'all' ? '' : activeTab.replace('_', ' ')} requests found.
                                     </div>
                                 ) : (
-                                    <div className="rounded-md border">
-                                        <Table>
-                                            <TableHeader>
-                                                <TableRow>
-                                                    <TableHead>Request #</TableHead>
-                                                    <TableHead>Employee</TableHead>
-                                                    <TableHead>Type</TableHead>
-                                                    <TableHead>Dates</TableHead>
-                                                    <TableHead>Days</TableHead>
-                                                    <TableHead>Status</TableHead>
-                                                    <TableHead>Approval Chain</TableHead>
-                                                    <TableHead>Submitted</TableHead>
-                                                    <TableHead className="text-right">Actions</TableHead>
-                                                </TableRow>
-                                            </TableHeader>
-                                            <TableBody>
-                                                {filteredRequests.map((request) => (
-                                                    <TableRow key={request.id}>
-                                                        <TableCell className="font-medium">{request.request_number}</TableCell>
-                                                        <TableCell>
-                                                            <div>
-                                                                <div className="font-medium">{request.user.name}</div>
-                                                                <div className="text-muted-foreground text-sm">{request.user.email}</div>
-                                                            </div>
-                                                        </TableCell>
-                                                        <TableCell>
-                                                            <div className="flex items-center gap-2">
-                                                                <div
-                                                                    className="h-3 w-3 rounded-full"
-                                                                    style={{ backgroundColor: request.pto_type.color }}
-                                                                />
-                                                                {request.pto_type.name}
-                                                            </div>
-                                                        </TableCell>
-                                                        <TableCell>
-                                                            <div className="text-sm">
-                                                                <div>{formatDate(request.start_date)}</div>
-                                                                <div className="text-muted-foreground">to {formatDate(request.end_date)}</div>
-                                                            </div>
-                                                        </TableCell>
-                                                        <TableCell>{request.total_days}</TableCell>
-                                                        <TableCell>
-                                                            <Badge className={getStatusColor(request.status)}>
-                                                                {request.status.charAt(0).toUpperCase() + request.status.slice(1)}
-                                                            </Badge>
-                                                        </TableCell>
-                                                        <TableCell>
-                                                            <div className="flex flex-col gap-1">
-                                                                {request.approvals.map((approval, index) => (
-                                                                    <div key={approval.id} className="flex items-center gap-2 text-xs">
-                                                                        <Badge variant="outline" className={getStatusColor(approval.status)}>
-                                                                            L{approval.level}
-                                                                        </Badge>
-                                                                        <span>{approval.approver.name}</span>
-                                                                        {approval.status === 'approved' && (
-                                                                            <CheckCircle className="h-3 w-3 text-green-600" />
-                                                                        )}
-                                                                        {approval.status === 'denied' && <X className="h-3 w-3 text-red-600" />}
-                                                                    </div>
-                                                                ))}
-                                                            </div>
-                                                        </TableCell>
-                                                        <TableCell>{formatDate(request.submitted_at)}</TableCell>
-                                                        <TableCell className="text-right">
+                                    <div className="rounded-md border overflow-x-auto">
+                                        <table className="w-full">
+                                            <thead className="bg-gray-50">
+                                            <tr>
+                                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Request #</th>
+                                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Employee</th>
+                                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
+                                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Dates</th>
+                                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Days</th>
+                                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Blackout</th>
+                                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Approval Chain</th>
+                                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Submitted</th>
+                                                <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                                            </tr>
+                                            </thead>
+                                            <tbody className="bg-white divide-y divide-gray-200">
+                                            {filteredRequests.map((request) => (
+                                                <tr key={request.id}>
+                                                    <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                                                        {request.request_number}
+                                                    </td>
+                                                    <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
+                                                        <div>
+                                                            <div className="font-medium">{request.user.name}</div>
+                                                            <div className="text-gray-500 text-xs">{request.user.email}</div>
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
+                                                        <div className="flex items-center gap-2">
+                                                            <div
+                                                                className="h-3 w-3 rounded-full"
+                                                                style={{ backgroundColor: request.pto_type.color }}
+                                                            />
+                                                            {request.pto_type.name}
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
+                                                        <div>
+                                                            <div>{formatDate(request.start_date)}</div>
+                                                            <div className="text-gray-500 text-xs">to {formatDate(request.end_date)}</div>
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
+                                                        {request.total_days}
+                                                    </td>
+                                                    <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
+                                                        <Badge className={getStatusColor(request.status)}>
+                                                            {request.status.charAt(0).toUpperCase() + request.status.slice(1)}
+                                                        </Badge>
+                                                    </td>
+                                                    <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
+                                                        {getBlackoutStatusIndicator(request)}
+                                                    </td>
+                                                    <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
+                                                        <div className="flex flex-col gap-1">
+                                                            {request.approvals.map((approval) => (
+                                                                <div key={approval.id} className="flex items-center gap-2 text-xs">
+                                                                    <Badge variant="outline" className={getStatusColor(approval.status)}>
+                                                                        L{approval.level}
+                                                                    </Badge>
+                                                                    <span>{approval.approver.name}</span>
+                                                                    {approval.status === 'approved' && (
+                                                                        <CheckCircle className="h-3 w-3 text-green-600" />
+                                                                    )}
+                                                                    {approval.status === 'denied' && <X className="h-3 w-3 text-red-600" />}
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
+                                                        {formatDate(request.submitted_at)}
+                                                    </td>
+                                                    <td className="px-4 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                                        <div className="space-y-2">
                                                             {request.status === 'pending' && canApprove(request) && (
                                                                 <div className="flex items-center justify-end gap-2">
                                                                     <Button
@@ -391,6 +464,7 @@ export default function DepartmentTimeOffDashboard({ requests, department_pto_re
                                                                         size="sm"
                                                                         onClick={() => handleAction(request, 'approve')}
                                                                         className="text-green-600 hover:text-green-700"
+                                                                        disabled={actionProcessing}
                                                                     >
                                                                         <ThumbsUp className="h-4 w-4" />
                                                                     </Button>
@@ -399,16 +473,46 @@ export default function DepartmentTimeOffDashboard({ requests, department_pto_re
                                                                         size="sm"
                                                                         onClick={() => handleAction(request, 'deny')}
                                                                         className="text-red-600 hover:text-red-700"
+                                                                        disabled={actionProcessing}
                                                                     >
                                                                         <ThumbsDown className="h-4 w-4" />
                                                                     </Button>
                                                                 </div>
                                                             )}
-                                                        </TableCell>
-                                                    </TableRow>
-                                                ))}
-                                            </TableBody>
-                                        </Table>
+
+                                                            {request.has_emergency_override && !request.override_approved && (
+                                                                <div className="flex flex-col items-end gap-1">
+                                                                    <Badge variant="outline" className="text-xs text-orange-600 whitespace-nowrap">
+                                                                        Emergency Override Pending
+                                                                    </Badge>
+                                                                    <div className="flex gap-1">
+                                                                        <Button
+                                                                            variant="outline"
+                                                                            size="sm"
+                                                                            onClick={() => handleOverrideApproval(request, true)}
+                                                                            className="text-green-600 hover:text-green-700 text-xs px-2 py-1"
+                                                                            disabled={overrideProcessing}
+                                                                        >
+                                                                            {overrideProcessing ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Approve'}
+                                                                        </Button>
+                                                                        <Button
+                                                                            variant="outline"
+                                                                            size="sm"
+                                                                            onClick={() => handleOverrideApproval(request, false)}
+                                                                            className="text-red-600 hover:text-red-700 text-xs px-2 py-1"
+                                                                            disabled={overrideProcessing}
+                                                                        >
+                                                                            {overrideProcessing ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Deny'}
+                                                                        </Button>
+                                                                    </div>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                            </tbody>
+                                        </table>
                                     </div>
                                 )}
                             </TabsContent>
@@ -463,6 +567,18 @@ export default function DepartmentTimeOffDashboard({ requests, department_pto_re
                                     <div className="h-3 w-3 border-2 border-green-500 bg-green-200"></div>
                                     <span>Approved</span>
                                 </div>
+                                <div className="flex items-center gap-1">
+                                    <AlertTriangle className="h-3 w-3 text-red-500" />
+                                    <span>Blackout Conflicts</span>
+                                </div>
+                                <div className="flex items-center gap-1">
+                                    <AlertTriangle className="h-3 w-3 text-amber-500" />
+                                    <span>Blackout Warnings</span>
+                                </div>
+                                <div className="flex items-center gap-1">
+                                    <Shield className="h-3 w-3 text-orange-500" />
+                                    <span>Emergency Override</span>
+                                </div>
                             </div>
                         </div>
                     </CardContent>
@@ -484,46 +600,66 @@ export default function DepartmentTimeOffDashboard({ requests, department_pto_re
                             </DialogDescription>
                         </DialogHeader>
 
-                        <div className="space-y-4">
-                            <div className="space-y-2">
-                                <Label htmlFor="comments">Comments {actionType === 'deny' && <span className="text-red-500">*</span>}</Label>
-                                <Textarea
-                                    id="comments"
-                                    value={comments}
-                                    onChange={(e) => setComments(e.target.value)}
-                                    placeholder={actionType === 'approve' ? 'Optional comments...' : 'Please provide a reason for denial...'}
-                                    rows={3}
-                                />
+                        <form onSubmit={submitAction}>
+                            <div className="space-y-4">
+                                {/* Show blackout warning if present */}
+                                {selectedRequest && (selectedRequest.has_blackout_conflicts || selectedRequest.has_blackout_warnings) && (
+                                    <div className="bg-amber-50 border border-amber-200 rounded p-3">
+                                        <div className="flex items-center gap-2 mb-2">
+                                            <AlertTriangle className="h-4 w-4 text-amber-600" />
+                                            <span className="text-sm font-medium text-amber-800">Blackout Period Notice</span>
+                                        </div>
+                                        <p className="text-sm text-amber-700">
+                                            This request {selectedRequest.has_blackout_conflicts ? 'conflicts with' : 'has warnings for'} blackout periods.
+                                            {selectedRequest.has_emergency_override ? ' Employee has requested emergency override.' : ''}
+                                        </p>
+                                    </div>
+                                )}
+
+                                <div className="space-y-2">
+                                    <Label htmlFor="comments">Comments {actionType === 'deny' && <span className="text-red-500">*</span>}</Label>
+                                    <Textarea
+                                        id="comments"
+                                        value={actionData.comments}
+                                        onChange={(e) => setActionData('comments', e.target.value)}
+                                        placeholder={actionType === 'approve' ? 'Optional comments...' : 'Please provide a reason for denial...'}
+                                        rows={3}
+                                    />
+                                </div>
+
+                                {selectedRequest?.reason && (
+                                    <div className="space-y-2">
+                                        <Label>Employee's Reason</Label>
+                                        <div className="text-muted-foreground bg-muted rounded p-3 text-sm">{selectedRequest.reason}</div>
+                                    </div>
+                                )}
                             </div>
 
-                            {selectedRequest?.reason && (
-                                <div className="space-y-2">
-                                    <Label>Employee's Reason</Label>
-                                    <div className="text-muted-foreground bg-muted rounded p-3 text-sm">{selectedRequest.reason}</div>
-                                </div>
-                            )}
-                        </div>
-
-                        <DialogFooter>
-                            <Button type="button" variant="outline" onClick={() => setShowActionModal(false)} disabled={submitting}>
-                                Cancel
-                            </Button>
-                            <Button
-                                type="button"
-                                onClick={submitAction}
-                                disabled={submitting}
-                                className={actionType === 'approve' ? 'bg-green-600 hover:bg-green-700' : 'bg-red-600 hover:bg-red-700'}
-                            >
-                                {submitting ? (
-                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                ) : actionType === 'approve' ? (
-                                    <ThumbsUp className="mr-2 h-4 w-4" />
-                                ) : (
-                                    <ThumbsDown className="mr-2 h-4 w-4" />
-                                )}
-                                {actionType === 'approve' ? 'Approve' : 'Deny'} Request
-                            </Button>
-                        </DialogFooter>
+                            <DialogFooter className="mt-6">
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    onClick={() => setShowActionModal(false)}
+                                    disabled={actionProcessing}
+                                >
+                                    Cancel
+                                </Button>
+                                <Button
+                                    type="submit"
+                                    disabled={actionProcessing}
+                                    className={actionType === 'approve' ? 'bg-green-600 hover:bg-green-700' : 'bg-red-600 hover:bg-red-700'}
+                                >
+                                    {actionProcessing ? (
+                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                    ) : actionType === 'approve' ? (
+                                        <ThumbsUp className="mr-2 h-4 w-4" />
+                                    ) : (
+                                        <ThumbsDown className="mr-2 h-4 w-4" />
+                                    )}
+                                    {actionType === 'approve' ? 'Approve' : 'Deny'} Request
+                                </Button>
+                            </DialogFooter>
+                        </form>
                     </DialogContent>
                 </Dialog>
             </div>

@@ -1,6 +1,5 @@
 import Heading from '@/components/heading';
 import {Separator} from '@/components/ui/separator';
-import {cn} from '@/lib/utils';
 import {type NavItem} from '@/types';
 import {Link} from '@inertiajs/react';
 import {type PropsWithChildren} from 'react';
@@ -10,8 +9,8 @@ import {Button} from "@/components/ui/button";
 const sidebarNavItems: NavItem[] = [
     {
         title: 'Hr Dashboard',
-        href: '/pto/overview',
-        description: null,
+        href: '/hr/overview',
+        description: "Hr Dashboard",
         icon: BarChart3,
     },
     {
@@ -38,6 +37,13 @@ const sidebarNavItems: NavItem[] = [
         description: null,
         icon: FileText,
     }
+    ,
+    {
+        title: 'Blackouts',
+        href: '/admin/blackouts',
+        description: null,
+        icon: FileText,
+    }
 ];
 
 export default function HrLayout({ children }: PropsWithChildren) {
@@ -58,16 +64,23 @@ export default function HrLayout({ children }: PropsWithChildren) {
                         {sidebarNavItems.map((item, index) => (
                             <Button
                                 key={`${item.href}-${index}`}
-                                size="sm"
+
                                 variant="ghost"
                                 asChild
-                                className={cn('w-full justify-start', {
-                                    'bg-muted': currentPath === item.href,
-                                })}
+                                className={'w-full h-1/3 justify-start  ' + (currentPath === item.href ? 'bg-muted' : '') + '' }
                             >
+
                                 <Link href={item.href} prefetch>
-                                    {item.title}
+                                    <div className="flex items-center gap-2">
+                                        {item.icon && <item.icon className="h-4 w-4 ml-2" />}
+
+                                        <div className={"text-balance"}>
+                                            <div className="font-medium">{item.title}</div>
+                                            <div className=" text-muted-foreground text-xs ">{item.description}</div>
+                                        </div>
+                                    </div>
                                 </Link>
+
                             </Button>
                         ))}
                     </nav>

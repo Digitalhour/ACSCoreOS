@@ -22,8 +22,9 @@ import {
     MapPin,
     Phone,
     Shield,
-    Star
+    UserRoundCheck,
 } from 'lucide-react';
+import {Separator} from "@/components/ui/separator";
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
@@ -321,7 +322,7 @@ export default function Employees({ users }: { users: User[] }) {
                     <div className="flex justify-between items-center">
                         <div>
                             <h1 className="text-2xl font-bold text-gray-900">Employees</h1>
-                            <p className="text-gray-600">Manage your organization's employees</p>
+                            <p className="text-gray-600">Employees time off details </p>
                         </div>
                         <div className="text-sm text-gray-500">
                             {users.length} employee{users.length !== 1 ? 's' : ''}
@@ -388,21 +389,21 @@ export default function Employees({ users }: { users: User[] }) {
                                         </TableCell>
                                         <TableCell className="py-4 px-4">
                                             <div className="flex flex-wrap gap-1">
-                                                <Badge variant="secondary" className="bg-blue-100 text-blue-800">
+                                                <Badge variant="secondary" >
                                                     Total: {user.pto_stats.total}
                                                 </Badge>
                                                 {user.pto_stats.pending > 0 && (
-                                                    <Badge variant="secondary" className="bg-yellow-100 text-yellow-800">
+                                                    <Badge variant="secondary" >
                                                         Pending: {user.pto_stats.pending}
                                                     </Badge>
                                                 )}
                                                 {user.pto_stats.approved > 0 && (
-                                                    <Badge variant="secondary" className="bg-green-100 text-green-800">
+                                                    <Badge variant="secondary" >
                                                         Approved: {user.pto_stats.approved}
                                                     </Badge>
                                                 )}
                                                 {user.pto_stats.denied > 0 && (
-                                                    <Badge variant="secondary" className="bg-red-100 text-red-800">
+                                                    <Badge variant="secondary" >
                                                         Denied: {user.pto_stats.denied}
                                                     </Badge>
                                                 )}
@@ -427,7 +428,7 @@ export default function Employees({ users }: { users: User[] }) {
                         {selectedUser && (
                             <>
                                 {/* Header */}
-                                <SheetHeader className="p-6 border-b bg-gradient-to-r from-blue-50 to-indigo-50">
+                                <SheetHeader className="p-6 border-b bg-gradient-to-r from-gray-50 to-indigo-50">
                                     <div className="flex items-start space-x-4">
                                         <Avatar className="h-16 w-16 border-4 border-white shadow-lg">
                                             <AvatarImage src={selectedUser.avatar || undefined} alt={selectedUser.name} />
@@ -454,7 +455,7 @@ export default function Employees({ users }: { users: User[] }) {
                                                 <MapPin className="h-4 w-4 mr-1" />
                                                 <span className="text-sm text-gray-600">{selectedUser.departments}</span>
                                                 <Badge className="ml-3 bg-green-100 text-green-800 border-green-200">
-                                                    <Star className="h-3 w-3 mr-1" />
+                                                    <UserRoundCheck className="h-3 w-3 mr-1"/>
                                                     Active
                                                 </Badge>
                                             </div>
@@ -463,16 +464,22 @@ export default function Employees({ users }: { users: User[] }) {
 
                                     {/* Key Metrics as Badges */}
                                     <div className="flex flex-wrap gap-2 mt-4">
-                                        <Badge className="bg-blue-100 text-blue-800 border-blue-200 px-3 py-1">
+                                        <Badge variant={"secondary"} className="border-gray-200 px-3 py-1">
                                             Total Requests: {selectedUser.pto_stats.total}
                                         </Badge>
-                                        <Badge className="bg-yellow-100 text-yellow-800 border-yellow-200 px-3 py-1">
+                                        <Badge variant={"secondary"} className="border-gray-200 px-3 py-1">
                                             Pending: {selectedUser.pto_stats.pending}
                                         </Badge>
-                                        <Badge className="bg-green-100 text-green-800 border-green-200 px-3 py-1">
+                                        <Badge variant={"secondary"} className="border-gray-200 px-3 py-1">
                                             Approved: {selectedUser.pto_stats.approved}
                                         </Badge>
-                                        <Badge className="bg-gray-100 text-gray-800 border-gray-200 px-3 py-1">
+                                        <Badge variant={"secondary"} className="border-gray-200 px-3 py-1">
+                                            Cancelled: {selectedUser.pto_stats.cancelled}
+                                        </Badge>
+                                        <Badge className="bg-red-100 text-red-800 border-red-200 px-3 py-1">
+                                            Denied: {selectedUser.pto_stats.denied}
+                                        </Badge>
+                                        <Badge variant={"secondary"} className=" border-gray-200 px-3 py-1">
                                             Days Available: {selectedUser.pto_balances.length > 0 ? selectedUser.pto_balances[0].balance.toFixed(1) : '0'}
                                         </Badge>
                                     </div>
@@ -481,7 +488,7 @@ export default function Employees({ users }: { users: User[] }) {
                                 {/* Tabbed Content */}
                                 <div className="flex-1 overflow-hidden">
                                     <Tabs defaultValue="overview" className="h-full flex flex-col">
-                                        <div className="border-b px-6">
+                                        <div className=" px-6">
                                             <TabsList className="h-12 p-0 bg-transparent">
                                                 <TabsTrigger value="overview" className="data-[state=active]:bg-gray-100 data-[state=active]:text-gray-900 hover:bg-gray-50 border border-transparent data-[state=active]:border-gray-200 rounded-md">
                                                     Overview
@@ -500,7 +507,7 @@ export default function Employees({ users }: { users: User[] }) {
                                                 </TabsTrigger>
                                             </TabsList>
                                         </div>
-
+                                        <Separator />
                                         <div className="flex-1 overflow-y-auto">
                                             <TabsContent value="overview" className="p-6 space-y-6 m-0">
                                                 <Card>
@@ -544,7 +551,7 @@ export default function Employees({ users }: { users: User[] }) {
                                                         {selectedUser.pto_balances.length > 0 ? (
                                                             <div className="space-y-4">
                                                                 {selectedUser.pto_balances.map((balance) => (
-                                                                    <div key={balance.id} className="flex items-center justify-between p-3 border rounded-lg">
+                                                                    <div key={balance.id} className="flex items-center justify-between p-2 border rounded-sm">
                                                                         <div className="flex items-center space-x-2">
                                                                             <span className="font-medium">{balance.type}</span>
                                                                             <Badge variant="outline">{balance.year}</Badge>
@@ -558,6 +565,9 @@ export default function Employees({ users }: { users: User[] }) {
                                                                             </Badge>
                                                                             <Badge className="bg-yellow-100 text-yellow-800 border-yellow-200">
                                                                                 Pending: {balance.pending_balance.toFixed(1)}
+                                                                            </Badge>
+                                                                            <Badge variant={"secondary"} className="border-gray-200">
+                                                                                Total Allocated:  {(balance.balance + balance.used_balance).toFixed(2)}
                                                                             </Badge>
                                                                         </div>
                                                                     </div>
