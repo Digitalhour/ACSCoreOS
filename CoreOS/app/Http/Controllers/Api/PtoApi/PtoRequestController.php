@@ -217,7 +217,7 @@ class PtoRequestController extends Controller
                     'day_options' => $request->day_options ?? [],
                 ]);
 
-                // Validate and store blackout information using the service
+                // Validate blackout periods
                 $blackoutValidation = $this->blackoutService->validateAndStorePtoRequest(
                     $ptoRequest,
                     $isEmergencyOverride
@@ -228,7 +228,7 @@ class PtoRequestController extends Controller
                     $this->blackoutService->processBlackoutAcknowledgment($ptoRequest, $user);
                 }
 
-                // If there are unresolved conflicts without emergency override, reject
+                // Only deny for CONFLICTS without emergency override, not warnings
                 if ($blackoutValidation['has_conflicts'] && !$isEmergencyOverride) {
                     $ptoRequest->update([
                         'status' => 'denied',
@@ -239,10 +239,18 @@ class PtoRequestController extends Controller
                     throw new \Exception('PTO request conflicts with blackout periods.');
                 }
 
-                // Create approval chain
-                if (class_exists('\App\Services\ApprovalChainService')) {
-                    $approvalService = new \App\Services\ApprovalChainService();
-                    $approvalService->createApprovalChain($ptoRequest);
+                // ALWAYS create approval chain for pending requests (including those with warnings)
+                if ($ptoRequest->status === 'pending') {
+                    try {
+                        if (class_exists('\App\Services\ApprovalChainService')) {
+                            $approvalService = new \App\Services\ApprovalChainService();
+                            $approvalService->createApprovalChain($ptoRequest);
+                        }
+                    } catch (\Exception $e) {
+                        Log::error("Failed to create approval chain for PTO request {$ptoRequest->id}: " . $e->getMessage());
+                        // Don't fail the entire request if approval chain creation fails
+                        // But log it for investigation
+                    }
                 }
 
                 // Update pending balance

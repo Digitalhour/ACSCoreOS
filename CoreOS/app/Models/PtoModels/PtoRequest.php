@@ -308,7 +308,8 @@ class PtoRequest extends Model
             return [
                 'message' => $conflict['message'] ?? 'Blackout conflict detected',
                 'blackout_name' => $conflict['blackout']['name'] ?? 'Unknown',
-                'date_range' => $conflict['restriction_details']['period'] ?? 'Unknown period',
+                'date_range' => $conflict['blackout']['formatted_date_range'] ??
+                    ($conflict['restriction_details']['period'] ?? 'Unknown period'),
                 'can_override' => $conflict['can_override'] ?? false,
             ];
         })->toArray();
@@ -327,7 +328,8 @@ class PtoRequest extends Model
             return [
                 'message' => $warning['message'] ?? 'Blackout warning',
                 'blackout_name' => $warning['blackout']['name'] ?? 'Unknown',
-                'date_range' => $warning['restriction_details']['period'] ?? 'Unknown period',
+                'date_range' => $warning['blackout']['formatted_date_range'] ??
+                    ($warning['restriction_details']['period'] ?? 'Unknown period'),
                 'requires_acknowledgment' => true,
             ];
         })->toArray();

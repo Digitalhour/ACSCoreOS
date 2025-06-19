@@ -3,8 +3,9 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Models\User;
 use App\Models\EmployeeReportingAssignment;
+use App\Models\User;
+use App\Services\HierarchyTransferService;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -13,9 +14,12 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 
-
 class UserHierarchyController extends Controller
 {
+    public function __construct(
+        private HierarchyTransferService $hierarchyTransferService
+    ) {}
+
     /**
      * List users with their current position and manager names.
      */
@@ -59,8 +63,6 @@ class UserHierarchyController extends Controller
 
     /**
      * Pre-processes the start_date from the request.
-     * If it's slightly in the future (within a tolerance), it caps it at Carbon::now('UTC').
-     * This helps avoid validation errors for "almost now" selections from the client.
      */
     private function prepareStartDateForValidation(Request $request): void
     {
@@ -69,31 +71,26 @@ class UserHierarchyController extends Controller
 
         if ($originalStartDateRequest) {
             try {
-                // Frontend sends YYYY-MM-DD HH:MM:SS UTC.
                 $parsedInputDate = Carbon::createFromFormat('Y-m-d H:i:s', $originalStartDateRequest, 'UTC');
                 $now = Carbon::now('UTC');
 
-                // If the input date is in the future but within a 2-minute tolerance (120 seconds), cap it at 'now'.
                 if ($parsedInputDate->isAfter($now) && $parsedInputDate->diffInSeconds($now) < 120) {
-                    $startDateForValidation = $now->toDateTimeString(); // Format as YYYY-MM-DD HH:MM:SS
+                    $startDateForValidation = $now->toDateTimeString();
                     Log::info("Original start date '{$originalStartDateRequest}' was slightly in future, adjusted to '{$startDateForValidation}' for validation.");
                 }
             } catch (\Exception $e) {
-                // If parsing fails, let the main validator catch the format error.
                 Log::warning("Could not parse input start_date '{$originalStartDateRequest}' during pre-processing. Validation will proceed with original value. Error: ".$e->getMessage());
             }
-            // Merge the potentially adjusted start_date back into the request for validation.
             $request->merge(['start_date' => $startDateForValidation]);
         }
     }
-
 
     /**
      * Assign or update a user's position.
      */
     public function assignPosition(Request $request, User $user): JsonResponse
     {
-        $this->prepareStartDateForValidation($request); // Pre-process start_date
+        $this->prepareStartDateForValidation($request);
 
         $validator = Validator::make($request->all(), [
             'position_id' => 'required|integer|exists:positions,id',
@@ -104,14 +101,13 @@ class UserHierarchyController extends Controller
             return response()->json(['errors' => $validator->errors()], 422);
         }
 
-        // Use the validated (and potentially adjusted by prepareStartDateForValidation) start_date
         $newPositionId = $validator->validated()['position_id'];
         $startDateForDb = Carbon::createFromFormat('Y-m-d H:i:s', $validator->validated()['start_date'], 'UTC');
 
         DB::beginTransaction();
         try {
             $user->currentReportingAssignment()
-                ->where('position_id', '!=', $newPositionId) // Only end if position is truly different
+                ->where('position_id', '!=', $newPositionId)
                 ->update(['end_date' => $startDateForDb->copy()->subSecond()]);
 
             $user->position_id = $newPositionId;
@@ -125,16 +121,19 @@ class UserHierarchyController extends Controller
                 'end_date' => null,
             ]);
 
+            // Note: Position changes don't typically affect PTO approvals directly
+            // unless the position change also involves authority/approval rights changes
+
             DB::commit();
             Log::info("Position ID {$newPositionId} assigned to User ID {$user->id}.");
+
             return response()->json([
                 'message' => 'User position updated successfully.',
                 'user' => $user->load(['currentPosition', 'manager']),
             ]);
         } catch (\Exception $e) {
             DB::rollBack();
-            Log::error("Error assigning position to User ID {$user->id}: ".$e->getMessage(),
-                ['trace' => $e->getTraceAsString()]);
+            Log::error("Error assigning position to User ID {$user->id}: ".$e->getMessage());
             return response()->json([
                 'error' => 'Failed to assign position.',
                 'details' => App::environment('local') ? $e->getMessage() : 'An unexpected error occurred.'
@@ -148,17 +147,17 @@ class UserHierarchyController extends Controller
     public function assignManager(Request $request, User $user): JsonResponse
     {
         if (is_null($user->position_id)) {
-            Log::warning("Attempted to assign manager to User ID {$user->id} who has no position assigned.");
             return response()->json([
-                'errors' => ['user_position' => ['The user must have a position assigned before a manager can be set. Please assign a position to this user first.']]
+                'errors' => ['user_position' => ['The user must have a position assigned before a manager can be set.']]
             ], 422);
         }
 
-        $this->prepareStartDateForValidation($request); // Pre-process start_date
+        $this->prepareStartDateForValidation($request);
 
         $validator = Validator::make($request->all(), [
             'manager_id' => 'required|integer|exists:users,id|different:user_id',
             'start_date' => 'required|date_format:Y-m-d H:i:s|before_or_equal:now',
+            'transfer_approvals' => 'boolean',
         ], [
             'manager_id.different' => 'A user cannot report to themselves.'
         ]);
@@ -169,10 +168,9 @@ class UserHierarchyController extends Controller
             return response()->json(['errors' => $validator->errors()], 422);
         }
 
-        // Use the validated (and potentially adjusted) start_date
         $newManagerId = $validator->validated()['manager_id'];
         $startDateForDb = Carbon::createFromFormat('Y-m-d H:i:s', $validator->validated()['start_date'], 'UTC');
-
+        $transferApprovals = $request->boolean('transfer_approvals', true); // Default to true
 
         $potentialNewManager = User::find($newManagerId);
         if ($potentialNewManager && $potentialNewManager->reports_to_user_id === $user->id) {
@@ -180,10 +178,13 @@ class UserHierarchyController extends Controller
                 422);
         }
 
+        // Store old manager ID for approval transfer
+        $oldManagerId = $user->reports_to_user_id;
+
         DB::beginTransaction();
         try {
             $user->currentReportingAssignment()
-                ->where('manager_id', '!=', $newManagerId) // Only end if manager is truly different
+                ->where('manager_id', '!=', $newManagerId)
                 ->update(['end_date' => $startDateForDb->copy()->subSecond()]);
 
             $user->reports_to_user_id = $newManagerId;
@@ -197,18 +198,119 @@ class UserHierarchyController extends Controller
                 'end_date' => null,
             ]);
 
+            $approvalTransferResult = ['transferred' => 0, 'errors' => []];
+
+            // Transfer pending approvals if requested and there was an old manager
+            if ($transferApprovals && $oldManagerId && $oldManagerId !== $newManagerId) {
+                $approvalTransferResult = $this->hierarchyTransferService->transferPendingApprovalsOnManagerChange(
+                    $user,
+                    $oldManagerId,
+                    $newManagerId
+                );
+            }
+
             DB::commit();
-            Log::info("Manager ID {$newManagerId} assigned to User ID {$user->id}.");
-            return response()->json([
+
+            Log::info("Manager ID {$newManagerId} assigned to User ID {$user->id}. Transferred {$approvalTransferResult['transferred']} approvals.");
+
+            $response = [
                 'message' => 'User manager updated successfully.',
                 'user' => $user->load(['currentPosition', 'manager']),
-            ]);
+                'approval_transfer' => $approvalTransferResult
+            ];
+
+            if ($approvalTransferResult['transferred'] > 0) {
+                $response['message'] .= " {$approvalTransferResult['transferred']} pending approvals transferred to new manager.";
+            }
+
+            return response()->json($response);
+
         } catch (\Exception $e) {
             DB::rollBack();
-            Log::error("Error assigning manager to User ID {$user->id}: ".$e->getMessage(),
-                ['trace' => $e->getTraceAsString()]);
+            Log::error("Error assigning manager to User ID {$user->id}: ".$e->getMessage());
             return response()->json([
                 'error' => 'Failed to assign manager.',
+                'details' => App::environment('local') ? $e->getMessage() : 'An unexpected error occurred.'
+            ], 500);
+        }
+    }
+
+    /**
+     * Transfer all pending approvals from one user to another
+     */
+    public function transferApprovals(Request $request): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'from_user_id' => 'required|integer|exists:users,id',
+            'to_user_id' => 'required|integer|exists:users,id|different:from_user_id',
+            'reason' => 'nullable|string|max:255',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['errors' => $validator->errors()], 422);
+        }
+
+        $fromUserId = $request->input('from_user_id');
+        $toUserId = $request->input('to_user_id');
+        $reason = $request->input('reason', 'Manual transfer');
+
+        try {
+            $result = $this->hierarchyTransferService->transferAllPendingApprovals(
+                $fromUserId,
+                $toUserId,
+                $reason
+            );
+
+            return response()->json([
+                'message' => "Successfully transferred {$result['transferred']} pending approvals.",
+                'transferred_count' => $result['transferred'],
+                'errors' => $result['errors']
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error("Error in manual approval transfer from {$fromUserId} to {$toUserId}: " . $e->getMessage());
+            return response()->json([
+                'error' => 'Failed to transfer approvals.',
+                'details' => App::environment('local') ? $e->getMessage() : 'An unexpected error occurred.'
+            ], 500);
+        }
+    }
+
+    /**
+     * Get summary of approvals that would be affected by hierarchy changes
+     */
+    public function getApprovalTransferPreview(User $user): JsonResponse
+    {
+        try {
+            $summary = $this->hierarchyTransferService->getPendingApprovalsSummary($user);
+            return response()->json($summary);
+        } catch (\Exception $e) {
+            Log::error("Error getting approval transfer preview for user {$user->id}: " . $e->getMessage());
+            return response()->json([
+                'error' => 'Failed to get approval preview.',
+                'details' => App::environment('local') ? $e->getMessage() : 'An unexpected error occurred.'
+            ], 500);
+        }
+    }
+
+    /**
+     * Rebuild approval chains for affected users
+     */
+    public function rebuildApprovalChains(User $user): JsonResponse
+    {
+        try {
+            $result = $this->hierarchyTransferService->rebuildApprovalChains($user);
+
+            return response()->json([
+                'message' => "Successfully rebuilt {$result['rebuilt']} approval chains.",
+                'rebuilt_count' => $result['rebuilt'],
+                'errors' => $result['errors']
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error("Error rebuilding approval chains for user {$user->id}: " . $e->getMessage());
+            return response()->json([
+                'error' => 'Failed to rebuild approval chains.',
                 'details' => App::environment('local') ? $e->getMessage() : 'An unexpected error occurred.'
             ], 500);
         }
@@ -259,23 +361,19 @@ class UserHierarchyController extends Controller
 
     public function getHierarchy()
     {
-        // Fetch users. Ensure 'position' is included.
-        // If 'position' is from a related model (e.g., 'currentPosition()'), eager load it.
-        $users = User::with('currentPosition') // Assuming 'currentPosition' is a relationship returning a Position model with a 'name' attribute
-        ->get();
+        $users = User::with('currentPosition')
+            ->get();
 
         $transformedUsers = $users->map(function ($user) {
             return [
                 'id' => $user->id,
                 'name' => $user->name,
                 'reports_to_user_id' => $user->reports_to_user_id,
-                'avatar' => $user->avatar, // Ensure this field exists and contains a URL or path
+                'avatar' => $user->avatar,
                 'position' => $user->currentPosition ? $user->currentPosition->name : ($user->position ?? 'N/A'),
-                // Example: Fallback to a direct 'position' attribute if 'currentPosition' is null or doesn't exist
             ];
         });
 
         return response()->json($transformedUsers);
     }
-
 }

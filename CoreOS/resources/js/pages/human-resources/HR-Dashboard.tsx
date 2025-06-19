@@ -342,9 +342,9 @@ export default function HrDashboard() {
                         </Card>
                     </div>
 
-                    <div className="grid grid-cols-1  gap-6 lg:grid-cols-3">
+                    <div className="grid grid-cols-1  gap-6 lg:grid-cols-4">
                         {/* Top PTO Types by Usage */}
-                        <Card className={"max-w-4/6"}>
+                        <Card className={""}>
                             <CardHeader>
                                 <CardTitle>Most Used PTO Types</CardTitle>
                             </CardHeader>
@@ -412,7 +412,7 @@ export default function HrDashboard() {
                         </Card>
 
                         {/* Recent Activities */}
-                        <Card>
+                        <Card className={"col-span-2"}>
                             <CardHeader>
                                 <CardTitle>Recent Activity</CardTitle>
                             </CardHeader>

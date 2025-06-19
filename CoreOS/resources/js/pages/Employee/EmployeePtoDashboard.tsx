@@ -85,6 +85,7 @@ interface PtoRequest {
     override_approved?: boolean;
 }
 
+
 interface DepartmentPtoRequest {
     id: number;
     user: {
@@ -489,15 +490,17 @@ export default function EmployeePtoDashboard() {
     const [emergencyReason, setEmergencyReason] = useState('');
 
     // Inertia form for PTO requests
-    const { data, setData, post, processing, errors, reset } = useForm({
+    const { data, setData, post, processing, errors, reset } = useForm
+    ({
         pto_type_id: '',
         start_date: '',
         end_date: '',
         reason: '',
         total_days: 0,
         day_options: [] as Array<{ date: string; type: 'full' | 'half' }>,
-        is_emergency_override: false,
-        acknowledge_warnings: false,
+        is_emergency_override: false as boolean,
+        acknowledge_warnings: false as boolean,
+
     });
 
     // Inertia form for cancellation
@@ -541,8 +544,9 @@ export default function EmployeePtoDashboard() {
             onStart: () => setCheckingBlackouts(true),
             onFinish: () => setCheckingBlackouts(false),
             onSuccess: (page) => {
-                const conflicts = page.props.blackout_conflicts || [];
-                const warnings = page.props.blackout_warnings || [];
+                const conflicts = (page.props.blackout_conflicts as BlackoutConflict[]) || [];
+                const warnings = (page.props.blackout_warnings as BlackoutConflict[]) || [];
+
 
                 setBlackoutConflicts(conflicts);
                 setBlackoutWarnings(warnings);
@@ -700,20 +704,50 @@ export default function EmployeePtoDashboard() {
             setBlackoutConflicts([]);
             setBlackoutWarnings([]);
         }
-    }, [data.start_date, data.end_date, data.pto_type_id, fetchHolidaysInRange, checkBlackouts]);
+    }, [data.start_date, data.end_date, data.pto_type_id, fetchHolidaysInRange, checkBlackouts, setData]);
+
 
     // Update day options when holidays are loaded
     useEffect(() => {
         if (data.start_date && data.end_date) {
-            const newDayOptions = generateDayOptions(data.start_date, data.end_date);
+            const start = new Date(data.start_date + 'T00:00:00');
+            const end = new Date(data.end_date + 'T00:00:00');
+            const businessDays: Date[] = [];
+            const curDate = new Date(start.getTime());
+
+            // Generate business days
+            while (curDate <= end) {
+                const dayOfWeek = curDate.getDay();
+                if (dayOfWeek !== 0 && dayOfWeek !== 6) {
+                    businessDays.push(new Date(curDate.getTime()));
+                }
+                curDate.setDate(curDate.getDate() + 1);
+            }
+
+            // Create day options with holiday information
+            const newDayOptions = businessDays.map((date) => {
+                const dateString = date.toISOString().split('T')[0];
+                const holiday = holidays.find(h => h.date === dateString);
+
+                return {
+                    date,
+                    type: 'full' as const,
+                    isHoliday: !!holiday,
+                    holidayName: holiday?.name,
+                };
+            });
+
             setDayOptions(newDayOptions);
 
+            // Calculate total days excluding holidays
             const totalDays = newDayOptions
                 .filter(day => !day.isHoliday)
                 .reduce((sum, day) => sum + (day.type === 'full' ? 1.0 : 0.5), 0);
 
             setRequestedDays(totalDays);
             setData('total_days', totalDays);
+
+            // Only include non-holiday days in day_options for backend
             setData('day_options', newDayOptions
                 .filter(day => !day.isHoliday)
                 .map(option => ({
@@ -722,7 +756,8 @@ export default function EmployeePtoDashboard() {
                 }))
             );
         }
-    }, [holidays, data.start_date, data.end_date, generateDayOptions, setData]);
+    }, [holidays, data.start_date, data.end_date, setData]);
+
 
     // Handle day option change
     const handleDayOptionChange = useCallback((date: Date, type: 'full' | 'half') => {
@@ -735,12 +770,15 @@ export default function EmployeePtoDashboard() {
 
         setDayOptions(updatedOptions);
 
+        // Calculate total days excluding holidays
         const totalDays = updatedOptions
             .filter(day => !day.isHoliday)
             .reduce((sum, day) => sum + (day.type === 'full' ? 1.0 : 0.5), 0);
 
         setRequestedDays(totalDays);
         setData('total_days', totalDays);
+
+        // Only include non-holiday days in day_options for backend
         setData('day_options', updatedOptions
             .filter(day => !day.isHoliday)
             .map(option => ({
@@ -1009,10 +1047,10 @@ export default function EmployeePtoDashboard() {
                                                     <span className="text-xs">{request.pto_type.code}</span>
                                                     {/* Show blackout indicators */}
                                                     {request.has_blackout_conflicts && (
-                                                        <AlertTriangle className="h-3 w-3 text-red-500" title="Has blackout conflicts" />
+                                                        <AlertTriangle className="h-3 w-3 text-red-500" />
                                                     )}
                                                     {request.has_blackout_warnings && (
-                                                        <AlertTriangle className="h-3 w-3 text-yellow-500" title="Has blackout warnings" />
+                                                        <AlertTriangle className="h-3 w-3 text-yellow-500" />
                                                     )}
                                                     {request.has_emergency_override && (
                                                         <Badge variant="outline" className="text-xs px-1 py-0">

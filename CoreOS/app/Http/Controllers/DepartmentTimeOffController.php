@@ -53,7 +53,7 @@ class DepartmentTimeOffController extends Controller
     private function getDepartmentPtoRequests(User $user)
     {
         $query = PtoRequest::with([
-            'user:id,name,email,manager_id',
+            'user:id,name,email,reports_to_user_id',
             'ptoType:id,name,code,color,multi_level_approval',
             'approvals.approver:id,name,email'
         ]);
@@ -73,9 +73,9 @@ class DepartmentTimeOffController extends Controller
             });
         });
 
-        $requests = $query->orderBy('submitted_at', 'desc')->get();
+        $requests = $query->orderBy('created_at', 'desc')->get();
 
-        return $requests->map(function ($request) {
+        return $requests->map(function ($request) use ($user) {
             return [
                 'id' => $request->id,
                 'request_number' => $request->request_number,
@@ -117,8 +117,71 @@ class DepartmentTimeOffController extends Controller
                         'responded_at' => $approval->responded_at?->format('Y-m-d H:i:s'),
                     ];
                 })->toArray(),
+                // Add flag for current user approval capability
+                'current_user_can_approve' => $this->canCurrentUserApprove($request, $user),
             ];
         });
+    }
+
+    /**
+     * Check if current user can approve this specific request
+     */
+    private function canCurrentUserApprove(PtoRequest $request, User $user): bool
+    {
+        // Check regular approval flow
+        $hasRegularApproval = $request->approvals()
+            ->where('approver_id', $user->id)
+            ->where('status', 'pending')
+            ->exists();
+
+        // For requests with blackout conflicts, also check if user can approve emergency overrides
+        if ($request->hasBlackoutConflicts() && $request->hasEmergencyOverride()) {
+            // Check if user has authority to approve emergency overrides
+            // This could be based on role, permission, or being a manager
+            $canApproveOverride = $this->canApproveEmergencyOverride($user, $request);
+            return $hasRegularApproval || $canApproveOverride;
+        }
+
+        return $hasRegularApproval;
+    }
+
+    /**
+     * Check if user can approve emergency overrides
+     */
+    private function canApproveEmergencyOverride(User $user, PtoRequest $request): bool
+    {
+        // Check if user is in the approval chain (any level)
+        $isInApprovalChain = $request->approvals()
+            ->where('approver_id', $user->id)
+            ->exists();
+
+        // Check if user is manager of the request user or in their hierarchy
+        $isManagerInHierarchy = $this->isManagerInHierarchy($user, $request->user);
+
+        return $isInApprovalChain || $isManagerInHierarchy;
+    }
+
+    /**
+     * Check if user is in the management hierarchy of the request user
+     */
+    private function isManagerInHierarchy(User $manager, User $employee): bool
+    {
+        $currentUser = $employee;
+        $maxLevels = 5; // Prevent infinite loops
+        $level = 0;
+
+        while ($currentUser->reports_to_user_id && $level < $maxLevels) {
+            if ($currentUser->reports_to_user_id === $manager->id) {
+                return true;
+            }
+            $currentUser = User::find($currentUser->reports_to_user_id);
+            if (!$currentUser) {
+                break;
+            }
+            $level++;
+        }
+
+        return false;
     }
 
     /**
@@ -132,7 +195,7 @@ class DepartmentTimeOffController extends Controller
         $userIds->push($user->id);
 
         // 2. Include direct reports (people who report to this user)
-        $directReports = User::where('manager_id', $user->id)->pluck('id');
+        $directReports = User::where('reports_to_user_id', $user->id)->pluck('id');
         if ($directReports->isNotEmpty()) {
             Log::info("User {$user->id} has direct reports: " . $directReports->implode(', '));
             $userIds = $userIds->merge($directReports);
@@ -187,19 +250,19 @@ class DepartmentTimeOffController extends Controller
             }
         }
 
-        // Method 2: Check by permission
-        if (method_exists($user, 'can')) {
-            $permissions = ['manage_department_pto', 'approve_pto', 'manage_team'];
-            foreach ($permissions as $permission) {
-                if ($user->can($permission)) {
-                    Log::info("User {$user->id} has manager permission: {$permission}");
-                    return true;
-                }
-            }
-        }
+//        // Method 2: Check by permission
+//        if (method_exists($user, 'can')) {
+//            $permissions = ['manage_department_pto', 'approve_pto', 'manage_team'];
+//            foreach ($permissions as $permission) {
+//                if ($user->can($permission)) {
+//                    Log::info("User {$user->id} has manager permission: {$permission}");
+//                    return true;
+//                }
+//            }
+//        }
 
         // Method 3: Check if user has direct reports
-        $hasDirectReports = User::where('manager_id', $user->id)->exists();
+        $hasDirectReports = User::where('reports_to_user_id', $user->id)->exists();
         if ($hasDirectReports) {
             Log::info("User {$user->id} has direct reports, considered manager");
             return true;

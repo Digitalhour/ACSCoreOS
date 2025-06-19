@@ -20,9 +20,9 @@ class HREmployeesController extends Controller
             'ptoBalances.ptoType',
             'roles.permissions'
         ])
+          // Include soft deleted users
             ->get()
             ->map(function ($user) {
-                // Calculate PTO stats from the loaded requests
                 $ptoRequests = $user->ptoRequests;
                 $ptoStats = [
                     'total' => $ptoRequests->count(),
@@ -37,6 +37,7 @@ class HREmployeesController extends Controller
                     'name' => $user->name,
                     'email' => $user->email,
                     'avatar' => $user->avatar,
+                    'deleted_at' => $user->deleted_at?->toISOString(),
                     'departments' => $user->departments->pluck('name')->join(', ') ?: 'No Department',
                     'position' => $user->currentPosition?->name ?? 'No Position',
                     'roles' => $user->roles->map(function($role) {
@@ -86,6 +87,9 @@ class HREmployeesController extends Controller
                             'created_at' => $request->created_at->format('Y-m-d H:i:s'),
                             'approved_at' => $request->approved_at?->format('Y-m-d H:i:s'),
                             'denied_at' => $request->denied_at?->format('Y-m-d H:i:s'),
+                            'has_blackout_conflicts' => method_exists($request, 'hasBlackoutConflicts') ? $request->hasBlackoutConflicts() : false,
+                            'has_blackout_warnings' => method_exists($request, 'hasBlackoutWarnings') ? $request->hasBlackoutWarnings() : false,
+                            'blackouts' => $this->getFormattedBlackouts($request),
                         ];
                     }),
                 ];
@@ -94,5 +98,44 @@ class HREmployeesController extends Controller
         return Inertia::render('human-resources/employees', [
             'users' => $users
         ]);
+    }
+
+    public function destroy(User $user)
+    {
+        $user->delete();
+
+        return back()->with('success', 'Employee has been deactivated successfully.');
+    }
+
+    public function restore($id)
+    {
+        $user = User::withTrashed()->findOrFail($id);
+        $user->restore();
+
+        return back()->with('success', 'Employee has been activated successfully.');
+    }
+
+    private function getFormattedBlackouts($request)
+    {
+        $allBlackouts = [];
+
+        // Check if methods exist before calling them
+        if (method_exists($request, 'hasBlackoutConflicts') && $request->hasBlackoutConflicts()) {
+            if (method_exists($request, 'getFormattedBlackoutConflicts')) {
+                foreach ($request->getFormattedBlackoutConflicts() as $conflict) {
+                    $allBlackouts[] = array_merge($conflict, ['type' => 'conflict']);
+                }
+            }
+        }
+
+        if (method_exists($request, 'hasBlackoutWarnings') && $request->hasBlackoutWarnings()) {
+            if (method_exists($request, 'getFormattedBlackoutWarnings')) {
+                foreach ($request->getFormattedBlackoutWarnings() as $warning) {
+                    $allBlackouts[] = array_merge($warning, ['type' => 'warning']);
+                }
+            }
+        }
+
+        return $allBlackouts;
     }
 }

@@ -9,6 +9,8 @@ use App\Http\Controllers\Api\PtoApi\PtoOverviewController;
 use App\Http\Controllers\Api\UserPtoController;
 use App\Http\Controllers\DepartmentTimeOffController;
 use App\Http\Controllers\HolidayController;
+use App\Http\Controllers\WidgetController;
+use App\Http\Controllers\WorkOSController;
 use App\Models\User;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -28,8 +30,13 @@ Route::middleware([
 
 
 
-
     Route::middleware(['auth', 'verified'])->group(function () {
+
+
+
+
+
+
         Route::post('/department-pto/{ptoRequest}/approve', [DepartmentTimeOffController::class, 'approve'])
             ->name('department.pto.approve');
 

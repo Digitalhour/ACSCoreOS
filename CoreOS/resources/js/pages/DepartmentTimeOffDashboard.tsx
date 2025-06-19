@@ -67,6 +67,8 @@ interface PtoRequest {
     has_blackout_warnings?: boolean;
     has_emergency_override?: boolean;
     override_approved?: boolean;
+    // New field for current user approval capability
+    current_user_can_approve?: boolean;
 }
 
 interface PtoApproval {
@@ -147,7 +149,8 @@ export default function DepartmentTimeOffDashboard({ requests, department_pto_re
         const filtered = requests.filter((request) => {
             switch (activeTab) {
                 case 'pending':
-                    return request.status === 'pending' && request.approvals.some((approval) => approval.status === 'pending');
+                    // Show all pending requests regardless of approval chain
+                    return request.status === 'pending';
                 case 'approved':
                     return request.status === 'approved';
                 case 'denied':
@@ -306,10 +309,16 @@ export default function DepartmentTimeOffDashboard({ requests, department_pto_re
         }
     }, []);
 
-    // Check if current user can act on request
+    // Check if current user can act on request - updated logic
     const canApprove = useCallback((request: PtoRequest) => {
-        return request.approvals.some(
-            (approval) => approval.status === 'pending',
+        // Use the backend-provided flag if available
+        if (request.current_user_can_approve !== undefined) {
+            return request.current_user_can_approve;
+        }
+
+        // Fallback to checking approvals array
+        return request.status === 'pending' && request.approvals.some(
+            (approval) => approval.status === 'pending'
         );
     }, []);
 
@@ -457,7 +466,7 @@ export default function DepartmentTimeOffDashboard({ requests, department_pto_re
                                                     </td>
                                                     <td className="px-4 py-4 whitespace-nowrap text-right text-sm font-medium">
                                                         <div className="space-y-2">
-                                                            {request.status === 'pending' && canApprove(request) && (
+                                                            {canApprove(request) && (
                                                                 <div className="flex items-center justify-end gap-2">
                                                                     <Button
                                                                         variant="outline"

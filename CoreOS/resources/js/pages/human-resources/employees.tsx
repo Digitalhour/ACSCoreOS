@@ -1,6 +1,6 @@
 import AppLayout from '@/layouts/app-layout';
 import {type BreadcrumbItem} from '@/types';
-import {Head} from '@inertiajs/react';
+import {Head, router} from '@inertiajs/react';
 import HrLayout from "@/layouts/settings/hr-layout";
 import {Table, TableBody, TableCell, TableHeader, TableRow} from "@/components/ui/table";
 import {Avatar, AvatarFallback, AvatarImage} from "@/components/ui/avatar";
@@ -9,8 +9,10 @@ import {Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle} from "@/
 import {Card, CardContent, CardDescription, CardHeader, CardTitle} from "@/components/ui/card";
 import {Tabs, TabsContent, TabsList, TabsTrigger} from "@/components/ui/tabs";
 import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from "@/components/ui/select";
+import {Switch} from "@/components/ui/switch";
 import {useState} from 'react';
 import {
+    AlertTriangle,
     Briefcase,
     Calendar,
     ChevronDown,
@@ -23,6 +25,8 @@ import {
     Phone,
     Shield,
     UserRoundCheck,
+    UserX,
+    XCircle,
 } from 'lucide-react';
 import {Separator} from "@/components/ui/separator";
 
@@ -60,6 +64,14 @@ export interface PtoBalance {
     year: number;
 }
 
+export interface Blackout {
+    message: string;
+    blackout_name: string;
+    date_range: string;
+    can_override: boolean;
+    type: 'conflict' | 'warning';
+}
+
 export interface PtoRequest {
     id: number;
     request_number: string;
@@ -76,6 +88,9 @@ export interface PtoRequest {
     created_at: string;
     approved_at?: string;
     denied_at?: string;
+    blackouts: Blackout[];
+    has_blackout_conflicts: boolean;
+    has_blackout_warnings: boolean;
 }
 
 export interface Role {
@@ -91,6 +106,7 @@ export interface User {
     avatar: string | null;
     departments: string;
     position: string;
+    deleted_at: string | null;
     roles: Role[];
     all_permissions: string[];
     pto_stats: {
@@ -117,6 +133,7 @@ export default function Employees({ users }: { users: User[] }) {
     const [requestStatusFilter, setRequestStatusFilter] = useState<string>('all');
     const [requestSortField, setRequestSortField] = useState<string>('created_at');
     const [requestSortDirection, setRequestSortDirection] = useState<'asc' | 'desc'>('desc');
+    const [isTogglingStatus, setIsTogglingStatus] = useState(false);
 
     const getInitials = (name: string) => {
         return name
@@ -139,6 +156,32 @@ export default function Employees({ users }: { users: User[] }) {
                 return 'bg-gray-100 text-gray-800 border-gray-200';
             default:
                 return 'bg-gray-100 text-gray-800 border-gray-200';
+        }
+    };
+
+    const getBlackoutRestrictionColor = (restrictionType: string) => {
+        switch (restrictionType.toLowerCase()) {
+            case 'full_block':
+                return 'bg-red-100 text-red-800 border-red-200';
+            case 'limit_requests':
+                return 'bg-orange-100 text-orange-800 border-orange-200';
+            case 'warning_only':
+                return 'bg-yellow-100 text-yellow-800 border-yellow-200';
+            default:
+                return 'bg-gray-100 text-gray-800 border-gray-200';
+        }
+    };
+
+    const getBlackoutRestrictionText = (restrictionType: string) => {
+        switch (restrictionType.toLowerCase()) {
+            case 'full_block':
+                return 'Full Block';
+            case 'limit_requests':
+                return 'Limited';
+            case 'warning_only':
+                return 'Warning';
+            default:
+                return restrictionType;
         }
     };
 
@@ -172,8 +215,8 @@ export default function Employees({ users }: { users: User[] }) {
 
     const openEmployeeSheet = (user: User) => {
         setSelectedUser(user);
-        setExpandedRequests(new Set()); // Reset expanded requests when opening new user
-        setRequestStatusFilter('all'); // Reset filters when opening new user
+        setExpandedRequests(new Set());
+        setRequestStatusFilter('all');
         setRequestSortField('created_at');
         setRequestSortDirection('desc');
         setIsSheetOpen(true);
@@ -189,6 +232,28 @@ export default function Employees({ users }: { users: User[] }) {
         setExpandedRequests(newExpanded);
     };
 
+    const handleUserStatusToggle = async (userId: number, currentlyActive: boolean) => {
+        setIsTogglingStatus(true);
+
+        try {
+            if (currentlyActive) {
+                await router.delete(`/hr/employees/${userId}`, {
+                    preserveState: true,
+                    preserveScroll: true,
+                });
+            } else {
+                await router.patch(`/hr/employees/${userId}/restore`, {}, {
+                    preserveState: true,
+                    preserveScroll: true,
+                });
+            }
+        } catch (error) {
+            console.error('Failed to toggle user status:', error);
+        } finally {
+            setIsTogglingStatus(false);
+        }
+    };
+
     const handleRequestSort = (field: string) => {
         if (requestSortField === field) {
             setRequestSortDirection(requestSortDirection === 'asc' ? 'desc' : 'asc');
@@ -199,13 +264,11 @@ export default function Employees({ users }: { users: User[] }) {
     };
 
     const getFilteredAndSortedRequests = (requests: PtoRequest[]) => {
-        // Filter by status
         let filteredRequests = requests;
         if (requestStatusFilter !== 'all') {
             filteredRequests = requests.filter(request => request.status === requestStatusFilter);
         }
 
-        // Sort requests
         return filteredRequests.sort((a, b) => {
             let aValue: any, bValue: any;
 
@@ -422,12 +485,10 @@ export default function Employees({ users }: { users: User[] }) {
                     </div>
                 </div>
 
-                {/* Professional Employee Details Sheet */}
                 <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
-                    <SheetContent side="right" className="w-[800px] sm:w-[900px] sm:max-w-[900px] p-0 overflow-hidden">
+                    <SheetContent side="right" className="min-w-6/12  p-0 overflow-hidden">
                         {selectedUser && (
                             <>
-                                {/* Header */}
                                 <SheetHeader className="p-6 border-b bg-gradient-to-r from-gray-50 to-indigo-50">
                                     <div className="flex items-start space-x-4">
                                         <Avatar className="h-16 w-16 border-4 border-white shadow-lg">
@@ -451,18 +512,41 @@ export default function Employees({ users }: { users: User[] }) {
                                                     {selectedUser.position}
                                                 </div>
                                             </div>
-                                            <div className="flex items-center mt-2">
-                                                <MapPin className="h-4 w-4 mr-1" />
-                                                <span className="text-sm text-gray-600">{selectedUser.departments}</span>
-                                                <Badge className="ml-3 bg-green-100 text-green-800 border-green-200">
-                                                    <UserRoundCheck className="h-3 w-3 mr-1"/>
-                                                    Active
-                                                </Badge>
+                                            <div className="flex items-center justify-between mt-2">
+                                                <div className="flex items-center">
+                                                    <MapPin className="h-4 w-4 mr-1" />
+                                                    <span className="text-sm text-gray-600">{selectedUser.departments}</span>
+                                                    <Badge className={`ml-3 ${selectedUser.deleted_at ? 'bg-red-100 text-red-800 border-red-200' : 'bg-green-100 text-green-800 border-green-200'}`}>
+                                                        {selectedUser.deleted_at ? (
+                                                            <>
+                                                                <UserX className="h-3 w-3 mr-1"/>
+                                                                Deactivated
+                                                            </>
+                                                        ) : (
+                                                            <>
+                                                                <UserRoundCheck className="h-3 w-3 mr-1"/>
+                                                                Active
+                                                            </>
+                                                        )}
+                                                    </Badge>
+                                                </div>
+                                                <div className="flex items-center space-x-3">
+                                                    <div className="flex items-center space-x-2">
+                                                        <span className="text-sm font-medium text-gray-700">
+                                                            {selectedUser.deleted_at ? 'Deactivated' : 'Active'}
+                                                        </span>
+                                                        <Switch
+                                                            checked={!selectedUser.deleted_at}
+                                                            onCheckedChange={() => handleUserStatusToggle(selectedUser.id, !selectedUser.deleted_at)}
+                                                            disabled={isTogglingStatus}
+                                                            className="data-[state=checked]:bg-green-600 data-[state=unchecked]:bg-red-600"
+                                                        />
+                                                    </div>
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
 
-                                    {/* Key Metrics as Badges */}
                                     <div className="flex flex-wrap gap-2 mt-4">
                                         <Badge variant={"secondary"} className="border-gray-200 px-3 py-1">
                                             Total Requests: {selectedUser.pto_stats.total}
@@ -485,7 +569,6 @@ export default function Employees({ users }: { users: User[] }) {
                                     </div>
                                 </SheetHeader>
 
-                                {/* Tabbed Content */}
                                 <div className="flex-1 overflow-hidden">
                                     <Tabs defaultValue="overview" className="h-full flex flex-col">
                                         <div className=" px-6">
@@ -541,7 +624,6 @@ export default function Employees({ users }: { users: User[] }) {
                                                     </CardContent>
                                                 </Card>
 
-                                                {/* PTO Balances as Badges */}
                                                 <Card>
                                                     <CardHeader>
                                                         <CardTitle>PTO Balances</CardTitle>
@@ -785,6 +867,7 @@ export default function Employees({ users }: { users: User[] }) {
                                                                         <RequestSortHeader field="start_date">Dates</RequestSortHeader>
                                                                         <RequestSortHeader field="total_days">Days</RequestSortHeader>
                                                                         <RequestSortHeader field="status">Status</RequestSortHeader>
+                                                                        <th className="text-left py-3 px-4 font-medium text-gray-900">Blackouts</th>
                                                                         <RequestSortHeader field="created_at">Created</RequestSortHeader>
                                                                     </TableRow>
                                                                 </TableHeader>
@@ -823,26 +906,40 @@ export default function Employees({ users }: { users: User[] }) {
                                                                                     </Badge>
                                                                                 </TableCell>
                                                                                 <TableCell className="py-3 px-4">
+                                                                                    {request.has_blackout_conflicts || request.has_blackout_warnings ? (
+                                                                                        <div className="flex items-center space-x-1">
+                                                                                            <AlertTriangle className={`h-4 w-4 ${request.has_blackout_conflicts ? 'text-red-500' : 'text-amber-500'}`} />
+                                                                                            <Badge className={`text-xs ${request.has_blackout_conflicts ? 'bg-red-100 text-red-800 border-red-200' : 'bg-amber-100 text-amber-800 border-amber-200'}`}>
+                                                                                                {request.blackouts.length} {request.has_blackout_conflicts ? 'conflict' : 'warning'}{request.blackouts.length !== 1 ? 's' : ''}
+                                                                                            </Badge>
+                                                                                        </div>
+                                                                                    ) : (
+                                                                                        <span className="text-sm text-gray-500">None</span>
+                                                                                    )}
+                                                                                </TableCell>
+                                                                                <TableCell className="py-3 px-4">
                                                                                     <div className="text-sm text-gray-500">{formatDate(request.created_at)}</div>
                                                                                 </TableCell>
                                                                             </TableRow>
 
                                                                             {expandedRequests.has(request.id) && (
                                                                                 <TableRow>
-                                                                                    <TableCell colSpan={7} className="p-0">
+                                                                                    <TableCell colSpan={8} className="p-0">
                                                                                         <div className="bg-gray-50 border-t p-4">
                                                                                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                                                                                 <div className="space-y-3">
                                                                                                     <div>
                                                                                                         <label className="text-sm font-medium text-gray-500">Reason</label>
-                                                                                                        <div className="mt-1 text-sm">{request.reason}</div>
+                                                                                                        <div className="mt-1 text-balance text-sm">{request.reason}</div>
+
                                                                                                     </div>
 
                                                                                                     {request.approval_notes && (
                                                                                                         <div>
                                                                                                             <label className="text-sm font-medium text-gray-500">Approval Notes</label>
-                                                                                                            <div className="mt-1 text-sm p-3 bg-green-50 rounded-lg border border-green-200">
+                                                                                                            <div className="mt-1 text-balance text-sm p-3 bg-green-50 rounded-lg border border-green-200">
                                                                                                                 {request.approval_notes}
+
                                                                                                             </div>
                                                                                                         </div>
                                                                                                     )}
@@ -850,8 +947,45 @@ export default function Employees({ users }: { users: User[] }) {
                                                                                                     {request.denial_reason && (
                                                                                                         <div>
                                                                                                             <label className="text-sm font-medium text-gray-500">Denial Reason</label>
-                                                                                                            <div className="mt-1 text-sm p-3 bg-red-50 rounded-lg border border-red-200">
+                                                                                                            <div className="mt-1 text-balance text-sm p-3 bg-red-50 rounded-lg border border-red-200">
                                                                                                                 {request.denial_reason}
+                                                                                                            </div>
+                                                                                                        </div>
+                                                                                                    )}
+
+                                                                                                    {(request.has_blackout_conflicts || request.has_blackout_warnings) && (
+                                                                                                        <div>
+                                                                                                            <label className={`text-sm font-medium flex items-center ${request.has_blackout_conflicts ? 'text-red-600' : 'text-amber-600'}`}>
+                                                                                                                {request.has_blackout_conflicts ? <XCircle className="h-4 w-4 mr-1" /> : <AlertTriangle className="h-4 w-4 mr-1" />}
+                                                                                                                Blackout {request.has_blackout_conflicts ? 'Conflicts' : 'Warnings'} ({request.blackouts.length})
+                                                                                                            </label>
+                                                                                                            <div className="mt-2 space-y-2">
+                                                                                                                {request.blackouts.map((blackout, index) => (
+                                                                                                                    <div key={index} className={`p-3 rounded-lg border ${blackout.type === 'conflict' ? 'bg-red-50 border-red-200' : 'bg-amber-50 border-amber-200'}`}>
+                                                                                                                        <div className="flex items-start justify-between mb-2">
+                                                                                                                            <div className={`font-medium ${blackout.type === 'conflict' ? 'text-red-800' : 'text-amber-800'}`}>
+                                                                                                                                {blackout.blackout_name}
+                                                                                                                            </div>
+                                                                                                                            <Badge className={blackout.type === 'conflict' ? 'bg-red-100 text-red-800 border-red-200' : 'bg-amber-100 text-amber-800 border-amber-200'}>
+                                                                                                                                {blackout.type === 'conflict' ? 'Conflict' : 'Warning'}
+                                                                                                                            </Badge>
+                                                                                                                        </div>
+                                                                                                                        <div className={`text-sm mb-1 ${blackout.type === 'conflict' ? 'text-red-700' : 'text-amber-700'}`}>
+                                                                                                                            {blackout.date_range}
+                                                                                                                        </div>
+                                                                                                                        <div className={`text-balance text-sm ${blackout.type === 'conflict' ? 'text-red-600' : 'text-amber-600'}`}>
+                                                                                                                            {blackout.message}
+
+                                                                                                                        </div>
+                                                                                                                        {blackout.can_override && (
+                                                                                                                            <div className="mt-2">
+                                                                                                                                <Badge className="bg-yellow-100 text-yellow-800 border-yellow-200 text-xs">
+                                                                                                                                    Emergency Override Allowed
+                                                                                                                                </Badge>
+                                                                                                                            </div>
+                                                                                                                        )}
+                                                                                                                    </div>
+                                                                                                                ))}
                                                                                                             </div>
                                                                                                         </div>
                                                                                                     )}
