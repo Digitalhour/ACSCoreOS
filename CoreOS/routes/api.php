@@ -16,7 +16,7 @@ use App\Http\Controllers\Api\UserPtoController;
 use App\Http\Controllers\DepartmentTimeOffController;
 use App\Http\Controllers\PartsCatalogController;
 use App\Http\Controllers\UserController;
-use App\Http\Controllers\WorkOSController;
+use App\Http\Controllers\UserManagementController;
 use App\Models\User;
 use Illuminate\Support\Facades\Route;
 use Laravel\WorkOS\Http\Middleware\ValidateSessionWithWorkOS;
@@ -28,7 +28,7 @@ ValidateSessionWithWorkOS::class,
     Route::prefix('api')->name('api.')->group(function () {
 
         Route::middleware('auth')
-            ->get('/workos/user-management-url', [WorkOSController::class, 'generateUserManagementUrl'])
+            ->get('/workos/user-management-url', [UserManagementController::class, 'generateUserManagementUrl'])
             ->name('workos.user-management-url');
 
 

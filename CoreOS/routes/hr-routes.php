@@ -22,8 +22,11 @@ Route::middleware(['auth', ValidateSessionWithWorkOS::class,])->group(function (
 
 
 
-        Route::get('/hr/employees', [HREmployeesController::class, 'index'])
-            ->name('hr.employees');
+    Route::prefix('hr')->name('hr.')->group(function () {
+        Route::get('/employees', [HREmployeesController::class, 'index'])->name('employees.index');
+        Route::delete('/employees/{user}', [HREmployeesController::class, 'destroy'])->name('employees.destroy');
+        Route::patch('/employees/{id}/restore', [HREmployeesController::class, 'restore'])->name('employees.restore');
+    });
 
 
 

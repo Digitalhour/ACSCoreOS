@@ -4,23 +4,24 @@ namespace App\Http\Controllers\Api\PtoApi;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use Illuminate\Support\Facades\Http;
 use Inertia\Inertia;
 
 class HREmployeesController extends Controller
 {
     public function index()
     {
-        $users = User::with([
-            'departments',
-            'emergencyContacts',
-            'currentPosition',
-            'ptoRequests.ptoType',
-            'ptoRequests.approvedBy',
-            'ptoRequests.deniedBy',
-            'ptoBalances.ptoType',
-            'roles.permissions'
-        ])
-          // Include soft deleted users
+        $users = User::withTrashed()
+            ->with([
+                'departments',
+                'emergencyContacts',
+                'currentPosition',
+                'ptoRequests.ptoType',
+                'ptoRequests.approvedBy',
+                'ptoRequests.deniedBy',
+                'ptoBalances.ptoType',
+                'roles.permissions'
+            ])
             ->get()
             ->map(function ($user) {
                 $ptoRequests = $user->ptoRequests;
@@ -102,6 +103,10 @@ class HREmployeesController extends Controller
 
     public function destroy(User $user)
     {
+        // First deactivate in WorkOS
+        $this->deactivateUserInWorkOS($user);
+
+        // Then soft delete locally
         $user->delete();
 
         return back()->with('success', 'Employee has been deactivated successfully.');
@@ -110,16 +115,75 @@ class HREmployeesController extends Controller
     public function restore($id)
     {
         $user = User::withTrashed()->findOrFail($id);
+
+        // First reactivate in WorkOS
+        $this->reactivateUserInWorkOS($user);
+
+        // Then restore locally
         $user->restore();
 
         return back()->with('success', 'Employee has been activated successfully.');
+    }
+
+    private function deactivateUserInWorkOS(User $user)
+    {
+        try {
+            // Get user's organization membership
+            $membershipResponse = Http::withHeaders([
+                'Authorization' => 'Bearer ' . env('WORKOS_API_KEY'),
+            ])->get('https://api.workos.com/user_management/organization_memberships', [
+                'user_id' => $user->workos_id ?? $user->id,
+                'organization_id' => env('WORKOS_ORGID'),
+            ]);
+
+            if ($membershipResponse->successful()) {
+                $memberships = $membershipResponse->json()['data'] ?? [];
+
+                foreach ($memberships as $membership) {
+                    if ($membership['status'] === 'active') {
+                        Http::withHeaders([
+                            'Authorization' => 'Bearer ' . env('WORKOS_API_KEY'),
+                        ])->put("https://api.workos.com/user_management/organization_memberships/{$membership['id']}/deactivate");
+                    }
+                }
+            }
+        } catch (\Exception $e) {
+            \Log::error('Failed to deactivate user in WorkOS: ' . $e->getMessage());
+        }
+    }
+
+    private function reactivateUserInWorkOS(User $user)
+    {
+        try {
+            // Get user's organization membership
+            $membershipResponse = Http::withHeaders([
+                'Authorization' => 'Bearer ' . env('WORKOS_API_KEY'),
+            ])->get('https://api.workos.com/user_management/organization_memberships', [
+                'user_id' => $user->workos_id ?? $user->id,
+                'organization_id' => env('WORKOS_ORGID'),
+                'statuses' => ['inactive'], // Only get inactive memberships
+            ]);
+
+            if ($membershipResponse->successful()) {
+                $memberships = $membershipResponse->json()['data'] ?? [];
+
+                foreach ($memberships as $membership) {
+                    if ($membership['status'] === 'inactive') {
+                        Http::withHeaders([
+                            'Authorization' => 'Bearer ' . env('WORKOS_API_KEY'),
+                        ])->put("https://api.workos.com/user_management/organization_memberships/{$membership['id']}/reactivate");
+                    }
+                }
+            }
+        } catch (\Exception $e) {
+            \Log::error('Failed to reactivate user in WorkOS: ' . $e->getMessage());
+        }
     }
 
     private function getFormattedBlackouts($request)
     {
         $allBlackouts = [];
 
-        // Check if methods exist before calling them
         if (method_exists($request, 'hasBlackoutConflicts') && $request->hasBlackoutConflicts()) {
             if (method_exists($request, 'getFormattedBlackoutConflicts')) {
                 foreach ($request->getFormattedBlackoutConflicts() as $conflict) {

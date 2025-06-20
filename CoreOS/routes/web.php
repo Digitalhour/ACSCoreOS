@@ -9,8 +9,8 @@ use App\Http\Controllers\Api\PtoApi\PtoOverviewController;
 use App\Http\Controllers\Api\UserPtoController;
 use App\Http\Controllers\DepartmentTimeOffController;
 use App\Http\Controllers\HolidayController;
+use App\Http\Controllers\UserManagementController;
 use App\Http\Controllers\WidgetController;
-use App\Http\Controllers\WorkOSController;
 use App\Models\User;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -32,8 +32,11 @@ Route::middleware([
 
     Route::middleware(['auth', 'verified'])->group(function () {
 
-
-
+        Route::get('/user-management', [UserManagementController::class, 'index'])->name('user-management');
+        Route::get('/api/widget-token', [UserManagementController::class, 'getWidgetToken']);
+        Route::get('/api/organization-users', [UserManagementController::class, 'getOrganizationUsers']);
+        Route::post('/api/deactivate-user', [UserManagementController::class, 'deactivateUser']);
+        Route::post('/api/reactivate-user', [UserManagementController::class, 'reactivateUser']);
 
 
 
