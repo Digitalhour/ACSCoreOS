@@ -3,8 +3,6 @@
 namespace App\Http\Controllers;
 
 use App\Models\Department;
-
-use App\Models\PtoModels\PtoRequest;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -76,5 +74,21 @@ class DepartmentController extends Controller
         $department->users()->sync($request->user_ids);
 
         return redirect()->back()->with('success', 'Users assigned successfully.');
+    }
+
+    public function addUser(Request $request, Department $department)
+    {
+        $request->validate([
+            'user_id' => 'required|exists:users,id',
+        ]);
+
+        // Check if user is already in the department
+        if (!$department->users()->where('user_id', $request->user_id)->exists()) {
+            $department->users()->attach($request->user_id, [
+                'assigned_at' => now(),
+            ]);
+        }
+
+        return redirect()->back()->with('success', 'User added to department successfully.');
     }
 }

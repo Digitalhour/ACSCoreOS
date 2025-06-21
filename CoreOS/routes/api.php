@@ -234,9 +234,17 @@ ValidateSessionWithWorkOS::class,
             Route::get('/{user}/assignable-managers',
                 [UserHierarchyController::class, 'getAssignableManagers'])->name('assignable-managers');
         });
+        Route::get('/user-by-email', [UserManagementController::class, 'getUserByEmail']);
 
 
-
+//        Route::get('/positions', [PositionController::class, 'index']);
+//        Route::get('/managers', [UserManagementController::class, 'getManagers']);
+        Route::get('/pto-types', [UserManagementController::class, 'getPtoTypes']);
+        Route::get('/departments', [UserManagementController::class, 'getDepartments']);
+        Route::get('/departments/{departmentId}/users', [UserManagementController::class, 'getDepartmentUsers']);
+        Route::get('/positions', [UserManagementController::class, 'getPositions']);
+        Route::get('/managers', [UserManagementController::class, 'getManagers']);
+        Route::get('/user-by-email', [UserManagementController::class, 'getUserByEmail']);
 
 // Users API (for dropdowns)
         Route::get('users', function () {

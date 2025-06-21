@@ -37,8 +37,10 @@ Route::middleware([
         Route::get('/api/organization-users', [UserManagementController::class, 'getOrganizationUsers']);
         Route::post('/api/deactivate-user', [UserManagementController::class, 'deactivateUser']);
         Route::post('/api/reactivate-user', [UserManagementController::class, 'reactivateUser']);
-
-
+        Route::post('/api/invite-user-with-pto', [UserManagementController::class, 'inviteUserWithPto']);
+        Route::get('/pto-types', [UserManagementController::class, 'getPtoTypes']);
+        Route::post('/user-management/invite-user', [UserManagementController::class, 'inviteUserWithPto'])
+            ->name('user-management.invite');
 
         Route::post('/department-pto/{ptoRequest}/approve', [DepartmentTimeOffController::class, 'approve'])
             ->name('department.pto.approve');

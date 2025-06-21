@@ -5,13 +5,35 @@ use App\Http\Controllers\Admin\PtoAdminController;
 use App\Http\Controllers\Api\PtoApi\HREmployeesController;
 use App\Http\Controllers\Api\PtoApi\PtoOverviewController;
 use App\Http\Controllers\Api\PtoApi\PTOSubmitHistoricalController;
+use App\Http\Controllers\DepartmentController;
+use App\Http\Controllers\UserManagementController;
 use Illuminate\Support\Facades\Route;
 use Laravel\WorkOS\Http\Middleware\ValidateSessionWithWorkOS;
 
 
 Route::middleware(['auth', ValidateSessionWithWorkOS::class,])->group(function () {
+    Route::get('/user-management', [UserManagementController::class, 'index'])
+        ->name('user-management.index');
+
+    Route::get('/user-management/onboard', [UserManagementController::class, 'onboard'])
+        ->name('user-management.onboard');
+
+// Main invite route - returns back to same page with wizard data
+    Route::post('/user-management/invite-user', [UserManagementController::class, 'inviteUserWithPto'])
+        ->name('user-management.invite-user');
+
+// Department routes
+    Route::post('/departments/{department}/add-user', [DepartmentController::class, 'addUser'])
+        ->name('departments.add-user');
+
+
+
 
     Route::prefix('admin')->name('admin.')->group(function () {
+
+
+
+
         Route::resource('blackouts', BlackoutController::class);
         Route::post('/blackouts/user-check', [BlackoutController::class, 'getBlackoutsForUser'])->name('blackouts.user-check');
 

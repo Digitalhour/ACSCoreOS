@@ -43,6 +43,12 @@ const sidebarNavItems: NavItem[] = [
         href: '/admin/blackouts',
         description: null,
         icon: FileText,
+    },
+    {
+        title: 'Employee Onboarding',
+        href: '/user-management/onboard',
+        description: null,
+        icon: FileText,
     }
 ];
 

@@ -20,6 +20,7 @@ import axios from 'axios';
 import {Activity, Calendar, CheckCircle, Clock, Filter, Loader2, TrendingUp, User, Users, XCircle} from 'lucide-react';
 import {useCallback, useEffect, useState} from 'react';
 import {toast} from 'sonner';
+import InviteUserComponent from "@/components/InviteUserComponent";
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
@@ -258,6 +259,7 @@ export default function HrDashboard() {
                     <div className="flex items-right justify-end">
 
                         <div className="flex items-center gap-2">
+                            <InviteUserComponent />
                             <Label htmlFor="year-select" className="text-sm font-medium">
                                 Year:
                             </Label>

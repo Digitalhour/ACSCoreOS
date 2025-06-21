@@ -218,5 +218,48 @@ class User extends Authenticatable
 
         return $users->unique('id');
     }
+    /**
+     * Check if the user has a temporary WorkOS ID (invitation pending)
+     */
+    public function hasPendingInvitation(): bool
+    {
+        return str_starts_with($this->workos_id, 'inv_');
+    }
+
+    /**
+     * Check if the user has accepted their WorkOS invitation
+     */
+    public function hasAcceptedInvitation(): bool
+    {
+        return !$this->hasPendingInvitation() && !empty($this->workos_id);
+    }
+
+    /**
+     * Get the user's first name from the full name
+     */
+    public function getFirstNameAttribute(): string
+    {
+        return explode(' ', $this->name)[0] ?? '';
+    }
+
+    /**
+     * Get the user's last name from the full name
+     */
+    public function getLastNameAttribute(): string
+    {
+        $nameParts = explode(' ', $this->name);
+        return count($nameParts) > 1 ? array_slice($nameParts, 1)[0] : '';
+    }
+
+    /**
+     * Update WorkOS ID when user accepts invitation
+     */
+    public function updateWorkosId(string $workosId): void
+    {
+        if ($this->hasPendingInvitation()) {
+            $this->update(['workos_id' => $workosId]);
+            \Log::info("WorkOS ID updated for user {$this->email}: {$workosId}");
+        }
+    }
 
 }

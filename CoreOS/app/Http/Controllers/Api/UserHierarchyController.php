@@ -88,31 +88,30 @@ class UserHierarchyController extends Controller
     /**
      * Assign or update a user's position.
      */
-    public function assignPosition(Request $request, User $user): JsonResponse
+    public function assignPosition(Request $request, $userId)
     {
-        $this->prepareStartDateForValidation($request);
-
-        $validator = Validator::make($request->all(), [
-            'position_id' => 'required|integer|exists:positions,id',
-            'start_date' => 'required|date_format:Y-m-d H:i:s|before_or_equal:now',
+        $request->validate([
+            'position_id' => 'required|exists:positions,id',
+            'start_date' => 'required|date_format:Y-m-d H:i:s',
         ]);
 
-        if ($validator->fails()) {
-            return response()->json(['errors' => $validator->errors()], 422);
-        }
-
-        $newPositionId = $validator->validated()['position_id'];
-        $startDateForDb = Carbon::createFromFormat('Y-m-d H:i:s', $validator->validated()['start_date'], 'UTC');
-
-        DB::beginTransaction();
         try {
+            DB::beginTransaction();
+
+            $user = User::findOrFail($userId);
+            $newPositionId = $request->position_id;
+            $startDateForDb = Carbon::createFromFormat('Y-m-d H:i:s', $request->start_date, 'UTC');
+
+            // Close existing reporting assignments for different positions
             $user->currentReportingAssignment()
                 ->where('position_id', '!=', $newPositionId)
                 ->update(['end_date' => $startDateForDb->copy()->subSecond()]);
 
+            // Update user's position
             $user->position_id = $newPositionId;
             $user->save();
 
+            // Create new reporting assignment
             EmployeeReportingAssignment::create([
                 'user_id' => $user->id,
                 'manager_id' => $user->reports_to_user_id,
@@ -121,75 +120,58 @@ class UserHierarchyController extends Controller
                 'end_date' => null,
             ]);
 
-            // Note: Position changes don't typically affect PTO approvals directly
-            // unless the position change also involves authority/approval rights changes
-
             DB::commit();
-            Log::info("Position ID {$newPositionId} assigned to User ID {$user->id}.");
 
-            return response()->json([
-                'message' => 'User position updated successfully.',
-                'user' => $user->load(['currentPosition', 'manager']),
+            Log::info("Position assigned successfully", [
+                'user_id' => $userId,
+                'position_id' => $newPositionId,
+                'start_date' => $request->start_date
             ]);
+
+            return redirect()->back()->with('success', 'Position assigned successfully.');
+
         } catch (\Exception $e) {
             DB::rollBack();
-            Log::error("Error assigning position to User ID {$user->id}: ".$e->getMessage());
-            return response()->json([
-                'error' => 'Failed to assign position.',
-                'details' => App::environment('local') ? $e->getMessage() : 'An unexpected error occurred.'
-            ], 500);
+            Log::error('Position assignment failed: ' . $e->getMessage());
+            return redirect()->back()->with('error', 'Failed to assign position: ' . $e->getMessage());
         }
     }
 
-    /**
-     * Assign or update a user's direct manager.
-     */
-    public function assignManager(Request $request, User $user): JsonResponse
+    public function assignManager(Request $request, $userId)
     {
-        if (is_null($user->position_id)) {
-            return response()->json([
-                'errors' => ['user_position' => ['The user must have a position assigned before a manager can be set.']]
-            ], 422);
-        }
-
-        $this->prepareStartDateForValidation($request);
-
-        $validator = Validator::make($request->all(), [
-            'manager_id' => 'required|integer|exists:users,id|different:user_id',
-            'start_date' => 'required|date_format:Y-m-d H:i:s|before_or_equal:now',
-            'transfer_approvals' => 'boolean',
-        ], [
-            'manager_id.different' => 'A user cannot report to themselves.'
+        $request->validate([
+            'manager_id' => 'required|exists:users,id',
+            'start_date' => 'required|date_format:Y-m-d H:i:s',
         ]);
 
-        $validator->setData(array_merge($request->all(), ['user_id' => $user->id]));
-
-        if ($validator->fails()) {
-            return response()->json(['errors' => $validator->errors()], 422);
-        }
-
-        $newManagerId = $validator->validated()['manager_id'];
-        $startDateForDb = Carbon::createFromFormat('Y-m-d H:i:s', $validator->validated()['start_date'], 'UTC');
-        $transferApprovals = $request->boolean('transfer_approvals', true); // Default to true
-
-        $potentialNewManager = User::find($newManagerId);
-        if ($potentialNewManager && $potentialNewManager->reports_to_user_id === $user->id) {
-            return response()->json(['errors' => ['manager_id' => ['This assignment would create a circular reporting structure.']]],
-                422);
-        }
-
-        // Store old manager ID for approval transfer
-        $oldManagerId = $user->reports_to_user_id;
-
-        DB::beginTransaction();
         try {
+            DB::beginTransaction();
+
+            $user = User::findOrFail($userId);
+            $newManagerId = $request->manager_id;
+            $startDateForDb = Carbon::createFromFormat('Y-m-d H:i:s', $request->start_date, 'UTC');
+
+            // Prevent self-assignment
+            if ($userId == $newManagerId) {
+                return redirect()->back()->with('error', 'User cannot be their own manager.');
+            }
+
+            // Check for circular reporting
+            $potentialNewManager = User::find($newManagerId);
+            if ($potentialNewManager && $potentialNewManager->reports_to_user_id == $userId) {
+                return redirect()->back()->with('error', 'This assignment would create a circular reporting structure.');
+            }
+
+            // Close existing reporting assignments for different managers
             $user->currentReportingAssignment()
                 ->where('manager_id', '!=', $newManagerId)
                 ->update(['end_date' => $startDateForDb->copy()->subSecond()]);
 
+            // Update user's manager
             $user->reports_to_user_id = $newManagerId;
             $user->save();
 
+            // Create new reporting assignment
             EmployeeReportingAssignment::create([
                 'user_id' => $user->id,
                 'manager_id' => $newManagerId,
@@ -198,42 +180,23 @@ class UserHierarchyController extends Controller
                 'end_date' => null,
             ]);
 
-            $approvalTransferResult = ['transferred' => 0, 'errors' => []];
-
-            // Transfer pending approvals if requested and there was an old manager
-            if ($transferApprovals && $oldManagerId && $oldManagerId !== $newManagerId) {
-                $approvalTransferResult = $this->hierarchyTransferService->transferPendingApprovalsOnManagerChange(
-                    $user,
-                    $oldManagerId,
-                    $newManagerId
-                );
-            }
-
             DB::commit();
 
-            Log::info("Manager ID {$newManagerId} assigned to User ID {$user->id}. Transferred {$approvalTransferResult['transferred']} approvals.");
+            Log::info("Manager assigned successfully", [
+                'user_id' => $userId,
+                'manager_id' => $newManagerId,
+                'start_date' => $request->start_date
+            ]);
 
-            $response = [
-                'message' => 'User manager updated successfully.',
-                'user' => $user->load(['currentPosition', 'manager']),
-                'approval_transfer' => $approvalTransferResult
-            ];
-
-            if ($approvalTransferResult['transferred'] > 0) {
-                $response['message'] .= " {$approvalTransferResult['transferred']} pending approvals transferred to new manager.";
-            }
-
-            return response()->json($response);
+            return redirect()->back()->with('success', 'Manager assigned successfully.');
 
         } catch (\Exception $e) {
             DB::rollBack();
-            Log::error("Error assigning manager to User ID {$user->id}: ".$e->getMessage());
-            return response()->json([
-                'error' => 'Failed to assign manager.',
-                'details' => App::environment('local') ? $e->getMessage() : 'An unexpected error occurred.'
-            ], 500);
+            Log::error('Manager assignment failed: ' . $e->getMessage());
+            return redirect()->back()->with('error', 'Failed to assign manager: ' . $e->getMessage());
         }
     }
+
 
     /**
      * Transfer all pending approvals from one user to another

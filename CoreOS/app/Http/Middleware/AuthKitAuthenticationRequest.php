@@ -6,6 +6,7 @@ use App\Models\User as AppUser;
 use Illuminate\Auth\Events\Registered;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 use Laravel\WorkOS\User;
 use Laravel\WorkOS\WorkOS;
 use WorkOS\UserManagement;
@@ -44,7 +45,7 @@ class AuthKitAuthenticationRequest extends FormRequest
             avatar: $user->profilePictureUrl,
         );
 
-        $existingUser = $findUsing($user->id);
+        $existingUser = $findUsing($user->id, $user->email);
 
         if (! $existingUser) {
             $existingUser = $createUsing($user);
@@ -65,18 +66,25 @@ class AuthKitAuthenticationRequest extends FormRequest
     }
 
     /**
-     * Find the user with the given WorkOS ID.
+     * Find the user with the given WorkOS ID or email.
+     * Updated to handle invited users with temporary workos_ids
      */
-//    protected function findUsing(string $id): ?AppUser
-//    {
-//        return AppUser::where('workos_id', $id)->first();
-//    }
-    /**
-     * Find the user with the given WorkOS ID.
-     */
-    protected function findUsing(string $id): ?AppUser
+    protected function findUsing(string $id, string $email = null): ?AppUser
     {
+        // First try to find by workos_id
         $user = AppUser::withTrashed()->where('workos_id', $id)->first();
+
+        // If not found and email provided, try to find by email
+        // This handles invited users who have temporary workos_ids
+        if (!$user && $email) {
+            $user = AppUser::withTrashed()->where('email', $email)->first();
+
+            // If found by email, update their workos_id to the real one
+            if ($user) {
+                Log::info("Found invited user by email, updating workos_id: {$email} -> {$id}");
+                $user->update(['workos_id' => $id]);
+            }
+        }
 
         // Block login for soft deleted users
         if ($user && $user->trashed()) {
@@ -85,6 +93,7 @@ class AuthKitAuthenticationRequest extends FormRequest
 
         return $user;
     }
+
     /**
      * Create a user from the given WorkOS user.
      */
@@ -95,7 +104,7 @@ class AuthKitAuthenticationRequest extends FormRequest
             'email' => $user->email,
             'email_verified_at' => now(),
             'workos_id' => $user->id,
-            'avatar' => $user->avatar ?? '',
+            'avatar' => $user->avatar ?? null,
         ]);
     }
 
@@ -105,8 +114,8 @@ class AuthKitAuthenticationRequest extends FormRequest
     protected function updateUsing(AppUser $user, User $userFromWorkOS): AppUser
     {
         return tap($user)->update([
-            // 'name' => $userFromWorkOS->firstName.' '.$userFromWorkOS->lastName,
-            'avatar' => $userFromWorkOS->avatar ?? '',
+            'name' => $userFromWorkOS->firstName.' '.$userFromWorkOS->lastName,
+            'avatar' => $userFromWorkOS->avatar ?? null,
         ]);
     }
 
