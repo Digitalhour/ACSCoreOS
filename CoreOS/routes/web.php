@@ -683,3 +683,4 @@ require __DIR__.'/department.php';
 require __DIR__.'/api.php';
 require __DIR__.'/auth.php';
 require __DIR__.'/hr-routes.php';
+require __DIR__.'/channels.php';

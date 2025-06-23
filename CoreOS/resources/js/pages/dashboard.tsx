@@ -3,6 +3,7 @@ import AppLayout from '@/layouts/app-layout';
 import {type BreadcrumbItem} from '@/types';
 import {Head} from '@inertiajs/react';
 
+
 const breadcrumbs: BreadcrumbItem[] = [
     {
         title: 'Dashboard',
@@ -11,11 +12,8 @@ const breadcrumbs: BreadcrumbItem[] = [
 ];
 
 export default function Dashboard() {
-    // const [orderStatus, setOrderStatus] = useState<string>('');
-    //
-    // useEcho('orders', 'OrderStatusUpdatedEvent', (e: { order: { status: string } }) => {
-    //     setOrderStatus(e.order.status);
-    // });
+
+    
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>

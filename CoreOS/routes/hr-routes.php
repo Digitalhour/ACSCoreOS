@@ -12,6 +12,21 @@ use Laravel\WorkOS\Http\Middleware\ValidateSessionWithWorkOS;
 
 
 Route::middleware(['auth', ValidateSessionWithWorkOS::class,])->group(function () {
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     Route::get('/user-management', [UserManagementController::class, 'index'])
         ->name('user-management.index');
 
