@@ -1,8 +1,32 @@
-import {PlaceholderPattern} from '@/components/ui/placeholder-pattern';
 import AppLayout from '@/layouts/app-layout';
 import {type BreadcrumbItem} from '@/types';
 import {Head} from '@inertiajs/react';
+import Feed from "@/components/Feed";
+import {PlaceholderPattern} from "@/components/ui/placeholder-pattern";
 
+interface User {
+    id: number;
+    name: string;
+    email: string;
+    avatar: string;
+}
+
+interface Article {
+    id: number;
+    title: string;
+    slug: string;
+    excerpt: string;
+    content: string;
+    status: 'draft' | 'published';
+    user: User;
+    published_at: string | null;
+    created_at: string;
+    updated_at: string;
+}
+
+interface Props {
+    articles: Article[];
+}
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
@@ -11,27 +35,22 @@ const breadcrumbs: BreadcrumbItem[] = [
     },
 ];
 
-export default function Dashboard() {
-
-    
+export default function Dashboard({ articles }: Props) {
+    // useEcho('orders', 'OrderStatusUpdatedEvent', (e) => {
+    //     console.log(e);
+    // })
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Dashboard" />
             <div className="flex h-full max-h-screen flex-1 flex-col gap-4 rounded-xl p-4">
-                <div className="grid auto-rows-min gap-4 md:grid-cols-3">
-                    <div className="flex flex-col gap-4">
-                        {' '}
-                        {/* Added a flex container */}
+                <div className="grid auto-rows-min gap-4 md:grid-cols-4">
+                    <div className="flex flex-col col-span-2 gap-4">
+
                         <div className="border-sidebar-border/70 dark:border-sidebar-border relative aspect-video overflow-hidden rounded-xl border">
-                            <PlaceholderPattern className="absolute inset-0 size-full stroke-neutral-900/20 dark:stroke-neutral-100/20" />
-                            Clock in and out
+                            <Feed articles={articles} limit={5} />
                         </div>
-                        {/* New block added below */}
-                        <div className="border-sidebar-border/70 dark:border-sidebar-border relative aspect-video overflow-hidden rounded-xl border">
-                            <PlaceholderPattern className="absolute inset-0 size-full stroke-neutral-900/20 dark:stroke-neutral-100/20" />
-                            {/*<div className="relative z-10 p-4">Order Status: {orderStatus}</div>*/}
-                        </div>
+
                     </div>
 
                     <div className="border-sidebar-border/70 dark:border-sidebar-border relative col-span-2 aspect-video overflow-hidden rounded-xl border">
@@ -43,11 +62,32 @@ export default function Dashboard() {
                             frameBorder="0"
                             scrolling="no"
                         ></iframe>
+
+                    </div>
+                    {/* New block added below */}
+                    <div className="border-sidebar-border/70 dark:border-sidebar-border relative aspect-video overflow-hidden rounded-xl border">
+                        <PlaceholderPattern className="absolute inset-0 size-full stroke-neutral-900/20 dark:stroke-neutral-100/20" />
+                        {/*<div className="relative z-10 p-4">Order Status: {orderStatus}</div>*/}
+                    </div>
+                    {/* New block added below */}
+                    <div className="border-sidebar-border/70 dark:border-sidebar-border relative aspect-video overflow-hidden rounded-xl border">
+                        <PlaceholderPattern className="absolute inset-0 size-full stroke-neutral-900/20 dark:stroke-neutral-100/20" />
+                        {/*<div className="relative z-10 p-4">Order Status: {orderStatus}</div>*/}
+                    </div>
+                    {/* New block added below */}
+                    <div className="border-sidebar-border/70 dark:border-sidebar-border relative aspect-video overflow-hidden rounded-xl border">
+                        <PlaceholderPattern className="absolute inset-0 size-full stroke-neutral-900/20 dark:stroke-neutral-100/20" />
+                        {/*<div className="relative z-10 p-4">Order Status: {orderStatus}</div>*/}
+                    </div>
+                    {/* New block added below */}
+                    <div className="border-sidebar-border/70 dark:border-sidebar-border relative aspect-video overflow-hidden rounded-xl border">
+                        <PlaceholderPattern className="absolute inset-0 size-full stroke-neutral-900/20 dark:stroke-neutral-100/20" />
+                        {/*<div className="relative z-10 p-4">Order Status: {orderStatus}</div>*/}
                     </div>
                 </div>
-                <div className="border-sidebar-border/70 dark:border-sidebar-border relative min-h-[100vh] flex-1 overflow-hidden rounded-xl border md:min-h-min">
+                <div className="border-sidebar-border/70 dark:border-sidebar-border">
 
-                    <PlaceholderPattern className="absolute inset-0 size-full stroke-neutral-900/20 dark:stroke-neutral-100/20" />
+                    {/*<PlaceholderPattern className="absolute inset-0 size-full stroke-neutral-900/20 dark:stroke-neutral-100/20" />*/}
                 </div>
             </div>
         </AppLayout>

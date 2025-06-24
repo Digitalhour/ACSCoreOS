@@ -245,6 +245,28 @@ ValidateSessionWithWorkOS::class,
         Route::get('/positions', [UserManagementController::class, 'getPositions']);
         Route::get('/managers', [UserManagementController::class, 'getManagers']);
         Route::get('/user-by-email', [UserManagementController::class, 'getUserByEmail']);
+        Route::apiResource('positions', \App\Http\Controllers\Api\PositionController::class);
+
+
+
+        Route::get('/notifications', function () {
+            $notifications = auth()->user()->notifications()->latest()->limit(10)->get();
+            $unreadCount = auth()->user()->notifications()->whereNull('read_at')->count();
+
+            return response()->json([
+                'notifications' => $notifications,
+                'unread_count' => $unreadCount
+            ]);
+        });
+
+        Route::post('/notifications/{id}/read', function ($id) {
+            auth()->user()->notifications()->where('id', $id)->update(['read_at' => now()]);
+            return response()->json(['success' => true]);
+        });
+
+
+
+
 
 // Users API (for dropdowns)
         Route::get('users', function () {

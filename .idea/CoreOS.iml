@@ -157,6 +157,9 @@
       <excludeFolder url="file://$MODULE_DIR$/CoreOS/vendor/react/promise-timer" />
       <excludeFolder url="file://$MODULE_DIR$/CoreOS/vendor/react/socket" />
       <excludeFolder url="file://$MODULE_DIR$/CoreOS/vendor/react/stream" />
+      <excludeFolder url="file://$MODULE_DIR$/CoreOS/storage/app" />
+      <excludeFolder url="file://$MODULE_DIR$/CoreOS/storage/framework" />
+      <excludeFolder url="file://$MODULE_DIR$/CoreOS/storage/pail" />
     </content>
     <content url="file://$MODULE_DIR$/CoreOS/node_modules" />
     <orderEntry type="inheritedJdk" />

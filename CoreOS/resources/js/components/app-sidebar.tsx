@@ -42,6 +42,7 @@ const mainNavItems: NavItem[] = [
     { title: 'Department PTO', href: '/department-pto', icon: Users, description:null },
     { title: 'holiday', href: '/holidays', icon: Users, description:null },
     { title: 'HR Dashboard', href: '/hr/dashboard', icon: Users, description:null },
+    { title: 'Articles', href: '/articles', icon: Users, description:null },
 ];
 
 const footerNavItems: NavItem[] = [

@@ -7,10 +7,12 @@ use App\Http\Controllers\Api\PtoApi\HRDashboardController;
 use App\Http\Controllers\Api\PtoApi\PtoApprovalRuleController;
 use App\Http\Controllers\Api\PtoApi\PtoOverviewController;
 use App\Http\Controllers\Api\UserPtoController;
+use App\Http\Controllers\ArticleController;
 use App\Http\Controllers\DepartmentTimeOffController;
 use App\Http\Controllers\HolidayController;
 use App\Http\Controllers\UserManagementController;
 use App\Http\Controllers\WidgetController;
+use App\Models\Article;
 use App\Models\User;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -25,12 +27,22 @@ Route::middleware([
     ValidateSessionWithWorkOS::class,
 ])->group(function () {
     Route::get('dashboard', function () {
-        return Inertia::render('dashboard');
+        $articles = Article::with(['user:id,name,email,avatar'])
+            ->published()
+            ->latest()
+            ->limit(10)
+            ->get();
+        return Inertia::render('dashboard',[
+            'articles' => $articles
+        ]);
     })->name('dashboard');
 
 
 
     Route::middleware(['auth', 'verified'])->group(function () {
+
+        Route::resource('articles', ArticleController::class);
+
 
         Route::get('/user-management', [UserManagementController::class, 'index'])->name('user-management');
         Route::get('/api/widget-token', [UserManagementController::class, 'getWidgetToken']);
