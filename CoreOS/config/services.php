@@ -41,5 +41,19 @@ return [
         'redirect_url' => env('WORKOS_REDIRECT_URL'),
         'environment' => env('WORKOS_ENVIRONMENT', 'sandbox'),
     ],
+    'shopify' => [
+        'shop_domain' => env('SHOPIFY_SHOP_DOMAIN'),
+        'access_token' => env('SHOPIFY_ACCESS_TOKEN'),
+        'storefront_domain' => env('SHOPIFY_STOREFRONT_DOMAIN', 'aircompressorservices.com'),
+        'api_version' => env('SHOPIFY_API_VERSION', '2023-10'),
+    ],
+    'netsuite' => [
+        'base_url' => env('NETSUITE_BASE_URL'),
+        'realm' => env('NETSUITE_REALM'),
+        'consumer_key' => env('NETSUITE_CONSUMER_KEY'),
+        'consumer_secret_key' => env('NETSUITE_CONSUMER_SECRET_KEY'),
+        'token' => env('NETSUITE_TOKEN'),
+        'token_secret' => env('NETSUITE_TOKEN_SECRET'),
+    ],
 
 ];

@@ -2,13 +2,14 @@ import AssignUsersDialog from '@/components/departments/AssignUsersDialog';
 import CreateDepartmentDialog from '@/components/departments/CreateDepartmentDialog';
 import DepartmentCard from '@/components/departments/DepartmentCard';
 import EditDepartmentDialog from '@/components/departments/EditDepartmentDialog';
-import { Card, CardContent } from '@/components/ui/card';
+import {Card, CardContent} from '@/components/ui/card';
 import AppLayout from '@/layouts/app-layout';
 // --- Import the shared types ---
-import { type BreadcrumbItem, type Department, type User } from '@/types';
-import { Head } from '@inertiajs/react';
-import { Users } from 'lucide-react';
-import { useState } from 'react';
+import {type BreadcrumbItem, type Department, type User} from '@/types';
+import {Head} from '@inertiajs/react';
+import {Users} from 'lucide-react';
+import {useState} from 'react';
+import HrLayout from "@/layouts/settings/hr-layout";
 
 // --- The local interface definitions have been removed ---
 
@@ -44,8 +45,9 @@ export default function DepartmentsIndex({ departments, users }: Props) {
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Departments" />
+            <HrLayout>
 
-            <div className="flex h-full max-h-screen flex-1 flex-col gap-4 rounded-xl p-4">
+            <div className="flex h-full max-h-screen flex-1 flex-col gap-4 rounded-xl ">
                 <div className="flex items-center justify-between">
                     <h1 className="text-2xl font-bold">Departments</h1>
                     <CreateDepartmentDialog />
@@ -87,6 +89,7 @@ export default function DepartmentsIndex({ departments, users }: Props) {
                     </Card>
                 )}
             </div>
+            </HrLayout>
         </AppLayout>
     );
 }

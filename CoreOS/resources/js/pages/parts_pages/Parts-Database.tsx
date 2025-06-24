@@ -1,11 +1,11 @@
 import AppLayout from '@/layouts/app-layout';
-import { type BreadcrumbItem } from '@/types';
-import { Head, router } from '@inertiajs/react';
-import React, { useCallback, useEffect, useState } from 'react';
+import {type BreadcrumbItem} from '@/types';
+import {Head, router} from '@inertiajs/react';
+import React, {useCallback, useEffect, useState} from 'react';
 
 // Shadcn/ui Components
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
+import {Badge} from '@/components/ui/badge';
+import {Button} from '@/components/ui/button';
 import {
     Pagination,
     PaginationContent,
@@ -15,18 +15,25 @@ import {
     PaginationNext,
     PaginationPrevious,
 } from '@/components/ui/pagination';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import {Table, TableBody, TableCell, TableHead, TableHeader, TableRow} from '@/components/ui/table';
 
 // Icons from lucide-react
-import { FilterX, Grid3X3, List, Loader2, Package, Search, ShoppingCart, XCircle } from 'lucide-react';
+import {FilterX, Grid3X3, List, Loader2, Package, Search, ShoppingCart, XCircle} from 'lucide-react';
 
 // Import components, types and utilities
-import { Input } from '@/components/ui/input';
+import {Input} from '@/components/ui/input';
 import DataTableFilterPopover from '@/pages/parts_pages/components/DataTableFilterPopover';
 import PartDetailsModal from './components/PartDetailsModal';
 import PartHoverCard from './components/PartHoverCard';
-import { defaultFilterOptions, defaultPaginatedData, FilterOptions, PaginatedPartsResponse, Part, PartsCatalogPageProps } from './components/types';
-import { parseUrlFilterParam } from './components/utils';
+import {
+    defaultFilterOptions,
+    defaultPaginatedData,
+    FilterOptions,
+    PaginatedPartsResponse,
+    Part,
+    PartsCatalogPageProps
+} from './components/types';
+import {parseUrlFilterParam} from './components/utils';
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
@@ -73,17 +80,14 @@ export default function PartsCatalog({ initialParts, initialFilterOptions, filte
             setIsLoading(true);
             router.get(
                 '/parts-catalog',
-                { load_filters: true, page: 1 },
+                { load_filters: true },
                 {
                     preserveState: true,
                     preserveScroll: true,
-                    replace: true,
-                    only: ['initialFilterOptions'], // Only update filter options, not the whole page
-                    onSuccess: (pageProps: any) => {
-                        const typedPageProps = pageProps.props as PartsCatalogPageProps;
-                        if (typedPageProps.initialFilterOptions) {
-                            setFilterOptions(typedPageProps.initialFilterOptions);
-                        }
+                    replace: false,
+                    only: ['initialFilterOptions'],
+                    onError: (errors) => {
+                        console.error('Filter options fetch error:', errors);
                     },
                     onFinish: () => setIsLoading(false),
                 },
@@ -96,8 +100,11 @@ export default function PartsCatalog({ initialParts, initialFilterOptions, filte
         (page: number = 1, newSearchTerm?: string) => {
             setIsLoading(true);
             setError(null);
-            const queryParams: Record<string, string | number> = { page };
+            const queryParams: Record<string, string | number> = {};
             const currentSearch = newSearchTerm !== undefined ? newSearchTerm : searchTerm;
+
+            // Only add page parameter if it's not page 1
+            if (page > 1) queryParams.page = page;
 
             if (currentSearch) queryParams.search = currentSearch;
             if (selectedManufacturers.length > 0) queryParams.manufacturer = selectedManufacturers.join(',');
@@ -108,14 +115,8 @@ export default function PartsCatalog({ initialParts, initialFilterOptions, filte
             router.get('/parts-catalog', queryParams, {
                 preserveState: true,
                 preserveScroll: true,
-                replace: true,
-                only: ['initialParts'], // Only update parts data, not the entire page
-                onSuccess: (pageProps: any) => {
-                    const typedPageProps = pageProps.props as PartsCatalogPageProps;
-                    if (typedPageProps.initialParts) {
-                        setPartsData(typedPageProps.initialParts);
-                    }
-                },
+                replace: false,
+                only: ['initialParts'],
                 onError: (errors) => {
                     setError('Failed to load parts. Please try again.');
                     console.error('Parts fetch error:', errors);
@@ -171,17 +172,14 @@ export default function PartsCatalog({ initialParts, initialFilterOptions, filte
         // Use router.get with only to just update the data, not reload page
         router.get(
             '/parts-catalog',
-            { page: 1 },
+            {}, // Empty query params to reset to clean URL
             {
                 preserveState: true,
                 preserveScroll: true,
-                replace: true,
-                only: ['initialParts'], // Only update parts data
-                onSuccess: (pageProps: any) => {
-                    const typedPageProps = pageProps.props as PartsCatalogPageProps;
-                    if (typedPageProps.initialParts) {
-                        setPartsData(typedPageProps.initialParts);
-                    }
+                replace: false,
+                only: ['initialParts'],
+                onError: (errors) => {
+                    console.error('Reset filters error:', errors);
                 },
             },
         );

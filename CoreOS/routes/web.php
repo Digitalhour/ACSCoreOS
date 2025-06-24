@@ -207,10 +207,7 @@ Route::middleware([
 //        Route::get('/activity-log', [ActivityLogController::class, 'index'])->name('activity-log.index');
 //        Route::get('/activity-log/{activity}', [ActivityLogController::class, 'show'])->name('activity-log.show');
 //        // Parts database page
-//        Route::get('Parts-Database', function () {
-//            return Inertia::render('Parts-Database');
-//        })->name('Parts-Database');
-//
+
 //        // Product picture manager
 //        Route::prefix('product-picture-manager')->name('product-picture-manager.')->middleware(['App\Http\Middleware\HandleGoogleAuthRedirect'])->group(function (
 //        ) {
@@ -244,8 +241,8 @@ Route::middleware([
 //        });
 //        Route::get('/pto/overview', [PtoOverviewController::class, 'index'])->name('pto.overview');
 //        // Parts catalog
-//        Route::get('/parts-catalog', [PartsCatalogController::class, 'index'])->name('parts.catalog');
-//
+
+
 //        /*
 //        |--------------------------------------------------------------------------
 //        | User Profile Routes
@@ -689,7 +686,7 @@ require __DIR__.'/settings.php';
 require __DIR__.'/impersonate.php';
 require __DIR__.'/emergency-contacts.php';
 require __DIR__.'/pto-routes.php';
-//require __DIR__.'/parts-database.php';
+require __DIR__.'/parts-database.php';
 //require __DIR__.'/admin-routes.php';.
 require __DIR__.'/department.php';
 require __DIR__.'/api.php';

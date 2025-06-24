@@ -1,8 +1,9 @@
 import PositionsTable from '@/components/Admin/Positions/PositionsTable'; // Create this
-import { Toaster } from '@/components/ui/sonner';
+import {Toaster} from '@/components/ui/sonner';
 import AppLayout from '@/layouts/app-layout'; // Assuming AppLayout is in Layouts
-import { type BreadcrumbItem } from '@/types';
-import { Head } from '@inertiajs/react';
+import {type BreadcrumbItem} from '@/types';
+import {Head} from '@inertiajs/react';
+import HrLayout from "@/layouts/settings/hr-layout";
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
@@ -22,15 +23,18 @@ const breadcrumbs: BreadcrumbItem[] = [
 export default function PositionsIndexPage() {
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
+            <HrLayout>
             <Head title="Manage Positions" />
-            <div className="container mx-auto px-4 py-10 sm:px-6 lg:px-8">
+            <div className="container mx-auto ">
                 <div className="mb-8">
                     <h1 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white">Job Positions</h1>
                     <p className="text-muted-foreground mt-1 text-sm">Create, view, edit, and delete job positions within the company.</p>
+
                 </div>
                 <PositionsTable />
             </div>
             <Toaster richColors position="top-right" />
+            </HrLayout>
         </AppLayout>
     );
 }

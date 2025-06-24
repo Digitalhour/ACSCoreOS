@@ -1,10 +1,10 @@
-import Heading from '@/components/heading';
 import {Separator} from '@/components/ui/separator';
 import {type NavItem} from '@/types';
 import {Link} from '@inertiajs/react';
 import {type PropsWithChildren} from 'react';
 import {BarChart3, CalendarIcon, Clock, FileText} from 'lucide-react';
 import {Button} from "@/components/ui/button";
+import Heading from "@/components/heading";
 
 const sidebarNavItems: NavItem[] = [
     {
@@ -47,7 +47,25 @@ const sidebarNavItems: NavItem[] = [
     {
         title: 'Employee Onboarding',
         href: '/user-management/onboard',
-        description: null,
+        description: "Onboard new employees.",
+        icon: FileText,
+    },
+    {
+        title: 'Departments',
+        href: '/departments',
+        description: "Manage ACS Departments and assign employees to them.",
+        icon: FileText,
+    },
+    {
+        title: 'Hierarchy',
+        href: '/admin/user-hierarchy',
+        description: "Assign users to departments, teams, and locations.",
+        icon: FileText,
+    },
+    {
+        title: 'Company Positions',
+        href: '/admin/positions',
+        description: "manage company positions.",
         icon: FileText,
     }
 ];
@@ -60,12 +78,15 @@ export default function HrLayout({ children }: PropsWithChildren) {
 
     const currentPath = window.location.pathname;
 
+    // Find the current navigation item based on the path
+    const currentNavItem = sidebarNavItems.find(item => item.href === currentPath) || { title: 'HR Settings', description: '' };
+
     return (
         <div className="px-4 py-6">
-            <Heading title="Dashboard" description="Human Resources Dashboard" />
+            <Heading title={currentNavItem.title} description={currentNavItem.description || undefined} />
 
-            <div className="flex flex-col space-y-8 lg:flex-row lg:space-y-0 lg:space-x-12">
-                <aside className="w-full max-w-xl lg:w-48">
+            <div className="flex flex-col space-y-2 lg:flex-row lg:space-y-0 lg:space-x-8">
+                <aside className="w-full max-w-xl lg:w-64">
                     <nav className="flex flex-col space-y-1 space-x-0">
                         {sidebarNavItems.map((item, index) => (
                             <Button

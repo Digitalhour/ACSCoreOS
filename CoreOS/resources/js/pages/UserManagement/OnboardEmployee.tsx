@@ -10,6 +10,7 @@ import {Badge} from "@/components/ui/badge";
 import {Building2, CheckCircle, Lock, UserPlus, Users} from 'lucide-react';
 import AppLayout from '@/layouts/app-layout';
 import {type BreadcrumbItem} from '@/types';
+import HrLayout from "@/layouts/settings/hr-layout";
 
 interface PtoType {
     id: number;
@@ -338,6 +339,7 @@ export default function OnboardEmployee() {
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
+            <HrLayout>
             <Head title="Onboard Employee" />
 
             <div className="flex h-full max-h-screen flex-1 flex-col gap-4 rounded-xl p-4">
@@ -667,6 +669,7 @@ export default function OnboardEmployee() {
                     </Card>
                 </div>
             </div>
+            </HrLayout>
         </AppLayout>
     );
 }

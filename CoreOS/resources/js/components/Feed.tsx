@@ -1,5 +1,10 @@
 import {Link} from '@inertiajs/react';
 import {Bookmark, Clock, Heart, MessageCircle, MoreHorizontal, Share2} from 'lucide-react';
+import {Card, CardContent, CardHeader} from '@/components/ui/card';
+import {Avatar, AvatarFallback, AvatarImage} from '@/components/ui/avatar';
+import {Button} from '@/components/ui/button';
+import {Badge} from '@/components/ui/badge';
+import {Separator} from '@/components/ui/separator';
 
 interface User {
     id: number;
@@ -44,8 +49,8 @@ export default function Feed({ articles = [], limit = 10 }: Props) {
         return name.split(' ').map(n => n[0]).join('').toUpperCase();
     };
 
-    const getAvatar = (avatar: string | null) => {
-        if (!avatar) return null;
+    const getAvatar = (avatar: string | undefined) => {
+        if (!avatar) return undefined;
         if (avatar.startsWith('/')) return avatar;
         if (avatar.startsWith('http')) return avatar;
         return `/storage/${avatar}`;
@@ -58,141 +63,131 @@ export default function Feed({ articles = [], limit = 10 }: Props) {
 
     const displayArticles = articles.slice(0, limit);
 
-    // Debug: Log first user's data
-    if (displayArticles.length > 0) {
-        console.log('First user data:', displayArticles[0].user);
-    }
-
     return (
-        <div className="">
+        <div >
             {displayArticles.map((article) => (
-                <div key={article.id} className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden hover:shadow-md transition-shadow duration-200">
-                    {/* Header */}
-                    <div className="p-6 pb-4">
+                <Card key={article.id} className="overflow-hidden">
+                    <CardHeader className="">
                         <div className="flex items-center justify-between">
                             <div className="flex items-center gap-3">
-                                {article.user.avatar ? (
-                                    <img
-                                        src={getAvatar(article.user.avatar)}
+                                <Avatar className="h-12 w-12">
+                                    <AvatarImage
+                                        src={getAvatar(article.user.avatar || undefined)}
                                         alt={article.user.name}
-                                        className="w-12 h-12 rounded-full object-cover shadow-md"
-                                        onError={(e) => {
-                                            console.log('Avatar failed to load for:', article.user.name);
-                                            e.currentTarget.style.display = 'none';
-                                            e.currentTarget.nextElementSibling?.classList.remove('hidden');
-                                        }}
                                     />
-                                ) : null}
-                                <div className={`w-12 h-12 bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500 rounded-full flex items-center justify-center text-white font-bold text-lg shadow-md ${article.user.avatar ? 'hidden' : ''}`}>
-                                    {getInitials(article.user.name)}
-                                </div>
+                                    <AvatarFallback className="bg-gradient-to-br from-blue-500 to-purple-600 text-white font-semibold">
+                                        {getInitials(article.user.name)}
+                                    </AvatarFallback>
+                                </Avatar>
                                 <div>
-                                    <h4 className="font-semibold text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 cursor-pointer">
+                                    <h4 className="font-semibold hover:text-primary cursor-pointer transition-colors">
                                         {article.user.name}
                                     </h4>
-                                    <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
+                                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
                                         <Clock className="w-4 h-4" />
-                                        {getTimeAgo(article.published_at || article.created_at)}
+                                        <span>{getTimeAgo(article.published_at || article.created_at)}</span>
                                         {article.status === 'published' && (
                                             <>
                                                 <span>•</span>
-                                                <span className="text-green-600 dark:text-green-400">Published</span>
+                                                <Badge variant="secondary" className="text-xs bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300">
+                                                    Published
+                                                </Badge>
                                             </>
                                         )}
                                     </div>
                                 </div>
                             </div>
-                            <button className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors">
-                                <MoreHorizontal className="w-5 h-5 text-gray-500 dark:text-gray-400" />
-                            </button>
+                            <Button variant="ghost" size="icon" className="h-8 w-8">
+                                <MoreHorizontal className="h-4 w-4" />
+                            </Button>
                         </div>
-                    </div>
+                    </CardHeader>
 
-                    {/* Content */}
-                    <div className="px-6 pb-4">
+                    <CardContent className="space-y-2">
                         <Link href={`/articles/${article.id}`} className="block group">
-                            <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-3 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors leading-tight">
+                            <h3 className="text-xl font-bold mb-1 group-hover:text-primary transition-colors leading-tight">
                                 {article.title}
                             </h3>
-                            {article.excerpt && (
-                                <p className="text-gray-700 dark:text-gray-300 mb-3 leading-relaxed">
-                                    {article.excerpt}
-                                </p>
-                            )}
-                            <p className="text-gray-600 dark:text-gray-400 leading-relaxed line-clamp-3">
+                            {/*{article.excerpt && (*/}
+                            {/*    <p className="text-muted-foreground mb-3 leading-relaxed">*/}
+                            {/*        {article.excerpt}*/}
+                            {/*    </p>*/}
+                            {/*)}*/}
+                            <p className="text-muted-foreground leading-relaxed line-clamp-3">
                                 {stripHtml(article.content)}
                             </p>
                         </Link>
-                    </div>
 
-                    {/* Media placeholder - like LinkedIn/Facebook posts */}
-                    <div className="mx-6 mb-4">
-                        <div className="bg-gradient-to-r from-gray-100 to-gray-200 dark:from-gray-700 dark:to-gray-600 rounded-lg h-48 flex items-center justify-center">
-                            <span className="text-gray-500 dark:text-gray-400 font-medium">📄 Article Preview</span>
+                        {/* Media placeholder */}
+                        <div className="bg-gradient-to-r from-muted/50 to-muted rounded-lg h-48 flex items-center justify-center">
+                            <span className="text-muted-foreground font-medium">📄 Article Preview</span>
                         </div>
-                    </div>
 
-                    {/* Engagement Stats */}
-                    <div className="px-6 py-2 text-sm text-gray-500 dark:text-gray-400 border-b border-gray-100 dark:border-gray-700">
-                        <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-4">
-                                <span className="flex items-center gap-1">
-                                    <div className="flex -space-x-1">
-                                        <div className="w-5 h-5 bg-red-500 rounded-full flex items-center justify-center">
-                                            <Heart className="w-3 h-3 text-white fill-current" />
+                        {/* Engagement Stats */}
+                        <div className="space-y-3">
+                            <div className="flex items-center justify-between text-sm text-muted-foreground">
+                                <div className="flex items-center gap-4">
+                                    <span className="flex items-center gap-2">
+                                        <div className="flex -space-x-1">
+                                            <div className="w-5 h-5 bg-red-500 rounded-full flex items-center justify-center">
+                                                <Heart className="w-3 h-3 text-white fill-current" />
+                                            </div>
+                                            <div className="w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center">
+                                                <span className="text-white text-xs">👍</span>
+                                            </div>
                                         </div>
-                                        <div className="w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center">
-                                            <span className="text-white text-xs">👍</span>
-                                        </div>
-                                    </div>
-                                    <span className="ml-2">{Math.floor(Math.random() * 50) + 5}</span>
-                                </span>
+                                        <span>{Math.floor(Math.random() * 50) + 5}</span>
+                                    </span>
+                                </div>
+                                <div className="flex items-center gap-4">
+                                    <span>{Math.floor(Math.random() * 20) + 1} comments</span>
+                                    <span>{Math.floor(Math.random() * 10) + 1} shares</span>
+                                </div>
                             </div>
-                            <div className="flex items-center gap-4">
-                                <span>{Math.floor(Math.random() * 20) + 1} comments</span>
-                                <span>{Math.floor(Math.random() * 10) + 1} shares</span>
-                            </div>
-                        </div>
-                    </div>
 
-                    {/* Actions */}
-                    <div className="p-4">
-                        <div className="flex items-center justify-between">
-                            <button className="flex items-center gap-2 px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-red-500 dark:hover:text-red-400 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition-all duration-200">
-                                <Heart className="w-5 h-5" />
-                                <span className="font-medium">Like</span>
-                            </button>
-                            <button className="flex items-center gap-2 px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-blue-500 dark:hover:text-blue-400 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition-all duration-200">
-                                <MessageCircle className="w-5 h-5" />
-                                <span className="font-medium">Comment</span>
-                            </button>
-                            <button className="flex items-center gap-2 px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-green-500 dark:hover:text-green-400 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition-all duration-200">
-                                <Share2 className="w-5 h-5" />
-                                <span className="font-medium">Share</span>
-                            </button>
-                            <button className="flex items-center gap-2 px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-yellow-500 dark:hover:text-yellow-400 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition-all duration-200">
-                                <Bookmark className="w-5 h-5" />
-                                <span className="font-medium">Save</span>
-                            </button>
+                            <Separator />
+
+                            {/* Actions */}
+                            <div className="grid grid-cols-4 gap-2">
+                                <Button variant="ghost" className="flex items-center gap-2 text-muted-foreground hover:text-red-500">
+                                    <Heart className="w-4 h-4" />
+                                    <span className="hidden sm:inline">Like</span>
+                                </Button>
+                                <Button variant="ghost" className="flex items-center gap-2 text-muted-foreground hover:text-blue-500">
+                                    <MessageCircle className="w-4 h-4" />
+                                    <span className="hidden sm:inline">Comment</span>
+                                </Button>
+                                <Button variant="ghost" className="flex items-center gap-2 text-muted-foreground hover:text-green-500">
+                                    <Share2 className="w-4 h-4" />
+                                    <span className="hidden sm:inline">Share</span>
+                                </Button>
+                                <Button variant="ghost" className="flex items-center gap-2 text-muted-foreground hover:text-yellow-500">
+                                    <Bookmark className="w-4 h-4" />
+                                    <span className="hidden sm:inline">Save</span>
+                                </Button>
+                            </div>
                         </div>
-                    </div>
-                </div>
+                    </CardContent>
+                </Card>
             ))}
 
             {displayArticles.length === 0 && (
-                <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-12 text-center">
-                    <div className="w-16 h-16 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-4">
-                        <MessageCircle className="w-8 h-8 text-gray-400 dark:text-gray-500" />
-                    </div>
-                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">No posts yet</h3>
-                    <p className="text-gray-500 dark:text-gray-400 mb-6">Be the first to share something with your network!</p>
-                    <Link
-                        href="/articles/create"
-                        className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
-                    >
-                        Share your thoughts
-                    </Link>
-                </div>
+                <Card className="p-12 text-center">
+                    <CardContent className="space-y-4">
+                        <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mx-auto">
+                            <MessageCircle className="w-8 h-8 text-muted-foreground" />
+                        </div>
+                        <div className="space-y-2">
+                            <h3 className="text-lg font-semibold">No posts yet</h3>
+                            <p className="text-muted-foreground">Be the first to share something with your network!</p>
+                        </div>
+                        <Button asChild className="mt-6">
+                            <Link href="/articles/create">
+                                Share your thoughts
+                            </Link>
+                        </Button>
+                    </CardContent>
+                </Card>
             )}
 
             <style>{`

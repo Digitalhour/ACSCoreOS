@@ -36,7 +36,7 @@ const mainNavItems: NavItem[] = [
     // { title: 'ACS Organization', href: '/acs-org', icon: Users, permission: '' }, // Shows if permission is empty string
     // { title: 'ACS PermissionTest', href: '/test', icon: Users, permission: 'AdminMenu' },
     // { title: 'ACS RoleTest', href: '/Roletest', icon: Users, roles: '' },
-    // { title: 'ACS Parts Database', href: '/parts-catalog', icon: Users, roles: '' },
+    { title: 'ACS Parts Database', href: '/parts-catalog', icon: Users, roles: '', description:null },
     // { title: 'ACS Org', href: '/organization-chart', icon: Users, roles: '' },
 
     { title: 'Department PTO', href: '/department-pto', icon: Users, description:null },
