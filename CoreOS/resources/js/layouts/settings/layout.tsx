@@ -20,11 +20,18 @@ const sidebarNavItems: NavItem[] = [
         description: null
     },
     {
+        title: 'Addresses',
+        href: '/settings/addresses',
+        icon: null,
+        description: null
+    },
+    {
         title: 'Emergency Contacts',
         href: '/settings/emergency-contacts',
         icon: null,
         description: null
-    }
+    },
+
 ];
 
 export default function SettingsLayout({ children }: PropsWithChildren) {

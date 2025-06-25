@@ -1,14 +1,12 @@
-import { type BreadcrumbItem, type SharedData } from '@/types';
-import { Transition } from '@headlessui/react';
-import { Head, useForm, usePage } from '@inertiajs/react';
-import { FormEventHandler } from 'react';
-
-import DeleteUser from '@/components/delete-user';
+import {type BreadcrumbItem, type SharedData} from '@/types';
+import {Transition} from '@headlessui/react';
+import {Head, useForm, usePage} from '@inertiajs/react';
+import {FormEventHandler} from 'react';
 import HeadingSmall from '@/components/heading-small';
 import InputError from '@/components/input-error';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+import {Button} from '@/components/ui/button';
+import {Input} from '@/components/ui/input';
+import {Label} from '@/components/ui/label';
 import AppLayout from '@/layouts/app-layout';
 import SettingsLayout from '@/layouts/settings/layout';
 
@@ -97,7 +95,7 @@ export default function Profile() {
                     </form>
                 </div>
 
-                <DeleteUser />
+
             </SettingsLayout>
         </AppLayout>
     );

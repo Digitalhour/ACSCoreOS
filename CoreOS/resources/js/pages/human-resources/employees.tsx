@@ -7,13 +7,30 @@ import {Avatar, AvatarFallback, AvatarImage} from "@/components/ui/avatar";
 import {Badge} from "@/components/ui/badge";
 import {Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle} from "@/components/ui/sheet";
 import {Card, CardContent} from "@/components/ui/card";
-import {Tabs, TabsList, TabsTrigger} from "@/components/ui/tabs";
+import {Tabs, TabsContent, TabsList, TabsTrigger} from "@/components/ui/tabs";
 import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from "@/components/ui/select";
 import {Switch} from "@/components/ui/switch";
 import {Input} from "@/components/ui/input";
 import {Button} from "@/components/ui/button";
-import {useState} from 'react';
-import {Briefcase, ChevronDown, ChevronUp, Filter, Mail, MapPin, Search, UserRoundCheck, UserX, X,} from 'lucide-react';
+import React, {useState} from 'react';
+import {
+    AlertTriangle,
+    Briefcase,
+    Building,
+    ChevronDown,
+    ChevronUp,
+    Filter,
+    Home,
+    Mail,
+    MapPin,
+    Search,
+    Shield,
+    User,
+    UserRoundCheck,
+    Users,
+    UserX,
+    X
+} from 'lucide-react';
 import {Separator} from "@/components/ui/separator";
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -30,6 +47,23 @@ const breadcrumbs: BreadcrumbItem[] = [
         href: '/hr/employees',
     },
 ];
+
+export interface Address {
+    id: number;
+    type: string;
+    label: string | null;
+    address_line_1: string;
+    address_line_2: string | null;
+    city: string;
+    state: string;
+    postal_code: string;
+    country: string;
+    is_primary: boolean;
+    is_active: boolean;
+    notes: string | null;
+    full_address: string;
+    single_line_address: string;
+}
 
 export interface EmergencyContact {
     id: number;
@@ -85,6 +119,7 @@ export interface Role {
     permissions: string[];
 }
 
+// Single User interface definition with all required properties
 export interface User {
     id: number;
     name: string;
@@ -103,6 +138,7 @@ export interface User {
         cancelled: number;
     };
     emergency_contacts: EmergencyContact[];
+    addresses: Address[]; // Make sure this is included
     pto_balances: PtoBalance[];
     pto_requests: PtoRequest[];
 }
@@ -397,11 +433,11 @@ export default function Employees({ users }: { users: User[] }) {
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Employees" />
             <HrLayout>
-                <div className="space-y-6">
+                <div className="space-y-2">
                     <div className="flex justify-between items-center">
                         <div>
                             <h1 className="text-2xl font-bold text-gray-900">Employees</h1>
-                            <p className="text-gray-600">Employees time off details</p>
+                            <p className="text-gray-600">ACS Employees details</p>
                         </div>
                         <div className="text-sm text-gray-500">
                             {sortedUsers.length} of {users.length} employee{users.length !== 1 ? 's' : ''}
@@ -410,7 +446,7 @@ export default function Employees({ users }: { users: User[] }) {
 
                     {/* Search and Filters */}
                     <Card>
-                        <CardContent className="p-4">
+                        <CardContent >
                             <div className="flex flex-col md:flex-row gap-4">
                                 <div className="flex-1 relative">
                                     <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
@@ -567,7 +603,7 @@ export default function Employees({ users }: { users: User[] }) {
                     </div>
                 </div>
 
-                {/* Rest of the Sheet component remains the same */}
+                {/* Sheet with fixed addresses handling */}
                 <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
                     <SheetContent side="right" className="min-w-7/12 p-0 overflow-hidden">
                         {selectedUser && (
@@ -597,7 +633,7 @@ export default function Employees({ users }: { users: User[] }) {
                                             </div>
                                             <div className="flex items-center justify-between mt-2">
                                                 <div className="flex items-center">
-                                                    <MapPin className="h-4 w-4 mr-1" />
+                                                    <Users className="h-4 w-4 mr-1" />
                                                     <span className="text-sm text-gray-600">{selectedUser.departments}</span>
                                                     <Badge className={`ml-3 ${selectedUser.deleted_at ? 'bg-red-100 text-red-800 border-red-200' : 'bg-green-100 text-green-800 border-green-200'}`}>
                                                         {selectedUser.deleted_at ? (
@@ -652,10 +688,9 @@ export default function Employees({ users }: { users: User[] }) {
                                     </div>
                                 </SheetHeader>
 
-                                {/* Tabs content - keeping the same structure as original but shortening for brevity */}
                                 <div className="flex-1 overflow-hidden">
                                     <Tabs defaultValue="overview" className="h-full flex flex-col">
-                                        <div className=" px-6">
+                                        <div className="px-6">
                                             <TabsList className="h-12 p-0 bg-transparent">
                                                 <TabsTrigger value="overview" className="data-[state=active]:bg-gray-100 data-[state=active]:text-gray-900 hover:bg-gray-50 border border-transparent data-[state=active]:border-gray-200 rounded-md">
                                                     Overview
@@ -666,6 +701,9 @@ export default function Employees({ users }: { users: User[] }) {
                                                 <TabsTrigger value="emergency" className="data-[state=active]:bg-gray-100 data-[state=active]:text-gray-900 hover:bg-gray-50 border border-transparent data-[state=active]:border-gray-200 rounded-md">
                                                     Emergency Contacts
                                                 </TabsTrigger>
+                                                <TabsTrigger value="addresses" className="data-[state=active]:bg-gray-100 data-[state=active]:text-gray-900 hover:bg-gray-50 border border-transparent data-[state=active]:border-gray-200 rounded-md">
+                                                    Addresses
+                                                </TabsTrigger>
                                                 <TabsTrigger value="pto-balances" className="data-[state=active]:bg-gray-100 data-[state=active]:text-gray-900 hover:bg-gray-50 border border-transparent data-[state=active]:border-gray-200 rounded-md">
                                                     PTO Balances
                                                 </TabsTrigger>
@@ -675,7 +713,441 @@ export default function Employees({ users }: { users: User[] }) {
                                             </TabsList>
                                         </div>
                                         <Separator />
-                                        {/* Rest of tabs content would continue here - keeping same structure as original */}
+
+                                        <div className="flex-1 overflow-auto">
+                                            {/* Overview Tab with proper null checking */}
+                                            <TabsContent value="overview" className="p-6 space-y-6 m-0">
+                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                                    <Card>
+                                                        <CardContent className="p-6">
+                                                            <h3 className="text-lg font-semibold mb-4">Basic Information</h3>
+                                                            <div className="space-y-3">
+                                                                <div>
+                                                                    <label className="text-sm font-medium text-gray-500">Full Name</label>
+                                                                    <p className="text-sm text-gray-900">{selectedUser.name}</p>
+                                                                </div>
+                                                                <div>
+                                                                    <label className="text-sm font-medium text-gray-500">Email Address</label>
+                                                                    <p className="text-sm text-gray-900">{selectedUser.email}</p>
+                                                                </div>
+                                                                <div>
+                                                                    <label className="text-sm font-medium text-gray-500">Department</label>
+                                                                    <p className="text-sm text-gray-900">{selectedUser.departments}</p>
+                                                                </div>
+                                                                <div>
+                                                                    <label className="text-sm font-medium text-gray-500">Position</label>
+                                                                    <p className="text-sm text-gray-900">{selectedUser.position}</p>
+                                                                </div>
+                                                                <div>
+                                                                    <label className="text-sm font-medium text-gray-500">Status</label>
+                                                                    <Badge className={`${selectedUser.deleted_at ? 'bg-red-100 text-red-800 border-red-200' : 'bg-green-100 text-green-800 border-green-200'}`}>
+                                                                        {selectedUser.deleted_at ? 'Deactivated' : 'Active'}
+                                                                    </Badge>
+                                                                </div>
+                                                                <div>
+                                                                    <label className="text-sm font-medium text-gray-500">Primary Address</label>
+                                                                    {(() => {
+                                                                        // Safe null checking for addresses
+                                                                        const addresses = selectedUser.addresses || [];
+                                                                        const primaryAddress = addresses.find(addr => addr.is_primary && addr.is_active);
+                                                                        return primaryAddress ? (
+                                                                            <div className="text-sm text-gray-900">
+                                                                                <div className="font-medium">{primaryAddress.label || primaryAddress.type}</div>
+                                                                                <div className="text-gray-600 text-xs mt-1 whitespace-pre-line">
+                                                                                    {primaryAddress.full_address}
+                                                                                </div>
+                                                                            </div>
+                                                                        ) : (
+                                                                            <p className="text-sm text-gray-500">No primary address</p>
+                                                                        );
+                                                                    })()}
+                                                                </div>
+                                                            </div>
+                                                        </CardContent>
+                                                    </Card>
+
+                                                    <Card>
+                                                        <CardContent className="p-6">
+                                                            <h3 className="text-lg font-semibold mb-4">PTO Summary</h3>
+                                                            <div className="space-y-3">
+                                                                <div className="flex justify-between">
+                                                                    <span className="text-sm text-gray-500">Total Requests</span>
+                                                                    <span className="text-sm font-medium">{selectedUser.pto_stats.total}</span>
+                                                                </div>
+                                                                <div className="flex justify-between">
+                                                                    <span className="text-sm text-gray-500">Pending</span>
+                                                                    <span className="text-sm font-medium text-yellow-600">{selectedUser.pto_stats.pending}</span>
+                                                                </div>
+                                                                <div className="flex justify-between">
+                                                                    <span className="text-sm text-gray-500">Approved</span>
+                                                                    <span className="text-sm font-medium text-green-600">{selectedUser.pto_stats.approved}</span>
+                                                                </div>
+                                                                <div className="flex justify-between">
+                                                                    <span className="text-sm text-gray-500">Denied</span>
+                                                                    <span className="text-sm font-medium text-red-600">{selectedUser.pto_stats.denied}</span>
+                                                                </div>
+                                                                <div className="flex justify-between">
+                                                                    <span className="text-sm text-gray-500">Cancelled</span>
+                                                                    <span className="text-sm font-medium text-gray-600">{selectedUser.pto_stats.cancelled}</span>
+                                                                </div>
+                                                                <Separator />
+                                                                <div className="flex justify-between">
+                                                                    <span className="text-sm font-medium text-gray-700">Available Balance</span>
+                                                                    <span className="text-sm font-bold text-blue-600">
+                                                                        {selectedUser.pto_balances.length > 0 ? selectedUser.pto_balances[0].balance.toFixed(1) : '0'} days
+                                                                    </span>
+                                                                </div>
+                                                            </div>
+                                                        </CardContent>
+                                                    </Card>
+                                                </div>
+                                            </TabsContent>
+
+                                            {/* Roles & Permissions Tab */}
+                                            <TabsContent value="roles" className="p-6 space-y-6 m-0">
+                                                <Card>
+                                                    <CardContent className="p-6">
+                                                        <h3 className="text-lg font-semibold mb-4">Assigned Roles</h3>
+                                                        <Button variant={"link"}> Edit </Button>
+                                                        {selectedUser.roles.length > 0 ? (
+                                                            <div className="space-y-4">
+                                                                {selectedUser.roles.map((role) => (
+                                                                    <div key={role.id} className="border rounded-lg p-4">
+                                                                        <div className="flex items-center justify-between mb-3">
+                                                                            <Badge className={getRoleColor(role.name)}>
+                                                                                {role.name}
+                                                                            </Badge>
+                                                                        </div>
+                                                                        <div>
+                                                                            <h4 className="text-sm font-medium text-gray-700 mb-2">Permissions</h4>
+                                                                            <div className="flex flex-wrap gap-1">
+                                                                                {role.permissions.map((permission, index) => (
+                                                                                    <Badge key={index} variant="outline" className="text-xs">
+                                                                                        {permission}
+                                                                                    </Badge>
+                                                                                ))}
+                                                                            </div>
+                                                                        </div>
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                        ) : (
+                                                            <p className="text-gray-500">No roles assigned</p>
+                                                        )}
+                                                    </CardContent>
+                                                </Card>
+                                            </TabsContent>
+
+                                            {/* Emergency Contacts Tab */}
+                                            <TabsContent value="emergency" className="p-6 space-y-6 m-0">
+                                                <Card>
+                                                    <CardContent className="p-6">
+                                                        <h3 className="text-lg font-semibold mb-4">Emergency Contacts</h3>
+                                                        {selectedUser.emergency_contacts.length > 0 ? (
+                                                            <div className="space-y-4 grid grid-cols-2">
+                                                                {selectedUser.emergency_contacts.map((contact) => (
+                                                                    <div key={contact.id} className="border rounded-lg p-4">
+                                                                        <div className="flex items-center justify-between mb-3">
+                                                                            <div className="flex ">
+                                                                                <User className="h-5 w-5 mr-1"/>
+                                                                            <h4 className="font-medium  dark:text-gray-200 text-gray-900">
+                                                                                {contact.name}
+                                                                            </h4>
+                                                                            </div>
+                                                                            {contact.is_primary && (
+                                                                                <Badge variant="secondary">Primary</Badge>
+                                                                            )}
+                                                                        </div>
+                                                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+                                                                            <div>
+                                                                                <label className="text-gray-500">Relationship</label>
+                                                                                <p className="text-gray-900">{contact.relationship}</p>
+                                                                            </div>
+                                                                            <div>
+                                                                                <label className="text-gray-500">Phone</label>
+                                                                                <p className="text-gray-900">{contact.phone}</p>
+                                                                            </div>
+                                                                            <div>
+                                                                                <label className="text-gray-500">Email</label>
+                                                                                <p className="text-gray-900">{contact.email || "N/A"}</p>
+                                                                            </div>
+                                                                            <div>
+                                                                                <label className="text-gray-500">Address</label>
+                                                                                <p className="text-gray-900">{contact.address}</p>
+                                                                            </div>
+                                                                        </div>
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                        ) : (
+                                                            <p className="text-gray-500">No emergency contacts on file</p>
+                                                        )}
+                                                    </CardContent>
+                                                </Card>
+                                            </TabsContent>
+
+                                            {/* Addresses Tab with proper null checking */}
+                                            <TabsContent value="addresses" className="p-6 space-y-6 m-0 ">
+                                                <Card>
+                                                    <CardContent className="p-6">
+                                                        <h3 className="text-lg font-semibold mb-4">All Addresses</h3>
+                                                        {selectedUser.addresses && selectedUser.addresses.length > 0 ? (
+                                                            <div className="grid grid-cols-2 gap-4">
+                                                                {selectedUser.addresses
+                                                                    .sort((a, b) => {
+                                                                        if (a.is_primary && !b.is_primary) return -1;
+                                                                        if (!a.is_primary && b.is_primary) return 1;
+                                                                        if (a.is_active && !b.is_active) return -1;
+                                                                        if (!a.is_active && b.is_active) return 1;
+                                                                        return a.type.localeCompare(b.type);
+                                                                    })
+                                                                    .map((address) => (
+                                                                        <div key={address.id} className={`border rounded-lg p-4 ${!address.is_active ? 'opacity-60' : ''}`}>
+                                                                            <div className="flex items-center justify-between mb-3">
+                                                                                <div className="flex items-center space-x-2">
+                                                                                    <div className="flex items-center">
+                                                                                        {(() => {
+                                                                                            switch (address.type.toLowerCase()) {
+                                                                                                case 'home':
+                                                                                                    return <Home className="h-4 w-4 text-blue-600 mr-2" />;
+                                                                                                case 'work':
+                                                                                                    return <Building className="h-4 w-4 text-gray-600 mr-2" />;
+                                                                                                case 'emergency':
+                                                                                                    return <AlertTriangle className="h-4 w-4 text-red-600 mr-2" />;
+                                                                                                default:
+                                                                                                    return <MapPin className="h-4 w-4 text-gray-600 mr-2" />;
+                                                                                            }
+                                                                                        })()}
+                                                                                        <h4 className="font-medium text-gray-900">
+                                                                                            {address.label || address.type}
+                                                                                            {address.label && address.label !== address.type && (
+                                                                                                <span className="text-sm font-normal text-gray-500 ml-1">
+                                                                                                    ({address.type})
+                                                                                                </span>
+                                                                                            )}
+                                                                                        </h4>
+                                                                                    </div>
+                                                                                </div>
+                                                                                <div className="flex space-x-1">
+                                                                                    {address.is_primary && (
+                                                                                        <Badge className="bg-blue-100 text-blue-800 border-blue-200">
+                                                                                            <Shield className="h-3 w-3 mr-1" />
+                                                                                            Primary
+                                                                                        </Badge>
+                                                                                    )}
+                                                                                    {!address.is_active && (
+                                                                                        <Badge variant="secondary">
+                                                                                            Inactive
+                                                                                        </Badge>
+                                                                                    )}
+                                                                                </div>
+                                                                            </div>
+                                                                            <div className="text-sm text-gray-900 whitespace-pre-line">
+                                                                                {address.full_address}
+                                                                            </div>
+                                                                            {address.notes && (
+                                                                                <div className="mt-2 text-sm text-gray-500 italic">
+                                                                                    {address.notes}
+                                                                                </div>
+                                                                            )}
+                                                                        </div>
+                                                                    ))}
+                                                            </div>
+                                                        ) : (
+                                                            <p className="text-gray-500">No addresses on file</p>
+                                                        )}
+                                                    </CardContent>
+                                                </Card>
+                                            </TabsContent>
+
+                                            {/* PTO Balances Tab */}
+                                            <TabsContent value="pto-balances" className="p-6 space-y-6 m-0">
+                                                <Card>
+                                                    <CardContent className="p-6">
+                                                        <h3 className="text-lg font-semibold mb-4">PTO Balances</h3>
+                                                        {selectedUser.pto_balances.length > 0 ? (
+                                                            <div className="space-y-4">
+                                                                {selectedUser.pto_balances.map((balance) => (
+                                                                    <div key={balance.id} className="border rounded-lg p-4">
+                                                                        <div className="flex items-center justify-between mb-3">
+                                                                            <h4 className="font-medium text-gray-900">{balance.type}</h4>
+                                                                            <Badge variant="secondary">{balance.year}</Badge>
+                                                                        </div>
+                                                                        <div className="grid grid-cols-3 gap-4 text-sm">
+                                                                            <div className="text-center">
+                                                                                <p className="text-gray-500">Available</p>
+                                                                                <p className="text-lg font-semibold text-green-600">{balance.balance}</p>
+                                                                            </div>
+                                                                            <div className="text-center">
+                                                                                <p className="text-gray-500">Used</p>
+                                                                                <p className="text-lg font-semibold text-red-600">{balance.used_balance}</p>
+                                                                            </div>
+                                                                            <div className="text-center">
+                                                                                <p className="text-gray-500">Pending</p>
+                                                                                <p className="text-lg font-semibold text-yellow-600">{balance.pending_balance}</p>
+                                                                            </div>
+                                                                        </div>
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                        ) : (
+                                                            <p className="text-gray-500">No PTO balances available</p>
+                                                        )}
+                                                    </CardContent>
+                                                </Card>
+                                            </TabsContent>
+
+                                            {/* PTO Requests Tab */}
+                                            <TabsContent value="pto-requests" className="p-6 space-y-4 m-0">
+                                                <div className="flex justify-between items-center">
+                                                    <h3 className="text-lg font-semibold">PTO Requests</h3>
+                                                    <div className="flex gap-2">
+                                                        <Select value={requestStatusFilter} onValueChange={setRequestStatusFilter}>
+                                                            <SelectTrigger className="w-32">
+                                                                <SelectValue />
+                                                            </SelectTrigger>
+                                                            <SelectContent>
+                                                                <SelectItem value="all">All Status</SelectItem>
+                                                                <SelectItem value="pending">Pending</SelectItem>
+                                                                <SelectItem value="approved">Approved</SelectItem>
+                                                                <SelectItem value="denied">Denied</SelectItem>
+                                                                <SelectItem value="cancelled">Cancelled</SelectItem>
+                                                            </SelectContent>
+                                                        </Select>
+                                                    </div>
+                                                </div>
+
+                                                {selectedUser.pto_requests.length > 0 ? (
+                                                    <div className="space-y-3">
+                                                        <div className="overflow-x-auto">
+                                                            <table className="min-w-full border border-gray-200 rounded-lg">
+                                                                <thead className="bg-gray-50">
+                                                                <tr>
+                                                                    <RequestSortHeader field="request_number">Request #</RequestSortHeader>
+                                                                    <RequestSortHeader field="pto_type">Type</RequestSortHeader>
+                                                                    <RequestSortHeader field="start_date">Start Date</RequestSortHeader>
+                                                                    <th className="text-left py-3 px-4 font-medium text-gray-900">End Date</th>
+                                                                    <RequestSortHeader field="total_days">Days</RequestSortHeader>
+                                                                    <RequestSortHeader field="status">Status</RequestSortHeader>
+                                                                    <RequestSortHeader field="created_at">Created</RequestSortHeader>
+                                                                    <th className="text-left py-3 px-4 font-medium text-gray-900">Actions</th>
+                                                                </tr>
+                                                                </thead>
+                                                                <tbody>
+                                                                {getFilteredAndSortedRequests(selectedUser.pto_requests).map((request) => (
+                                                                    <React.Fragment key={request.id}>
+                                                                        <tr className="border-t hover:bg-gray-50">
+                                                                            <td className="py-3 px-4 text-sm font-medium text-gray-900">
+                                                                                {request.request_number}
+                                                                            </td>
+                                                                            <td className="py-3 px-4 text-sm text-gray-900">
+                                                                                {request.pto_type}
+                                                                            </td>
+                                                                            <td className="py-3 px-4 text-sm text-gray-900">
+                                                                                {formatDate(request.start_date)}
+                                                                            </td>
+                                                                            <td className="py-3 px-4 text-sm text-gray-900">
+                                                                                {formatDate(request.end_date)}
+                                                                            </td>
+                                                                            <td className="py-3 px-4 text-sm text-gray-900">
+                                                                                {request.total_days}
+                                                                            </td>
+                                                                            <td className="py-3 px-4">
+                                                                                <Badge className={getStatusColor(request.status)}>
+                                                                                    {request.status}
+                                                                                </Badge>
+                                                                            </td>
+                                                                            <td className="py-3 px-4 text-sm text-gray-900">
+                                                                                {formatDateTime(request.created_at)}
+                                                                            </td>
+                                                                            <td className="py-3 px-4">
+                                                                                <Button
+                                                                                    variant="ghost"
+                                                                                    size="sm"
+                                                                                    onClick={() => toggleRequestExpansion(request.id)}
+                                                                                >
+                                                                                    {expandedRequests.has(request.id) ? (
+                                                                                        <ChevronUp className="h-4 w-4" />
+                                                                                    ) : (
+                                                                                        <ChevronDown className="h-4 w-4" />
+                                                                                    )}
+                                                                                </Button>
+                                                                            </td>
+                                                                        </tr>
+                                                                        {expandedRequests.has(request.id) && (
+                                                                            <tr className="border-t bg-gray-50">
+                                                                                <td colSpan={8} className="py-4 px-4">
+                                                                                    <div className="space-y-3">
+                                                                                        <div>
+                                                                                            <label className="text-sm font-medium text-gray-700">Reason</label>
+                                                                                            <p className="text-sm text-gray-900 mt-1">{request.reason || 'No reason provided'}</p>
+                                                                                        </div>
+
+                                                                                        {request.approval_notes && (
+                                                                                            <div>
+                                                                                                <label className="text-sm font-medium text-gray-700">Approval Notes</label>
+                                                                                                <p className="text-sm text-gray-900 mt-1">{request.approval_notes}</p>
+                                                                                            </div>
+                                                                                        )}
+
+                                                                                        {request.denial_reason && (
+                                                                                            <div>
+                                                                                                <label className="text-sm font-medium text-gray-700">Denial Reason</label>
+                                                                                                <p className="text-sm text-red-900 mt-1">{request.denial_reason}</p>
+                                                                                            </div>
+                                                                                        )}
+
+                                                                                        <div className="grid grid-cols-2 gap-4">
+                                                                                            {request.approved_by && (
+                                                                                                <div>
+                                                                                                    <label className="text-sm font-medium text-gray-700">Approved By</label>
+                                                                                                    <p className="text-sm text-gray-900 mt-1">{request.approved_by}</p>
+                                                                                                    <p className="text-xs text-gray-500">{request.approved_at ? formatDateTime(request.approved_at) : ''}</p>
+                                                                                                </div>
+                                                                                            )}
+
+                                                                                            {request.denied_by && (
+                                                                                                <div>
+                                                                                                    <label className="text-sm font-medium text-gray-700">Denied By</label>
+                                                                                                    <p className="text-sm text-gray-900 mt-1">{request.denied_by}</p>
+                                                                                                    <p className="text-xs text-gray-500">{request.denied_at ? formatDateTime(request.denied_at) : ''}</p>
+                                                                                                </div>
+                                                                                            )}
+                                                                                        </div>
+
+                                                                                        {request.blackouts && request.blackouts.length > 0 && (
+                                                                                            <div>
+                                                                                                <label className="text-sm font-medium text-gray-700">Blackout Periods</label>
+                                                                                                <div className="mt-2 space-y-2">
+                                                                                                    {request.blackouts.map((blackout, index) => (
+                                                                                                        <div key={index} className={`p-2 rounded text-sm ${
+                                                                                                            blackout.type === 'conflict'
+                                                                                                                ? 'bg-red-50 border border-red-200 text-red-800'
+                                                                                                                : 'bg-yellow-50 border border-yellow-200 text-yellow-800'
+                                                                                                        }`}>
+                                                                                                            <div className="font-medium">{blackout.blackout_name}</div>
+                                                                                                            <div className="text-xs">{blackout.date_range}</div>
+                                                                                                            <div className="text-xs mt-1">{blackout.message}</div>
+                                                                                                        </div>
+                                                                                                    ))}
+                                                                                                </div>
+                                                                                            </div>
+                                                                                        )}
+                                                                                    </div>
+                                                                                </td>
+                                                                            </tr>
+                                                                        )}
+                                                                    </React.Fragment>
+                                                                ))}
+                                                                </tbody>
+                                                            </table>
+                                                        </div>
+                                                    </div>
+                                                ) : (
+                                                    <p className="text-gray-500">No PTO requests found</p>
+                                                )}
+                                            </TabsContent>
+                                        </div>
                                     </Tabs>
                                 </div>
                             </>

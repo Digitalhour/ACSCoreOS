@@ -16,6 +16,7 @@ class HREmployeesController extends Controller
                 'departments',
                 'emergencyContacts',
                 'currentPosition',
+                'addresses', // Add this line
                 'ptoRequests.ptoType',
                 'ptoRequests.approvedBy',
                 'ptoRequests.deniedBy',
@@ -59,6 +60,24 @@ class HREmployeesController extends Controller
                             'email' => $contact->email,
                             'address' => $contact->address,
                             'is_primary' => $contact->is_primary,
+                        ];
+                    }),
+                    'addresses' => $user->addresses->map(function($address) {
+                        return [
+                            'id' => $address->id,
+                            'type' => $address->type,
+                            'label' => $address->label,
+                            'address_line_1' => $address->address_line_1,
+                            'address_line_2' => $address->address_line_2,
+                            'city' => $address->city,
+                            'state' => $address->state,
+                            'postal_code' => $address->postal_code,
+                            'country' => $address->country,
+                            'is_primary' => $address->is_primary,
+                            'is_active' => $address->is_active,
+                            'notes' => $address->notes,
+                            'full_address' => $address->full_address,
+                            'single_line_address' => $address->single_line_address,
                         ];
                     }),
                     'pto_balances' => $user->ptoBalances->map(function($balance) {

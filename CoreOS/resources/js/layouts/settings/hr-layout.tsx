@@ -8,46 +8,41 @@ import Heading from "@/components/heading";
 
 const sidebarNavItems: NavItem[] = [
     {
-        title: 'Hr Dashboard',
+        title: 'Dashboard',
         href: '/hr/overview',
-        description: "Hr Dashboard",
+        description: "Dashboard",
         icon: BarChart3,
     },
+
     {
-        title: 'Time off Requests',
+        title: 'Employees',
+        href: '/hr/employees',
+        description: "Manage employees.",
+        icon: FileText,
+    },
+    {
+        title: 'Time Off Requests',
         href: '/hr/time-off-requests',
         description: 'Company-wide time off requests',
         icon: Clock,
     },
     {
-        title: 'Pto Policies',
+        title: 'Time Off Policies',
         href: '/hr/pto-policies',
-        description: 'View requests',
+        description: 'View Time Off Policies.',
         icon: CalendarIcon,
     },
     {
         title: 'Time Off Types',
         href: '/hr/pto-types',
-        description: null,
-        icon: FileText,
-    },
-    {
-        title: 'employees',
-        href: '/hr/employees',
-        description: null,
+        description: "Time off types management.",
         icon: FileText,
     }
     ,
     {
         title: 'Blackouts',
         href: '/admin/blackouts',
-        description: null,
-        icon: FileText,
-    },
-    {
-        title: 'Employee Onboarding',
-        href: '/user-management/onboard',
-        description: "Onboard new employees.",
+        description: "set paid time blackouts.",
         icon: FileText,
     },
     {
@@ -67,7 +62,13 @@ const sidebarNavItems: NavItem[] = [
         href: '/admin/positions',
         description: "manage company positions.",
         icon: FileText,
-    }
+    },
+    {
+        title: 'Employee Onboarding',
+        href: '/user-management/onboard',
+        description: "Onboard new employees.",
+        icon: FileText,
+    },
 ];
 
 export default function HrLayout({ children }: PropsWithChildren) {

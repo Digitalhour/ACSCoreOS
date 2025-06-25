@@ -10,6 +10,7 @@ use App\Http\Controllers\Api\UserPtoController;
 use App\Http\Controllers\ArticleController;
 use App\Http\Controllers\DepartmentTimeOffController;
 use App\Http\Controllers\HolidayController;
+use App\Http\Controllers\RolePermissionController;
 use App\Http\Controllers\UserManagementController;
 use App\Http\Controllers\WidgetController;
 use App\Models\Article;
@@ -418,33 +419,33 @@ Route::middleware([
 //        ->name('pto.requests.approve');
 //    Route::post('/pto-requests/{ptoRequest}/deny', [PtoAdminController::class, 'denyRequest'])
 //        ->name('pto.requests.deny');
-//        /*
-//        |--------------------------------------------------------------------------
-//        | Roles & Permissions Routes
-//        |--------------------------------------------------------------------------
-//        */
-//        // Main roles & permissions page
-//        Route::get('/roles-permissions', [RolePermissionController::class, 'index'])->name('roles-permissions.index');
-//
-//        // Permissions management
-//        Route::post('/permissions', [RolePermissionController::class, 'storePermission'])->name('permissions.store');
-//        Route::put('/permissions/{permission}',
-//            [RolePermissionController::class, 'updatePermission'])->name('permissions.update');
-//        Route::delete('/permissions/{permission}',
-//            [RolePermissionController::class, 'destroyPermission'])->name('permissions.destroy');
-//
-//        // Roles management
-//        Route::post('/roles', [RolePermissionController::class, 'storeRole'])->name('roles.store');
-//        Route::put('/roles/{role}', [RolePermissionController::class, 'updateRole'])->name('roles.update');
-//        Route::delete('/roles/{role}', [RolePermissionController::class, 'destroyRole'])->name('roles.destroy');
-//        Route::post('/roles/permissions',
-//            [RolePermissionController::class, 'updateRolePermissions'])->name('roles.permissions.update');
-//
-//        // User roles & permissions
-//        Route::post('/users/sync-roles', [RolePermissionController::class, 'syncUserRoles'])->name('users.roles.sync');
-//        Route::post('/users/sync-direct-permissions',
-//            [RolePermissionController::class, 'syncUserDirectPermissions'])->name('users.syncDirectPermissions');
-//
+        /*
+        |--------------------------------------------------------------------------
+        | Roles & Permissions Routes
+        |--------------------------------------------------------------------------
+        */
+        // Main roles & permissions page
+        Route::get('/roles-permissions', [RolePermissionController::class, 'index'])->name('roles-permissions.index');
+
+        // Permissions management
+        Route::post('/permissions', [RolePermissionController::class, 'storePermission'])->name('permissions.store');
+        Route::put('/permissions/{permission}',
+            [RolePermissionController::class, 'updatePermission'])->name('permissions.update');
+        Route::delete('/permissions/{permission}',
+            [RolePermissionController::class, 'destroyPermission'])->name('permissions.destroy');
+
+        // Roles management
+        Route::post('/roles', [RolePermissionController::class, 'storeRole'])->name('roles.store');
+        Route::put('/roles/{role}', [RolePermissionController::class, 'updateRole'])->name('roles.update');
+        Route::delete('/roles/{role}', [RolePermissionController::class, 'destroyRole'])->name('roles.destroy');
+        Route::post('/roles/permissions',
+            [RolePermissionController::class, 'updateRolePermissions'])->name('roles.permissions.update');
+
+        // User roles & permissions
+        Route::post('/users/sync-roles', [RolePermissionController::class, 'syncUserRoles'])->name('users.roles.sync');
+        Route::post('/users/sync-direct-permissions',
+            [RolePermissionController::class, 'syncUserDirectPermissions'])->name('users.syncDirectPermissions');
+
 //        /*
 //        |--------------------------------------------------------------------------
 //        | BillyAI Routes

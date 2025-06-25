@@ -264,6 +264,37 @@ class User extends Authenticatable
 
 
 
+    /**
+     * Get the addresses for this user.
+     */
+    public function addresses(): HasMany
+    {
+        return $this->hasMany(Address::class);
+    }
+
+    /**
+     * Get active addresses for this user.
+     */
+    public function activeAddresses(): HasMany
+    {
+        return $this->addresses()->active();
+    }
+
+    /**
+     * Get the primary address for this user.
+     */
+    public function primaryAddress()
+    {
+        return $this->addresses()->primary()->first();
+    }
+
+    /**
+     * Get addresses by type for this user.
+     */
+    public function getAddressesByType(string $type)
+    {
+        return $this->addresses()->byType($type)->active()->get();
+    }
 
 
 
