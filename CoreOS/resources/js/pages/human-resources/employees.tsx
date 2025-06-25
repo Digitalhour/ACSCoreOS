@@ -17,8 +17,10 @@ import {
     AlertTriangle,
     Briefcase,
     Building,
+    CalendarMinus2,
     ChevronDown,
     ChevronUp,
+    Eye,
     Filter,
     Home,
     Mail,
@@ -101,18 +103,52 @@ export interface PtoRequest {
     total_days: number;
     status: string;
     reason: string;
+
+    // Enhanced approval details
     approval_notes?: string;
-    denial_reason?: string;
     approved_by?: string;
-    denied_by?: string;
-    created_at: string;
+    approved_by_id?: number;
     approved_at?: string;
+
+    // Enhanced denial details
+    denial_reason?: string;
+    denied_by?: string;
+    denied_by_id?: number;
     denied_at?: string;
+
+    // Enhanced cancellation details
+    cancellation_reason?: string;
+    cancelled_by?: string;
+    cancelled_by_id?: number;
+    cancelled_at?: string;
+
+    // Request lifecycle details
+    created_at: string;
+    updated_at: string;
+    submitted_at?: string;
+
+    // Additional status information
+    status_changed_at?: string;
+    status_changed_by?: string;
+
+    // Manager/supervisor information
+    manager_notes?: string;
+    hr_notes?: string;
+
+    // Blackout information
     blackouts: Blackout[];
     has_blackout_conflicts: boolean;
     has_blackout_warnings: boolean;
-}
 
+    // Request modification history
+    modification_history: ModificationHistoryItem[];
+}
+export interface ModificationHistoryItem {
+    action: string;
+    user: string;
+    timestamp: string;
+    details: string;
+}
 export interface Role {
     id: number;
     name: string;
@@ -152,7 +188,8 @@ export default function Employees({ users }: { users: User[] }) {
     const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
     const [selectedUser, setSelectedUser] = useState<User | null>(null);
     const [isSheetOpen, setIsSheetOpen] = useState(false);
-    const [expandedRequests, setExpandedRequests] = useState<Set<number>>(new Set());
+    const [selectedPtoRequest, setSelectedPtoRequest] = useState<PtoRequest | null>(null);
+    const [isPtoSheetOpen, setIsPtoSheetOpen] = useState(false);
     const [requestStatusFilter, setRequestStatusFilter] = useState<string>('all');
     const [requestSortField, setRequestSortField] = useState<string>('created_at');
     const [requestSortDirection, setRequestSortDirection] = useState<'asc' | 'desc'>('desc');
@@ -214,21 +251,16 @@ export default function Employees({ users }: { users: User[] }) {
 
     const openEmployeeSheet = (user: User) => {
         setSelectedUser(user);
-        setExpandedRequests(new Set());
         setRequestStatusFilter('all');
         setRequestSortField('created_at');
         setRequestSortDirection('desc');
         setIsSheetOpen(true);
     };
 
-    const toggleRequestExpansion = (requestId: number) => {
-        const newExpanded = new Set(expandedRequests);
-        if (newExpanded.has(requestId)) {
-            newExpanded.delete(requestId);
-        } else {
-            newExpanded.add(requestId);
-        }
-        setExpandedRequests(newExpanded);
+    const openPtoRequestSheet = (request: PtoRequest, event: React.MouseEvent) => {
+        event.stopPropagation();
+        setSelectedPtoRequest(request);
+        setIsPtoSheetOpen(true);
     };
 
     const handleUserStatusToggle = (userId: number, currentlyActive: boolean) => {
@@ -603,7 +635,7 @@ export default function Employees({ users }: { users: User[] }) {
                     </div>
                 </div>
 
-                {/* Sheet with fixed addresses handling */}
+                {/* Employee Details Sheet */}
                 <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
                     <SheetContent side="right" className="min-w-7/12 p-0 overflow-hidden">
                         {selectedUser && (
@@ -850,9 +882,9 @@ export default function Employees({ users }: { users: User[] }) {
                                                                         <div className="flex items-center justify-between mb-3">
                                                                             <div className="flex ">
                                                                                 <User className="h-5 w-5 mr-1"/>
-                                                                            <h4 className="font-medium  dark:text-gray-200 text-gray-900">
-                                                                                {contact.name}
-                                                                            </h4>
+                                                                                <h4 className="font-medium  dark:text-gray-200 text-gray-900">
+                                                                                    {contact.name}
+                                                                                </h4>
                                                                             </div>
                                                                             {contact.is_primary && (
                                                                                 <Badge variant="secondary">Primary</Badge>
@@ -1035,109 +1067,44 @@ export default function Employees({ users }: { users: User[] }) {
                                                                 </thead>
                                                                 <tbody>
                                                                 {getFilteredAndSortedRequests(selectedUser.pto_requests).map((request) => (
-                                                                    <React.Fragment key={request.id}>
-                                                                        <tr className="border-t hover:bg-gray-50">
-                                                                            <td className="py-3 px-4 text-sm font-medium text-gray-900">
-                                                                                {request.request_number}
-                                                                            </td>
-                                                                            <td className="py-3 px-4 text-sm text-gray-900">
-                                                                                {request.pto_type}
-                                                                            </td>
-                                                                            <td className="py-3 px-4 text-sm text-gray-900">
-                                                                                {formatDate(request.start_date)}
-                                                                            </td>
-                                                                            <td className="py-3 px-4 text-sm text-gray-900">
-                                                                                {formatDate(request.end_date)}
-                                                                            </td>
-                                                                            <td className="py-3 px-4 text-sm text-gray-900">
-                                                                                {request.total_days}
-                                                                            </td>
-                                                                            <td className="py-3 px-4">
-                                                                                <Badge className={getStatusColor(request.status)}>
-                                                                                    {request.status}
-                                                                                </Badge>
-                                                                            </td>
-                                                                            <td className="py-3 px-4 text-sm text-gray-900">
-                                                                                {formatDateTime(request.created_at)}
-                                                                            </td>
-                                                                            <td className="py-3 px-4">
-                                                                                <Button
-                                                                                    variant="ghost"
-                                                                                    size="sm"
-                                                                                    onClick={() => toggleRequestExpansion(request.id)}
-                                                                                >
-                                                                                    {expandedRequests.has(request.id) ? (
-                                                                                        <ChevronUp className="h-4 w-4" />
-                                                                                    ) : (
-                                                                                        <ChevronDown className="h-4 w-4" />
-                                                                                    )}
-                                                                                </Button>
-                                                                            </td>
-                                                                        </tr>
-                                                                        {expandedRequests.has(request.id) && (
-                                                                            <tr className="border-t bg-gray-50">
-                                                                                <td colSpan={8} className="py-4 px-4">
-                                                                                    <div className="space-y-3">
-                                                                                        <div>
-                                                                                            <label className="text-sm font-medium text-gray-700">Reason</label>
-                                                                                            <p className="text-sm text-gray-900 mt-1">{request.reason || 'No reason provided'}</p>
-                                                                                        </div>
-
-                                                                                        {request.approval_notes && (
-                                                                                            <div>
-                                                                                                <label className="text-sm font-medium text-gray-700">Approval Notes</label>
-                                                                                                <p className="text-sm text-gray-900 mt-1">{request.approval_notes}</p>
-                                                                                            </div>
-                                                                                        )}
-
-                                                                                        {request.denial_reason && (
-                                                                                            <div>
-                                                                                                <label className="text-sm font-medium text-gray-700">Denial Reason</label>
-                                                                                                <p className="text-sm text-red-900 mt-1">{request.denial_reason}</p>
-                                                                                            </div>
-                                                                                        )}
-
-                                                                                        <div className="grid grid-cols-2 gap-4">
-                                                                                            {request.approved_by && (
-                                                                                                <div>
-                                                                                                    <label className="text-sm font-medium text-gray-700">Approved By</label>
-                                                                                                    <p className="text-sm text-gray-900 mt-1">{request.approved_by}</p>
-                                                                                                    <p className="text-xs text-gray-500">{request.approved_at ? formatDateTime(request.approved_at) : ''}</p>
-                                                                                                </div>
-                                                                                            )}
-
-                                                                                            {request.denied_by && (
-                                                                                                <div>
-                                                                                                    <label className="text-sm font-medium text-gray-700">Denied By</label>
-                                                                                                    <p className="text-sm text-gray-900 mt-1">{request.denied_by}</p>
-                                                                                                    <p className="text-xs text-gray-500">{request.denied_at ? formatDateTime(request.denied_at) : ''}</p>
-                                                                                                </div>
-                                                                                            )}
-                                                                                        </div>
-
-                                                                                        {request.blackouts && request.blackouts.length > 0 && (
-                                                                                            <div>
-                                                                                                <label className="text-sm font-medium text-gray-700">Blackout Periods</label>
-                                                                                                <div className="mt-2 space-y-2">
-                                                                                                    {request.blackouts.map((blackout, index) => (
-                                                                                                        <div key={index} className={`p-2 rounded text-sm ${
-                                                                                                            blackout.type === 'conflict'
-                                                                                                                ? 'bg-red-50 border border-red-200 text-red-800'
-                                                                                                                : 'bg-yellow-50 border border-yellow-200 text-yellow-800'
-                                                                                                        }`}>
-                                                                                                            <div className="font-medium">{blackout.blackout_name}</div>
-                                                                                                            <div className="text-xs">{blackout.date_range}</div>
-                                                                                                            <div className="text-xs mt-1">{blackout.message}</div>
-                                                                                                        </div>
-                                                                                                    ))}
-                                                                                                </div>
-                                                                                            </div>
-                                                                                        )}
-                                                                                    </div>
-                                                                                </td>
-                                                                            </tr>
-                                                                        )}
-                                                                    </React.Fragment>
+                                                                    <tr
+                                                                        key={request.id}
+                                                                        className="border-t hover:bg-gray-50 cursor-pointer"
+                                                                        onClick={(e) => openPtoRequestSheet(request, e)}
+                                                                    >
+                                                                        <td className="py-3 px-4 text-sm font-medium text-gray-900">
+                                                                            {request.request_number}
+                                                                        </td>
+                                                                        <td className="py-3 px-4 text-sm text-gray-900">
+                                                                            {request.pto_type}
+                                                                        </td>
+                                                                        <td className="py-3 px-4 text-sm text-gray-900">
+                                                                            {formatDate(request.start_date)}
+                                                                        </td>
+                                                                        <td className="py-3 px-4 text-sm text-gray-900">
+                                                                            {formatDate(request.end_date)}
+                                                                        </td>
+                                                                        <td className="py-3 px-4 text-sm text-gray-900">
+                                                                            {request.total_days}
+                                                                        </td>
+                                                                        <td className="py-3 px-4">
+                                                                            <Badge className={getStatusColor(request.status)}>
+                                                                                {request.status}
+                                                                            </Badge>
+                                                                        </td>
+                                                                        <td className="py-3 px-4 text-sm text-gray-900">
+                                                                            {formatDateTime(request.created_at)}
+                                                                        </td>
+                                                                        <td className="py-3 px-4">
+                                                                            <Button
+                                                                                variant="ghost"
+                                                                                size="sm"
+                                                                                onClick={(e) => openPtoRequestSheet(request, e)}
+                                                                            >
+                                                                                <Eye className="h-4 w-4" />
+                                                                            </Button>
+                                                                        </td>
+                                                                    </tr>
                                                                 ))}
                                                                 </tbody>
                                                             </table>
@@ -1149,6 +1116,260 @@ export default function Employees({ users }: { users: User[] }) {
                                             </TabsContent>
                                         </div>
                                     </Tabs>
+                                </div>
+                            </>
+                        )}
+                    </SheetContent>
+                </Sheet>
+
+                {/* PTO Request Details Sheet */}
+                <Sheet open={isPtoSheetOpen} onOpenChange={setIsPtoSheetOpen}>
+                    <SheetContent side="right" className="min-w-6/12 p-0 overflow-hidden">
+                        {selectedPtoRequest && (
+                            <>
+                                <SheetHeader className="p-6 border-b bg-gradient-to-r from-gray-50 to-blue-50">
+                                    <div className="flex items-start justify-between mr-10 ">
+                                        <div className="flex-1">
+                                            <SheetTitle className="text-2xl">PTO Request Details</SheetTitle>
+                                            <SheetDescription className="text-base">
+                                                Request #{selectedPtoRequest.request_number}
+                                            </SheetDescription>
+                                            <div className="flex items-center space-x-4 mt-2 text-sm text-gray-600">
+                                                <div className="flex items-center">
+                                                    <Briefcase className="h-4 w-4 mr-1" />
+                                                    {selectedPtoRequest.pto_type}
+                                                </div>
+                                                <div className="flex items-center">
+                                                    <CalendarMinus2 className="h-4 w-4 mr-1" />
+                                                    {selectedPtoRequest.total_days} days
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <Badge className={getStatusColor(selectedPtoRequest.status)}>
+                                            {selectedPtoRequest.status.toUpperCase()}
+                                        </Badge>
+                                    </div>
+
+                                    <div className="flex flex-wrap gap-2 mt-4">
+                                        <Badge variant="secondary" className="border-gray-200 px-3 py-1">
+                                            From: {formatDate(selectedPtoRequest.start_date)}
+                                        </Badge>
+                                        <Badge variant="secondary" className="border-gray-200 px-3 py-1">
+                                            To: {formatDate(selectedPtoRequest.end_date)}
+                                        </Badge>
+                                        <Badge variant="secondary" className="border-gray-200 px-3 py-1">
+                                            Created: {formatDate(selectedPtoRequest.created_at)}
+                                        </Badge>
+                                    </div>
+                                </SheetHeader>
+
+                                <div className="flex-1 overflow-auto p-6">
+                                    <div className="space-y-6">
+                                        {/* Request Overview */}
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                            <div>
+                                                <h4 className="text-sm font-semibold text-gray-900 mb-3">Request Details</h4>
+                                                <div className="space-y-2">
+                                                    <div>
+                                                        <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Reason for Request</label>
+                                                        <p className="text-sm text-gray-900 mt-1">{selectedPtoRequest.reason || 'No reason provided'}</p>
+                                                    </div>
+
+                                                    {selectedPtoRequest.manager_notes && (
+                                                        <div>
+                                                            <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Manager Notes</label>
+                                                            <p className="text-sm text-gray-900 mt-1">{selectedPtoRequest.manager_notes}</p>
+                                                        </div>
+                                                    )}
+
+                                                    {selectedPtoRequest.hr_notes && (
+                                                        <div>
+                                                            <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">HR Notes</label>
+                                                            <p className="text-sm text-gray-900 mt-1">{selectedPtoRequest.hr_notes}</p>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+
+                                            <div>
+                                                <h4 className="text-sm font-semibold text-gray-900 mb-3">Current Status</h4>
+                                                <div className="space-y-2">
+                                                    <div className="flex items-center space-x-2">
+                                                        <Badge className={getStatusColor(selectedPtoRequest.status)}>
+                                                            {selectedPtoRequest.status.toUpperCase()}
+                                                        </Badge>
+                                                        {selectedPtoRequest.status_changed_by && (
+                                                            <span className="text-xs text-gray-500">
+                                                                by {selectedPtoRequest.status_changed_by}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                    {selectedPtoRequest.status_changed_at && (
+                                                        <p className="text-xs text-gray-500">
+                                                            Status changed: {formatDateTime(selectedPtoRequest.status_changed_at)}
+                                                        </p>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {/* Status-Specific Details */}
+                                        {(selectedPtoRequest.status === 'approved' || selectedPtoRequest.status === 'denied' || selectedPtoRequest.status === 'cancelled') && (
+                                            <div className="border-t pt-4">
+                                                <h4 className="text-sm font-semibold text-gray-900 mb-3">
+                                                    {selectedPtoRequest.status === 'approved' && 'Approval Details'}
+                                                    {selectedPtoRequest.status === 'denied' && 'Denial Details'}
+                                                    {selectedPtoRequest.status === 'cancelled' && 'Cancellation Details'}
+                                                </h4>
+
+                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                    {/* Approval Details */}
+                                                    {selectedPtoRequest.status === 'approved' && (
+                                                        <>
+                                                            <div>
+                                                                <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Approved By</label>
+                                                                <p className="text-sm text-gray-900 mt-1">{selectedPtoRequest.approved_by || 'Unknown'}</p>
+                                                                {selectedPtoRequest.approved_at && (
+                                                                    <p className="text-xs text-gray-500">{formatDateTime(selectedPtoRequest.approved_at)}</p>
+                                                                )}
+                                                            </div>
+                                                            {selectedPtoRequest.approval_notes && (
+                                                                <div>
+                                                                    <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Approval Notes</label>
+                                                                    <p className="text-sm text-gray-900 mt-1">{selectedPtoRequest.approval_notes}</p>
+                                                                </div>
+                                                            )}
+                                                        </>
+                                                    )}
+
+                                                    {/* Denial Details */}
+                                                    {selectedPtoRequest.status === 'denied' && (
+                                                        <>
+                                                            <div>
+                                                                <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Denied By</label>
+                                                                <p className="text-sm text-gray-900 mt-1">{selectedPtoRequest.denied_by || 'Unknown'}</p>
+                                                                {selectedPtoRequest.denied_at && (
+                                                                    <p className="text-xs text-gray-500">{formatDateTime(selectedPtoRequest.denied_at)}</p>
+                                                                )}
+                                                            </div>
+                                                            <div>
+                                                                <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Denial Reason</label>
+                                                                <p className="text-sm text-red-900 mt-1 font-medium">
+                                                                    {selectedPtoRequest.denial_reason || 'No reason provided'}
+                                                                </p>
+                                                            </div>
+                                                        </>
+                                                    )}
+
+                                                    {/* Cancellation Details */}
+                                                    {selectedPtoRequest.status === 'cancelled' && (
+                                                        <>
+                                                            <div>
+                                                                <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Cancelled By</label>
+                                                                <p className="text-sm text-gray-900 mt-1">{selectedPtoRequest.cancelled_by || 'Unknown'}</p>
+                                                                {selectedPtoRequest.cancelled_at && (
+                                                                    <p className="text-xs text-gray-500">{formatDateTime(selectedPtoRequest.cancelled_at)}</p>
+                                                                )}
+                                                            </div>
+                                                            {selectedPtoRequest.cancellation_reason && (
+                                                                <div>
+                                                                    <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Cancellation Reason</label>
+                                                                    <p className="text-sm text-orange-900 mt-1 font-medium">{selectedPtoRequest.cancellation_reason}</p>
+                                                                </div>
+                                                            )}
+                                                        </>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {/* Request Timeline */}
+                                        {selectedPtoRequest.modification_history && selectedPtoRequest.modification_history.length > 0 && (
+                                            <div className="border-t pt-4">
+                                                <h4 className="text-sm font-semibold text-gray-900 mb-3">Request Timeline</h4>
+                                                <div className="space-y-3">
+                                                    {selectedPtoRequest.modification_history
+                                                        .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
+                                                        .map((item, index) => (
+                                                            <div key={index} className="flex items-start space-x-3">
+                                                                <div className={`flex-shrink-0 w-3 h-3 rounded-full mt-1 ${
+                                                                    item.action === 'approved' ? 'bg-green-500' :
+                                                                        item.action === 'denied' ? 'bg-red-500' :
+                                                                            item.action === 'cancelled' ? 'bg-orange-500' :
+                                                                                item.action === 'submitted' ? 'bg-blue-500' : 'bg-gray-400'
+                                                                }`}></div>
+                                                                <div className="flex-1 min-w-0">
+                                                                    <div className="flex items-center justify-between">
+                                                                        <p className="text-sm font-medium text-gray-900 capitalize">
+                                                                            {item.action} by {item.user}
+                                                                        </p>
+                                                                        <p className="text-xs text-gray-500">{formatDateTime(item.timestamp)}</p>
+                                                                    </div>
+                                                                    <p className="text-sm text-gray-600 mt-1">{item.details}</p>
+                                                                </div>
+                                                            </div>
+                                                        ))}
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {/* Blackout Periods */}
+                                        {selectedPtoRequest.blackouts && selectedPtoRequest.blackouts.length > 0 && (
+                                            <div className="border-t pt-4">
+                                                <h4 className="text-sm font-semibold text-gray-900 mb-3">Blackout Period Conflicts</h4>
+                                                <div className="space-y-2">
+                                                    {selectedPtoRequest.blackouts.map((blackout, index) => (
+                                                        <div key={index} className={`p-3 rounded-lg text-sm ${
+                                                            blackout.type === 'conflict'
+                                                                ? 'bg-red-50 border border-red-200'
+                                                                : 'bg-yellow-50 border border-yellow-200'
+                                                        }`}>
+                                                            <div className="flex items-center justify-between mb-1">
+                                                                <div className="font-medium">
+                                                                    {blackout.blackout_name}
+                                                                </div>
+                                                                <Badge variant={blackout.type === 'conflict' ? 'destructive' : 'secondary'}>
+                                                                    {blackout.type.toUpperCase()}
+                                                                </Badge>
+                                                            </div>
+                                                            <div className="text-xs mb-1">{blackout.date_range}</div>
+                                                            <div className="text-xs">{blackout.message}</div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {/* Request Metadata */}
+                                        <div className="border-t pt-4">
+                                            <h4 className="text-sm font-semibold text-gray-900 mb-3">Request Information</h4>
+                                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-xs">
+                                                <div>
+                                                    <label className="font-medium text-gray-500 uppercase tracking-wide">PTO Request ID</label>
+                                                    <p className="text-gray-900 mt-1">{(selectedPtoRequest.request_number)}</p>
+                                                </div>
+                                                <div>
+                                                    <label className="font-medium text-gray-500 uppercase tracking-wide">Created</label>
+                                                    <p className="text-gray-900 mt-1">{formatDateTime(selectedPtoRequest.created_at)}</p>
+                                                </div>
+                                                {selectedPtoRequest.submitted_at && selectedPtoRequest.submitted_at !== selectedPtoRequest.created_at && (
+                                                    <div>
+                                                        <label className="font-medium text-gray-500 uppercase tracking-wide">Submitted</label>
+                                                        <p className="text-gray-900 mt-1">{formatDateTime(selectedPtoRequest.submitted_at)}</p>
+                                                    </div>
+                                                )}
+                                                <div>
+                                                    <label className="font-medium text-gray-500 uppercase tracking-wide">Last Updated</label>
+                                                    <p className="text-gray-900 mt-1">{formatDateTime(selectedPtoRequest.updated_at)}</p>
+                                                </div>
+
+                                                <div>
+                                                    <label className="font-medium text-gray-500 uppercase tracking-wide">Request System ID</label>
+                                                    <p className="text-gray-900 mt-1">#{selectedPtoRequest.id}</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
                             </>
                         )}

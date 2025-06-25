@@ -43,14 +43,32 @@ class PtoRequest extends Model
         'reason',
         'status',
         'day_options',
+
+        // Enhanced approval fields
         'approval_notes',
-        'denial_reason',
-        'cancellation_reason',
         'approved_by_id',
         'approved_at',
+
+        // Enhanced denial fields
+        'denial_reason',
+        'denied_by_id',
         'denied_at',
+
+        // Enhanced cancellation fields
+        'cancellation_reason',
+        'cancelled_by_id',
         'cancelled_at',
-        // New blackout fields
+
+        // Lifecycle fields
+        'submitted_at',
+        'status_changed_at',
+        'status_changed_by_id',
+
+        // Manager/HR notes
+        'manager_notes',
+        'hr_notes',
+
+        // Blackout fields
         'blackout_conflicts',
         'blackout_warnings',
         'blackout_warnings_acknowledged',
@@ -72,10 +90,15 @@ class PtoRequest extends Model
         'end_date' => 'date',
         'total_days' => 'decimal:2',
         'day_options' => 'array',
+
+        // Enhanced datetime casts
         'approved_at' => 'datetime',
         'denied_at' => 'datetime',
         'cancelled_at' => 'datetime',
-        // New blackout casts
+        'submitted_at' => 'datetime',
+        'status_changed_at' => 'datetime',
+
+        // Blackout casts
         'blackout_conflicts' => 'array',
         'blackout_warnings' => 'array',
         'blackout_warnings_acknowledged' => 'boolean',
@@ -110,6 +133,30 @@ class PtoRequest extends Model
     }
 
     /**
+     * Get the user who denied this request.
+     */
+    public function deniedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'denied_by_id');
+    }
+
+    /**
+     * Get the user who cancelled this request.
+     */
+    public function cancelledBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'cancelled_by_id');
+    }
+
+    /**
+     * Get the user who last changed the status.
+     */
+    public function statusChangedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'status_changed_by_id');
+    }
+
+    /**
      * Get the user who approved the blackout override.
      */
     public function overrideApprovedBy(): BelongsTo
@@ -123,14 +170,6 @@ class PtoRequest extends Model
     public function approvals(): HasMany
     {
         return $this->hasMany(PtoApproval::class);
-    }
-
-    /**
-     * Get the user who denied this request.
-     */
-    public function deniedBy(): BelongsTo
-    {
-        return $this->belongsTo(User::class, 'denied_by');
     }
 
     // Existing scope methods...
@@ -347,5 +386,68 @@ class PtoRequest extends Model
             'cancelled' => 'gray',
             default => 'gray',
         };
+    }
+
+    /**
+     * Get modification history for this request.
+     */
+    public function getModificationHistoryAttribute(): array
+    {
+        $history = [];
+
+        // Add creation event
+        $history[] = [
+            'action' => 'created',
+            'user' => $this->user?->name ?? 'System',
+            'timestamp' => $this->created_at->format('Y-m-d H:i:s'),
+            'details' => 'Request created'
+        ];
+
+        // Add submission event if different from creation
+        if ($this->submitted_at && $this->submitted_at != $this->created_at) {
+            $history[] = [
+                'action' => 'submitted',
+                'user' => $this->user?->name ?? 'System',
+                'timestamp' => $this->submitted_at->format('Y-m-d H:i:s'),
+                'details' => 'Request officially submitted for review'
+            ];
+        }
+
+        // Add approval event
+        if ($this->approved_at) {
+            $history[] = [
+                'action' => 'approved',
+                'user' => $this->approvedBy?->name ?? 'Unknown',
+                'timestamp' => $this->approved_at->format('Y-m-d H:i:s'),
+                'details' => $this->approval_notes ?: 'Request approved'
+            ];
+        }
+
+        // Add denial event
+        if ($this->denied_at) {
+            $history[] = [
+                'action' => 'denied',
+                'user' => $this->deniedBy?->name ?? 'Unknown',
+                'timestamp' => $this->denied_at->format('Y-m-d H:i:s'),
+                'details' => $this->denial_reason ?: 'Request denied'
+            ];
+        }
+
+        // Add cancellation event
+        if ($this->cancelled_at) {
+            $history[] = [
+                'action' => 'cancelled',
+                'user' => $this->cancelledBy?->name ?? 'Unknown',
+                'timestamp' => $this->cancelled_at->format('Y-m-d H:i:s'),
+                'details' => $this->cancellation_reason ?: 'Request cancelled'
+            ];
+        }
+
+        // Sort by timestamp
+        usort($history, function($a, $b) {
+            return strtotime($a['timestamp']) - strtotime($b['timestamp']);
+        });
+
+        return $history;
     }
 }

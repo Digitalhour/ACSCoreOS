@@ -10,7 +10,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import {Badge} from '@/components/ui/badge';
 import {Button} from '@/components/ui/button';
-import {Card, CardContent, CardHeader, CardTitle} from '@/components/ui/card';
+import {Card, CardContent} from '@/components/ui/card';
 import {
     Dialog,
     DialogContent,
@@ -326,18 +326,19 @@ export default function PtoTypesView() {
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
+
             <Head title="Manage PTO Types" />
-<HrLayout>
-            <div className="flex h-full flex-1 flex-col gap-6 p-4 md:p-6">
-                {/* Table and main page content remains the same */}
-                <div className="flex items-center justify-between">
-                    <h1 className="text-2xl font-bold">Manage PTO Types</h1>
-                    <Button onClick={handleCreate} className="gap-2">
-                        <Plus className="h-4 w-4" /> Add PTO Type
-                    </Button>
-                </div>
+
+            <HrLayout>
+                <div className="flex h-full flex-1 flex-col gap-6">
+                    <div className="flex items-center justify-between">
+                        <h1 className="text-2xl font-bold">Manage PTO Policies</h1>
+                        <Button onClick={handleCreate} className="gap-2">
+                            <Plus className="h-4 w-4" />
+                            Add PTO Policy
+                        </Button>
+                    </div>
                 <Card>
-                    <CardHeader><CardTitle>Existing PTO Types</CardTitle></CardHeader>
                     <CardContent>
                         {loading ? (
                             <div className="flex items-center justify-center p-8"><Loader2 className="h-8 w-8 animate-spin" /></div>
@@ -421,7 +422,7 @@ export default function PtoTypesView() {
                 </Card>
             </div>
 
-            {/* --- NEW: Revamped Form Modal --- */}
+            {/* --- Revamped Form Modal --- */}
             <Dialog open={showFormModal} onOpenChange={setShowFormModal}>
                 <DialogContent className="max-h-[95vh] max-w-11/12 min-w-11/12 overflow-y-auto p-0">
                     <form onSubmit={handleSubmit}>
@@ -546,7 +547,7 @@ export default function PtoTypesView() {
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>
-</HrLayout>
+            </HrLayout>
         </AppLayout>
     );
 }

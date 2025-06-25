@@ -27,10 +27,11 @@ import {Table, TableBody, TableCell, TableHead, TableHeader, TableRow} from '@/c
 import {Textarea} from '@/components/ui/textarea';
 import AppLayout from '@/layouts/app-layout';
 import HrLayout from "@/layouts/settings/hr-layout";
+import {cn} from '@/lib/utils';
 import {type BreadcrumbItem} from '@/types';
 import {Head} from '@inertiajs/react';
 import axios from 'axios';
-import {Edit, Loader2, Plus, Save, Search, Trash2, User, X} from 'lucide-react';
+import {Calendar, Coins, Edit, Info, Loader2, Plus, Repeat, Save, Search, Settings2, Trash2, User} from 'lucide-react';
 import {useCallback, useEffect, useState} from 'react';
 import {toast} from 'sonner';
 
@@ -124,6 +125,27 @@ const initialFormData: FormData = {
     pto_type_id: '',
     user_id: '',
 };
+
+// Helper component for consistent setting toggles
+interface SettingToggleProps {
+    id: string;
+    label: string;
+    description: string;
+    checked: boolean;
+    onCheckedChange: (checked: boolean) => void;
+}
+
+function SettingToggle({ id, label, description, checked, onCheckedChange }: SettingToggleProps) {
+    return (
+        <div className="flex items-start justify-between rounded-md p-2 hover:bg-muted/50">
+            <div className="mr-4">
+                <Label htmlFor={id} className="font-medium">{label}</Label>
+                <p className="text-xs text-muted-foreground">{description}</p>
+            </div>
+            <Switch id={id} checked={checked} onCheckedChange={onCheckedChange} />
+        </div>
+    );
+}
 
 export default function PtoPoliciesView() {
     const [ptoPolicies, setPtoPolicies] = useState<PtoPolicy[]>([]);
@@ -354,472 +376,516 @@ export default function PtoPoliciesView() {
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
-
             <Head title="Manage PTO Policies" />
-                <HrLayout>
-            <div className="flex h-full flex-1 flex-col gap-6">
-                <div className="flex items-center justify-between">
-                    <h1 className="text-2xl font-bold">Manage PTO Policies</h1>
-                    <Button onClick={handleCreate} className="gap-2">
-                        <Plus className="h-4 w-4" />
-                        Add PTO Policy
-                    </Button>
-                </div>
+            <HrLayout>
+                <div className="flex h-full flex-1 flex-col gap-6">
+                    <div className="flex items-center justify-between">
+                        <h1 className="text-2xl font-bold">Manage PTO Policies</h1>
+                        <Button onClick={handleCreate} className="gap-2">
+                            <Plus className="h-4 w-4" />
+                            Add PTO Policy
+                        </Button>
+                    </div>
 
-                {/* Filters */}
-                <Card>
-                    <CardContent className="pt-6">
-                        <div className="grid grid-cols-1 gap-4 md:grid-cols-5">
-                            <div>
-                                <Label htmlFor="search">Search</Label>
-                                <div className="relative">
-                                    <Search className="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 transform" />
-                                    <Input
-                                        id="search"
-                                        placeholder="Search policies..."
-                                        value={searchTerm}
-                                        onChange={(e) => setSearchTerm(e.target.value)}
-                                        className="pl-9"
-                                    />
+                    {/* Filters */}
+                    <Card>
+                        <CardContent>
+                            <div className="grid grid-cols-1 gap-4 md:grid-cols-5">
+                                <div>
+                                    <Label htmlFor="search">Search</Label>
+                                    <div className="relative">
+                                        <Search className="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 transform" />
+                                        <Input
+                                            id="search"
+                                            placeholder="Search policies..."
+                                            value={searchTerm}
+                                            onChange={(e) => setSearchTerm(e.target.value)}
+                                            className="pl-9"
+                                        />
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <Label htmlFor="pto-type-filter">PTO Type</Label>
+                                    <Select value={selectedPtoType || undefined} onValueChange={(value) => setSelectedPtoType(value || '')}>
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="All types" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {ptoTypes.map((type) => (
+                                                <SelectItem key={type.id} value={type.id.toString()}>
+                                                    {type.name}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+
+                                <div>
+                                    <Label htmlFor="user-filter">User</Label>
+                                    <Select value={selectedUser || undefined} onValueChange={(value) => setSelectedUser(value || '')}>
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="All users" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {users.map((user) => (
+                                                <SelectItem key={user.id} value={user.id.toString()}>
+                                                    {user.name}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+
+                                <div className="flex items-center space-x-2 pt-6">
+                                    <Switch id="active-only" checked={showActiveOnly} onCheckedChange={setShowActiveOnly} />
+                                    <Label htmlFor="active-only">Active only</Label>
                                 </div>
                             </div>
+                        </CardContent>
+                    </Card>
 
-                            <div>
-                                <Label htmlFor="pto-type-filter">PTO Type</Label>
-                                <Select value={selectedPtoType || undefined} onValueChange={(value) => setSelectedPtoType(value || '')}>
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="All types" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {ptoTypes.map((type) => (
-                                            <SelectItem key={type.id} value={type.id.toString()}>
-                                                {type.name}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                            </div>
-
-                            <div>
-                                <Label htmlFor="user-filter">User</Label>
-                                <Select value={selectedUser || undefined} onValueChange={(value) => setSelectedUser(value || '')}>
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="All users" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {users.map((user) => (
-                                            <SelectItem key={user.id} value={user.id.toString()}>
-                                                {user.name}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                            </div>
-
-                            <div className="flex items-center space-x-2 pt-6">
-                                <Switch id="active-only" checked={showActiveOnly} onCheckedChange={setShowActiveOnly} />
-                                <Label htmlFor="active-only">Active only</Label>
-                            </div>
-                        </div>
-                    </CardContent>
-                </Card>
-
-                {/* Policies List */}
-                <Card className={"w-full"}>
-                    <CardHeader>
-                        <CardTitle>PTO Policies ({filteredPolicies.length})</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        {loading ? (
-                            <div className="flex items-center justify-center p-1">
-                                <Loader2 className="h-8 w-8 animate-spin" />
-                            </div>
-                        ) : filteredPolicies.length === 0 ? (
-                            <div className="text-muted-foreground p-8 text-center">
-                                {searchTerm || selectedPtoType || selectedUser || showActiveOnly
-                                    ? 'No policies match your filters.'
-                                    : 'No PTO policies found. Create your first policy to get started.'}
-                            </div>
-                        ) : (
-                            <div className="rounded-md border">
-                                <Table>
-                                    <TableHeader>
-                                        <TableRow>
-                                            <TableHead>Policy Name</TableHead>
-                                            <TableHead>User</TableHead>
-                                            <TableHead>PTO Type</TableHead>
-                                            <TableHead>Initial Days</TableHead>
-                                            <TableHead>Annual Accrual</TableHead>
-                                            <TableHead>Rollover</TableHead>
-                                            <TableHead>Effective Date</TableHead>
-                                            <TableHead>Status</TableHead>
-                                            <TableHead className="text-right">Actions</TableHead>
-                                        </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                        {filteredPolicies.map((policy) => (
-                                            <TableRow key={policy.id}>
-                                                <TableCell>
-                                                    <div>
-                                                        <div className="font-medium">{policy.name}</div>
-                                                        {policy.description && (
-                                                            <div className="text-muted-foreground text-sm">
-                                                                {policy.description.length > 50
-                                                                    ? `${policy.description.substring(0, 50)}...`
-                                                                    : policy.description}
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                </TableCell>
-                                                <TableCell>
-                                                    <div className="flex items-center gap-2">
-                                                        <User className="h-4 w-4" />
+                    {/* Policies List */}
+                    <Card className="w-full">
+                        <CardHeader>
+                            <CardTitle>PTO Policies ({filteredPolicies.length})</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            {loading ? (
+                                <div className="flex items-center justify-center p-8">
+                                    <Loader2 className="h-8 w-8 animate-spin" />
+                                </div>
+                            ) : filteredPolicies.length === 0 ? (
+                                <div className="py-12 text-center">
+                                    <h3 className="text-lg font-medium">No PTO Policies Found</h3>
+                                    <p className="mt-2 text-sm text-muted-foreground">
+                                        {searchTerm || selectedPtoType || selectedUser || showActiveOnly
+                                            ? 'No policies match your filters.'
+                                            : 'Get started by creating a new PTO policy.'}
+                                    </p>
+                                    <Button onClick={handleCreate} className="mt-4 gap-2">
+                                        <Plus className="h-4 w-4" /> Add PTO Policy
+                                    </Button>
+                                </div>
+                            ) : (
+                                <div className="rounded-md border">
+                                    <Table>
+                                        <TableHeader>
+                                            <TableRow>
+                                                <TableHead>Policy Name</TableHead>
+                                                <TableHead>User</TableHead>
+                                                <TableHead>PTO Type</TableHead>
+                                                <TableHead>Initial Days</TableHead>
+                                                <TableHead>Annual Accrual</TableHead>
+                                                <TableHead>Rollover</TableHead>
+                                                <TableHead>Effective Date</TableHead>
+                                                <TableHead>Status</TableHead>
+                                                <TableHead className="text-right">Actions</TableHead>
+                                            </TableRow>
+                                        </TableHeader>
+                                        <TableBody>
+                                            {filteredPolicies.map((policy) => (
+                                                <TableRow key={policy.id}>
+                                                    <TableCell>
                                                         <div>
-                                                            <div className="font-medium">{policy.user.name}</div>
-                                                            <div className="text-muted-foreground text-sm">{policy.user.email}</div>
-                                                        </div>
-                                                    </div>
-                                                </TableCell>
-                                                <TableCell>
-                                                    <div className="flex items-center gap-2">
-                                                        <div className="h-3 w-3 rounded border" style={{ backgroundColor: policy.pto_type.color }} />
-                                                        <span>{policy.pto_type.name}</span>
-                                                        <Badge variant="outline" className="text-xs">
-                                                            {policy.pto_type.code}
-                                                        </Badge>
-                                                    </div>
-                                                </TableCell>
-                                                <TableCell>{policy.initial_days}</TableCell>
-                                                <TableCell>
-                                                    <div className="text-sm">
-                                                        <div>{policy.annual_accrual_amount} days</div>
-                                                        {policy.bonus_days_per_year > 0 && (
-                                                            <div className="text-muted-foreground">+{policy.bonus_days_per_year} bonus</div>
-                                                        )}
-                                                    </div>
-                                                </TableCell>
-                                                <TableCell>
-                                                    {policy.rollover_enabled ? (
-                                                        <div className="text-sm">
-                                                            <div className="text-green-600">Enabled</div>
-                                                            {policy.max_rollover_days && (
-                                                                <div className="text-muted-foreground">Max: {policy.max_rollover_days}</div>
+                                                            <div className="font-medium">{policy.name}</div>
+                                                            {policy.description && (
+                                                                <div className="text-muted-foreground text-sm">
+                                                                    {policy.description.length > 50
+                                                                        ? `${policy.description.substring(0, 50)}...`
+                                                                        : policy.description}
+                                                                </div>
                                                             )}
                                                         </div>
-                                                    ) : (
-                                                        <span className="text-red-600">Disabled</span>
-                                                    )}
-                                                </TableCell>
-                                                <TableCell>{formatDate(policy.effective_date)}</TableCell>
-                                                <TableCell>
-                                                    <Badge
-                                                        variant={policy.is_active ? 'default' : 'secondary'}
-                                                        className={policy.is_active ? 'bg-green-100 text-green-800' : ''}
-                                                    >
-                                                        {policy.is_active ? 'Active' : 'Inactive'}
-                                                    </Badge>
-                                                </TableCell>
-                                                <TableCell className="text-right">
-                                                    <div className="flex items-center justify-end gap-2">
-                                                        <Button variant="ghost" size="sm" onClick={() => handleEdit(policy)}>
-                                                            <Edit className="h-4 w-4" />
-                                                        </Button>
-                                                        <Button variant="ghost" size="sm" onClick={() => handleDelete(policy)}>
-                                                            <Trash2 className="h-4 w-4" />
-                                                        </Button>
-                                                    </div>
-                                                </TableCell>
-                                            </TableRow>
-                                        ))}
-                                    </TableBody>
-                                </Table>
-                            </div>
-                        )}
-                    </CardContent>
-                </Card>
-
-                {/* Policy Form Dialog */}
-                <Dialog open={showForm} onOpenChange={setShowForm}>
-                    <DialogContent className="max-h-[90vh] overflow-y-auto" style={{ width: '90vw', maxWidth: 'none' }}>
-                        <DialogHeader>
-                            <DialogTitle>{isEditing ? 'Edit PTO Policy' : 'Add New PTO Policy'}</DialogTitle>
-                            <DialogDescription>
-                                {isEditing ? 'Update the PTO policy details below.' : 'Create a new PTO policy by filling out the form below.'}
-                            </DialogDescription>
-                        </DialogHeader>
-
-                        <form onSubmit={handleSubmit} className="space-y-6">
-                            {/* Basic Information */}
-                            <div className="space-y-4">
-                                <h4 className="font-medium">Basic Information</h4>
-
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div className="space-y-2">
-                                        <Label htmlFor="user_id">
-                                            User <span className="text-red-500">*</span>
-                                        </Label>
-                                        <Select
-                                            value={formData.user_id ? formData.user_id.toString() : undefined}
-                                            onValueChange={(value) => handleChange('user_id', parseInt(value))}
-                                        >
-                                            <SelectTrigger>
-                                                <SelectValue placeholder="Select user" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                {getAvailableUsers().map((user) => (
-                                                    <SelectItem key={user.id} value={user.id.toString()}>
-                                                        {user.name} ({user.email})
-                                                    </SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
-                                    </div>
-
-                                    <div className="space-y-2">
-                                        <Label htmlFor="pto_type_id">
-                                            PTO Type <span className="text-red-500">*</span>
-                                        </Label>
-                                        <Select
-                                            value={formData.pto_type_id ? formData.pto_type_id.toString() : undefined}
-                                            onValueChange={(value) => handleChange('pto_type_id', parseInt(value))}
-                                        >
-                                            <SelectTrigger>
-                                                <SelectValue placeholder="Select PTO type" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                {ptoTypes.map((type) => (
-                                                    <SelectItem key={type.id} value={type.id.toString()}>
+                                                    </TableCell>
+                                                    <TableCell>
                                                         <div className="flex items-center gap-2">
-                                                            <div className="h-3 w-3 rounded border" style={{ backgroundColor: type.color }} />
-                                                            {type.name} ({type.code})
+                                                            <User className="h-4 w-4" />
+                                                            <div>
+                                                                <div className="font-medium">{policy.user.name}</div>
+                                                                <div className="text-muted-foreground text-sm">{policy.user.email}</div>
+                                                            </div>
                                                         </div>
-                                                    </SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        <div className="flex items-center gap-2">
+                                                            <div className="h-3 w-3 rounded border" style={{ backgroundColor: policy.pto_type.color }} />
+                                                            <span>{policy.pto_type.name}</span>
+                                                            <Badge variant="outline" className="text-xs">
+                                                                {policy.pto_type.code}
+                                                            </Badge>
+                                                        </div>
+                                                    </TableCell>
+                                                    <TableCell>{policy.initial_days}</TableCell>
+                                                    <TableCell>
+                                                        <div className="text-sm">
+                                                            <div>{policy.annual_accrual_amount} days</div>
+                                                            {policy.bonus_days_per_year > 0 && (
+                                                                <div className="text-muted-foreground">+{policy.bonus_days_per_year} bonus</div>
+                                                            )}
+                                                        </div>
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        {policy.rollover_enabled ? (
+                                                            <div className="text-sm">
+                                                                <div className="text-green-600">Enabled</div>
+                                                                {policy.max_rollover_days && (
+                                                                    <div className="text-muted-foreground">Max: {policy.max_rollover_days}</div>
+                                                                )}
+                                                            </div>
+                                                        ) : (
+                                                            <span className="text-red-600">Disabled</span>
+                                                        )}
+                                                    </TableCell>
+                                                    <TableCell>{formatDate(policy.effective_date)}</TableCell>
+                                                    <TableCell>
+                                                        <Badge
+                                                            variant={policy.is_active ? 'default' : 'secondary'}
+                                                            className={cn(policy.is_active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800', 'hover:bg-current')}
+                                                        >
+                                                            {policy.is_active ? 'Active' : 'Inactive'}
+                                                        </Badge>
+                                                    </TableCell>
+                                                    <TableCell className="text-right">
+                                                        <div className="flex items-center justify-end gap-1">
+                                                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEdit(policy)}>
+                                                                <Edit className="h-4 w-4" />
+                                                            </Button>
+                                                            <Button variant="ghost" size="icon" className="h-8 w-8 text-red-500 hover:text-red-600" onClick={() => handleDelete(policy)}>
+                                                                <Trash2 className="h-4 w-4" />
+                                                            </Button>
+                                                        </div>
+                                                    </TableCell>
+                                                </TableRow>
+                                            ))}
+                                        </TableBody>
+                                    </Table>
+                                </div>
+                            )}
+                        </CardContent>
+                    </Card>
+
+                    {/* Policy Form Dialog - Redesigned to match PtoTypesView */}
+                    <Dialog open={showForm} onOpenChange={setShowForm}>
+                        <DialogContent className="max-h-[95vh] max-w-11/12 min-w-11/12 overflow-y-auto p-0">
+                            <form onSubmit={handleSubmit}>
+                                <div className="p-6">
+                                    <DialogHeader>
+                                        <DialogTitle className="text-2xl">
+                                            {isEditing ? 'Edit PTO Policy' : 'Create New PTO Policy'}
+                                        </DialogTitle>
+                                        <DialogDescription>
+                                            {isEditing ? `Update the details for "${currentPolicy?.name}".` : 'Fill out the form to add a new PTO policy.'}
+                                        </DialogDescription>
+                                    </DialogHeader>
+                                </div>
+
+                                <div className="grid grid-cols-1 gap-x-8 border-t px-6 py-8 lg:grid-cols-5">
+                                    {/* Left Column */}
+                                    <div className="space-y-8 lg:col-span-3">
+                                        {/* Section: Basic Information */}
+                                        <div className="space-y-4">
+                                            <div className="flex items-center gap-3">
+                                                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-secondary">
+                                                    <Info className="h-5 w-5 text-secondary-foreground" />
+                                                </div>
+                                                <h3 className="text-lg font-semibold">Basic Information</h3>
+                                            </div>
+                                            <div className="space-y-4 rounded-md border p-4">
+                                                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                                                    <div className="space-y-2">
+                                                        <Label htmlFor="user_id">
+                                                            User <span className="text-red-500">*</span>
+                                                        </Label>
+                                                        <Select
+                                                            value={formData.user_id ? formData.user_id.toString() : undefined}
+                                                            onValueChange={(value) => handleChange('user_id', parseInt(value))}
+                                                        >
+                                                            <SelectTrigger>
+                                                                <SelectValue placeholder="Select user" />
+                                                            </SelectTrigger>
+                                                            <SelectContent>
+                                                                {getAvailableUsers().map((user) => (
+                                                                    <SelectItem key={user.id} value={user.id.toString()}>
+                                                                        {user.name} ({user.email})
+                                                                    </SelectItem>
+                                                                ))}
+                                                            </SelectContent>
+                                                        </Select>
+                                                    </div>
+
+                                                    <div className="space-y-2">
+                                                        <Label htmlFor="pto_type_id">
+                                                            PTO Type <span className="text-red-500">*</span>
+                                                        </Label>
+                                                        <Select
+                                                            value={formData.pto_type_id ? formData.pto_type_id.toString() : undefined}
+                                                            onValueChange={(value) => handleChange('pto_type_id', parseInt(value))}
+                                                        >
+                                                            <SelectTrigger>
+                                                                <SelectValue placeholder="Select PTO type" />
+                                                            </SelectTrigger>
+                                                            <SelectContent>
+                                                                {ptoTypes.map((type) => (
+                                                                    <SelectItem key={type.id} value={type.id.toString()}>
+                                                                        <div className="flex items-center gap-2">
+                                                                            <div className="h-3 w-3 rounded border" style={{ backgroundColor: type.color }} />
+                                                                            {type.name} ({type.code})
+                                                                        </div>
+                                                                    </SelectItem>
+                                                                ))}
+                                                            </SelectContent>
+                                                        </Select>
+                                                    </div>
+                                                </div>
+
+                                                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                                                    <div className="space-y-2">
+                                                        <Label htmlFor="name">Policy Name</Label>
+                                                        <Input
+                                                            id="name"
+                                                            value={formData.name}
+                                                            onChange={(e) => handleChange('name', e.target.value)}
+                                                            placeholder="Auto-generated if empty"
+                                                        />
+                                                    </div>
+
+                                                    <div className="space-y-2">
+                                                        <Label htmlFor="effective_date">
+                                                            Effective Date <span className="text-red-500">*</span>
+                                                        </Label>
+                                                        <Input
+                                                            id="effective_date"
+                                                            type="date"
+                                                            value={formData.effective_date}
+                                                            onChange={(e) => handleChange('effective_date', e.target.value)}
+                                                        />
+                                                    </div>
+                                                </div>
+
+                                                <div className="space-y-2">
+                                                    <Label htmlFor="description">Description</Label>
+                                                    <Textarea
+                                                        id="description"
+                                                        value={formData.description}
+                                                        onChange={(e) => handleChange('description', e.target.value)}
+                                                        placeholder="Optional description for this policy..."
+                                                        rows={3}
+                                                    />
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {/* Section: PTO Allocation */}
+                                        <div className="space-y-4">
+                                            <div className="flex items-center gap-3">
+                                                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-secondary">
+                                                    <Coins className="h-5 w-5 text-secondary-foreground" />
+                                                </div>
+                                                <h3 className="text-lg font-semibold">PTO Allocation</h3>
+                                            </div>
+                                            <div className="space-y-4 rounded-md border p-4">
+                                                <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                                                    <div className="space-y-2">
+                                                        <Label htmlFor="initial_days">Initial Days</Label>
+                                                        <Input
+                                                            id="initial_days"
+                                                            type="number"
+                                                            min="0"
+                                                            step="0.5"
+                                                            value={formData.initial_days}
+                                                            onChange={(e) => handleChange('initial_days', parseFloat(e.target.value) || 0)}
+                                                        />
+                                                    </div>
+
+                                                    <div className="space-y-2">
+                                                        <Label htmlFor="annual_accrual_amount">Annual Accrual</Label>
+                                                        <Input
+                                                            id="annual_accrual_amount"
+                                                            type="number"
+                                                            min="0"
+                                                            step="0.5"
+                                                            value={formData.annual_accrual_amount}
+                                                            onChange={(e) => handleChange('annual_accrual_amount', parseFloat(e.target.value) || 0)}
+                                                        />
+                                                    </div>
+
+                                                    <div className="space-y-2">
+                                                        <Label htmlFor="bonus_days_per_year">Bonus Days/Year</Label>
+                                                        <Input
+                                                            id="bonus_days_per_year"
+                                                            type="number"
+                                                            min="0"
+                                                            step="0.5"
+                                                            value={formData.bonus_days_per_year}
+                                                            onChange={(e) => handleChange('bonus_days_per_year', parseFloat(e.target.value) || 0)}
+                                                        />
+                                                    </div>
+                                                </div>
+
+                                                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                                                    <div className="space-y-2">
+                                                        <Label htmlFor="years_for_bonus">Years for Bonus</Label>
+                                                        <Input
+                                                            id="years_for_bonus"
+                                                            type="number"
+                                                            min="1"
+                                                            value={formData.years_for_bonus}
+                                                            onChange={(e) => handleChange('years_for_bonus', parseInt(e.target.value) || 1)}
+                                                        />
+                                                    </div>
+
+                                                    <div className="space-y-2">
+                                                        <Label htmlFor="accrual_frequency">Accrual Frequency</Label>
+                                                        <Select
+                                                            value={formData.accrual_frequency}
+                                                            onValueChange={(value) => handleChange('accrual_frequency', value)}
+                                                        >
+                                                            <SelectTrigger>
+                                                                <SelectValue />
+                                                            </SelectTrigger>
+                                                            <SelectContent>
+                                                                <SelectItem value="monthly">Monthly</SelectItem>
+                                                                <SelectItem value="quarterly">Quarterly</SelectItem>
+                                                                <SelectItem value="annually">Annually</SelectItem>
+                                                            </SelectContent>
+                                                        </Select>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {/* Section: Rollover Settings */}
+                                        <div className="space-y-4">
+                                            <div className="flex items-center gap-3">
+                                                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-secondary">
+                                                    <Repeat className="h-5 w-5 text-secondary-foreground" />
+                                                </div>
+                                                <h3 className="text-lg font-semibold">Rollover Settings</h3>
+                                            </div>
+                                            <div className="space-y-4 rounded-md border p-4">
+                                                <SettingToggle
+                                                    id="rollover_enabled"
+                                                    label="Enable Rollover"
+                                                    description="Allow unused PTO to carry over to the next year"
+                                                    checked={formData.rollover_enabled}
+                                                    onCheckedChange={(checked) => handleChange('rollover_enabled', checked)}
+                                                />
+
+                                                {formData.rollover_enabled && (
+                                                    <div className="space-y-2 rounded-lg bg-muted/30 p-4">
+                                                        <Label htmlFor="max_rollover_days">Max Rollover Days</Label>
+                                                        <Input
+                                                            id="max_rollover_days"
+                                                            type="number"
+                                                            min="0"
+                                                            step="0.5"
+                                                            value={formData.max_rollover_days}
+                                                            onChange={(e) =>
+                                                                handleChange('max_rollover_days', e.target.value === '' ? '' : parseFloat(e.target.value))
+                                                            }
+                                                            placeholder="Leave empty for no limit"
+                                                        />
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Right Column */}
+                                    <div className="mt-8 space-y-8 lg:col-span-2 lg:mt-0">
+                                        {/* Section: Other Settings */}
+                                        <div className="space-y-4">
+                                            <div className="flex items-center gap-3">
+                                                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-secondary">
+                                                    <Settings2 className="h-5 w-5 text-secondary-foreground" />
+                                                </div>
+                                                <h3 className="text-lg font-semibold">Other Settings</h3>
+                                            </div>
+                                            <div className="space-y-1 rounded-md border p-2">
+                                                <SettingToggle
+                                                    id="is_active"
+                                                    label="Policy is Active"
+                                                    description="Inactive policies cannot be used for new requests"
+                                                    checked={formData.is_active}
+                                                    onCheckedChange={(checked) => handleChange('is_active', checked)}
+                                                />
+                                                <SettingToggle
+                                                    id="prorate_first_year"
+                                                    label="Prorate First Year"
+                                                    description="Calculate prorated accrual for partial first year"
+                                                    checked={formData.prorate_first_year}
+                                                    onCheckedChange={(checked) => handleChange('prorate_first_year', checked)}
+                                                />
+                                            </div>
+                                        </div>
+
+                                        {/* Section: Dates & Limits */}
+                                        <div className="space-y-4">
+                                            <div className="flex items-center gap-3">
+                                                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-secondary">
+                                                    <Calendar className="h-5 w-5 text-secondary-foreground" />
+                                                </div>
+                                                <h3 className="text-lg font-semibold">Dates & Limits</h3>
+                                            </div>
+                                            <div className="space-y-4 rounded-md border p-4">
+                                                <div className="space-y-2">
+                                                    <Label htmlFor="max_negative_balance">Max Negative Balance</Label>
+                                                    <Input
+                                                        id="max_negative_balance"
+                                                        type="number"
+                                                        min="0"
+                                                        step="0.5"
+                                                        value={formData.max_negative_balance}
+                                                        onChange={(e) => handleChange('max_negative_balance', parseFloat(e.target.value) || 0)}
+                                                    />
+                                                </div>
+
+                                                <div className="space-y-2">
+                                                    <Label htmlFor="end_date">End Date (Optional)</Label>
+                                                    <Input
+                                                        id="end_date"
+                                                        type="date"
+                                                        value={formData.end_date}
+                                                        onChange={(e) => handleChange('end_date', e.target.value)}
+                                                    />
+                                                </div>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
 
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div className="space-y-2">
-                                        <Label htmlFor="name">Policy Name</Label>
-                                        <Input
-                                            id="name"
-                                            value={formData.name}
-                                            onChange={(e) => handleChange('name', e.target.value)}
-                                            placeholder="Auto-generated if empty"
-                                        />
-                                    </div>
+                                <DialogFooter className="sticky bottom-0 mt-4 gap-2 border-t bg-background p-4">
+                                    <Button type="button" variant="outline" onClick={resetForm} disabled={submitting}>
+                                        Cancel
+                                    </Button>
+                                    <Button type="submit" disabled={submitting} className="gap-2">
+                                        {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                                        {isEditing ? 'Save Changes' : 'Create Policy'}
+                                    </Button>
+                                </DialogFooter>
+                            </form>
+                        </DialogContent>
+                    </Dialog>
 
-                                    <div className="space-y-2">
-                                        <Label htmlFor="effective_date">
-                                            Effective Date <span className="text-red-500">*</span>
-                                        </Label>
-                                        <Input
-                                            id="effective_date"
-                                            type="date"
-                                            value={formData.effective_date}
-                                            onChange={(e) => handleChange('effective_date', e.target.value)}
-                                        />
-                                    </div>
-                                </div>
-
-                                <div className="space-y-2">
-                                    <Label htmlFor="description">Description</Label>
-                                    <Textarea
-                                        id="description"
-                                        value={formData.description}
-                                        onChange={(e) => handleChange('description', e.target.value)}
-                                        placeholder="Optional description for this policy..."
-                                        rows={3}
-                                    />
-                                </div>
-                            </div>
-
-                            {/* PTO Allocation */}
-                            <div className="space-y-4">
-                                <h4 className="font-medium">PTO Allocation</h4>
-
-                                <div className="grid grid-cols-3 gap-4">
-                                    <div className="space-y-2">
-                                        <Label htmlFor="initial_days">Initial Days</Label>
-                                        <Input
-                                            id="initial_days"
-                                            type="number"
-                                            min="0"
-                                            step="0.5"
-                                            value={formData.initial_days}
-                                            onChange={(e) => handleChange('initial_days', parseFloat(e.target.value) || 0)}
-                                        />
-                                    </div>
-
-                                    <div className="space-y-2">
-                                        <Label htmlFor="annual_accrual_amount">Annual Accrual</Label>
-                                        <Input
-                                            id="annual_accrual_amount"
-                                            type="number"
-                                            min="0"
-                                            step="0.5"
-                                            value={formData.annual_accrual_amount}
-                                            onChange={(e) => handleChange('annual_accrual_amount', parseFloat(e.target.value) || 0)}
-                                        />
-                                    </div>
-
-                                    <div className="space-y-2">
-                                        <Label htmlFor="bonus_days_per_year">Bonus Days/Year</Label>
-                                        <Input
-                                            id="bonus_days_per_year"
-                                            type="number"
-                                            min="0"
-                                            step="0.5"
-                                            value={formData.bonus_days_per_year}
-                                            onChange={(e) => handleChange('bonus_days_per_year', parseFloat(e.target.value) || 0)}
-                                        />
-                                    </div>
-                                </div>
-
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div className="space-y-2">
-                                        <Label htmlFor="years_for_bonus">Years for Bonus</Label>
-                                        <Input
-                                            id="years_for_bonus"
-                                            type="number"
-                                            min="1"
-                                            value={formData.years_for_bonus}
-                                            onChange={(e) => handleChange('years_for_bonus', parseInt(e.target.value) || 1)}
-                                        />
-                                    </div>
-
-                                    <div className="space-y-2">
-                                        <Label htmlFor="accrual_frequency">Accrual Frequency</Label>
-                                        <Select
-                                            value={formData.accrual_frequency}
-                                            onValueChange={(value) => handleChange('accrual_frequency', value)}
-                                        >
-                                            <SelectTrigger>
-                                                <SelectValue />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="monthly">Monthly</SelectItem>
-                                                <SelectItem value="quarterly">Quarterly</SelectItem>
-                                                <SelectItem value="annually">Annually</SelectItem>
-                                            </SelectContent>
-                                        </Select>
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Rollover Settings */}
-                            <div className="space-y-4">
-                                <h4 className="font-medium">Rollover Settings</h4>
-
-                                <div className="flex items-center space-x-2">
-                                    <Switch
-                                        id="rollover_enabled"
-                                        checked={formData.rollover_enabled}
-                                        onCheckedChange={(checked) => handleChange('rollover_enabled', checked)}
-                                    />
-                                    <Label htmlFor="rollover_enabled">Enable rollover</Label>
-                                </div>
-
-                                {formData.rollover_enabled && (
-                                    <div className="space-y-2">
-                                        <Label htmlFor="max_rollover_days">Max Rollover Days</Label>
-                                        <Input
-                                            id="max_rollover_days"
-                                            type="number"
-                                            min="0"
-                                            step="0.5"
-                                            value={formData.max_rollover_days}
-                                            onChange={(e) =>
-                                                handleChange('max_rollover_days', e.target.value === '' ? '' : parseFloat(e.target.value))
-                                            }
-                                            placeholder="Leave empty for no limit"
-                                        />
-                                    </div>
-                                )}
-                            </div>
-
-                            {/* Other Settings */}
-                            <div className="space-y-4">
-                                <h4 className="font-medium">Other Settings</h4>
-
-                                <div className="grid grid-cols-3 gap-4">
-                                    <div className="space-y-2">
-                                        <Label htmlFor="max_negative_balance">Max Negative Balance</Label>
-                                        <Input
-                                            id="max_negative_balance"
-                                            type="number"
-                                            min="0"
-                                            step="0.5"
-                                            value={formData.max_negative_balance}
-                                            onChange={(e) => handleChange('max_negative_balance', parseFloat(e.target.value) || 0)}
-                                        />
-                                    </div>
-
-                                    <div className="space-y-2">
-                                        <Label htmlFor="end_date">End Date (Optional)</Label>
-                                        <Input
-                                            id="end_date"
-                                            type="date"
-                                            value={formData.end_date}
-                                            onChange={(e) => handleChange('end_date', e.target.value)}
-                                        />
-                                    </div>
-
-                                    <div className="flex items-center space-x-2 pt-6">
-                                        <Switch
-                                            id="is_active"
-                                            checked={formData.is_active}
-                                            onCheckedChange={(checked) => handleChange('is_active', checked)}
-                                        />
-                                        <Label htmlFor="is_active">Active</Label>
-                                    </div>
-                                </div>
-
-                                <div className="flex items-center space-x-2">
-                                    <Switch
-                                        id="prorate_first_year"
-                                        checked={formData.prorate_first_year}
-                                        onCheckedChange={(checked) => handleChange('prorate_first_year', checked)}
-                                    />
-                                    <Label htmlFor="prorate_first_year">Prorate first year</Label>
-                                </div>
-                            </div>
-
-                            <DialogFooter>
-                                <Button type="button" variant="outline" onClick={resetForm} disabled={submitting}>
-                                    <X className="mr-2 h-4 w-4" />
-                                    Cancel
-                                </Button>
-                                <Button type="submit" disabled={submitting}>
-                                    {submitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-                                    {isEditing ? 'Update' : 'Create'} Policy
-                                </Button>
-                            </DialogFooter>
-                        </form>
-                    </DialogContent>
-                </Dialog>
-
-                {/* Delete Confirmation Alert Dialog */}
-                <AlertDialog open={showDeleteAlert} onOpenChange={setShowDeleteAlert}>
-                    <AlertDialogContent>
-                        <AlertDialogHeader>
-                            <AlertDialogTitle>Confirm Delete</AlertDialogTitle>
-                            <AlertDialogDescription>
-                                Are you sure you want to delete the PTO policy "{policyToDelete?.name}" for {policyToDelete?.user?.name}? This action
-                                cannot be undone.
-                            </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                            <AlertDialogCancel>Cancel</AlertDialogCancel>
-                            <AlertDialogAction onClick={confirmDelete} className="bg-red-600 hover:bg-red-700">
-                                Delete
-                            </AlertDialogAction>
-                        </AlertDialogFooter>
-                    </AlertDialogContent>
-                </AlertDialog>
-            </div>
+                    {/* Delete Confirmation Alert Dialog */}
+                    <AlertDialog open={showDeleteAlert} onOpenChange={setShowDeleteAlert}>
+                        <AlertDialogContent>
+                            <AlertDialogHeader>
+                                <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                    This will permanently delete the PTO policy "{policyToDelete?.name}" for {policyToDelete?.user?.name}. This action cannot be undone.
+                                </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                <AlertDialogAction onClick={confirmDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                                    Delete
+                                </AlertDialogAction>
+                            </AlertDialogFooter>
+                        </AlertDialogContent>
+                    </AlertDialog>
+                </div>
             </HrLayout>
         </AppLayout>
     );

@@ -16,10 +16,11 @@ class HREmployeesController extends Controller
                 'departments',
                 'emergencyContacts',
                 'currentPosition',
-                'addresses', // Add this line
+                'addresses',
                 'ptoRequests.ptoType',
                 'ptoRequests.approvedBy',
                 'ptoRequests.deniedBy',
+                'ptoRequests.cancelledBy', // Add if this relationship exists
                 'ptoBalances.ptoType',
                 'roles.permissions'
             ])
@@ -100,16 +101,45 @@ class HREmployeesController extends Controller
                             'total_days' => (float) $request->total_days,
                             'status' => $request->status,
                             'reason' => $request->reason,
+
+                            // Enhanced approval details
                             'approval_notes' => $request->approval_notes,
-                            'denial_reason' => $request->denial_reason,
                             'approved_by' => $request->approvedBy?->name,
-                            'denied_by' => $request->deniedBy?->name,
-                            'created_at' => $request->created_at->format('Y-m-d H:i:s'),
+                            'approved_by_id' => $request->approved_by,
                             'approved_at' => $request->approved_at?->format('Y-m-d H:i:s'),
+
+                            // Enhanced denial details
+                            'denial_reason' => $request->denial_reason,
+                            'denied_by' => $request->deniedBy?->name,
+                            'denied_by_id' => $request->denied_by,
                             'denied_at' => $request->denied_at?->format('Y-m-d H:i:s'),
+
+                            // Enhanced cancellation details
+                            'cancellation_reason' => $request->cancellation_reason ?? null,
+                            'cancelled_by' => $request->cancelledBy?->name ?? ($request->cancelled_by ? User::find($request->cancelled_by)?->name : null),
+                            'cancelled_by_id' => $request->cancelled_by ?? null,
+                            'cancelled_at' => $request->cancelled_at?->format('Y-m-d H:i:s'),
+
+                            // Request lifecycle details
+                            'created_at' => $request->created_at->format('Y-m-d H:i:s'),
+                            'updated_at' => $request->updated_at->format('Y-m-d H:i:s'),
+                            'submitted_at' => $request->submitted_at?->format('Y-m-d H:i:s'),
+
+                            // Additional status information
+                            'status_changed_at' => $request->status_changed_at?->format('Y-m-d H:i:s') ?? $request->updated_at->format('Y-m-d H:i:s'),
+                            'status_changed_by' => $this->getStatusChangedBy($request),
+
+                            // Manager/supervisor information
+                            'manager_notes' => $request->manager_notes ?? null,
+                            'hr_notes' => $request->hr_notes ?? null,
+
+                            // Blackout information
                             'has_blackout_conflicts' => method_exists($request, 'hasBlackoutConflicts') ? $request->hasBlackoutConflicts() : false,
                             'has_blackout_warnings' => method_exists($request, 'hasBlackoutWarnings') ? $request->hasBlackoutWarnings() : false,
                             'blackouts' => $this->getFormattedBlackouts($request),
+
+                            // Request modification history
+                            'modification_history' => $this->getModificationHistory($request),
                         ];
                     }),
                 ];
@@ -118,6 +148,81 @@ class HREmployeesController extends Controller
         return Inertia::render('human-resources/employees', [
             'users' => $users
         ]);
+    }
+
+    private function getStatusChangedBy($request)
+    {
+        switch ($request->status) {
+            case 'approved':
+                return $request->approvedBy?->name;
+            case 'denied':
+                return $request->deniedBy?->name;
+            case 'cancelled':
+                return $request->cancelledBy?->name ?? ($request->cancelled_by ? User::find($request->cancelled_by)?->name : null);
+            default:
+                return null;
+        }
+    }
+
+    private function getModificationHistory($request)
+    {
+        $history = [];
+
+        // Add creation event
+        $history[] = [
+            'action' => 'created',
+            'user' => $request->user?->name ?? 'System',
+            'timestamp' => $request->created_at->format('Y-m-d H:i:s'),
+            'details' => 'Request submitted'
+        ];
+
+        // Add submission event if different from creation
+        if ($request->submitted_at && $request->submitted_at != $request->created_at) {
+            $history[] = [
+                'action' => 'submitted',
+                'user' => $request->user?->name ?? 'System',
+                'timestamp' => $request->submitted_at->format('Y-m-d H:i:s'),
+                'details' => 'Request officially submitted for review'
+            ];
+        }
+
+        // Add approval event
+        if ($request->approved_at) {
+            $history[] = [
+                'action' => 'approved',
+                'user' => $request->approvedBy?->name ?? 'Unknown',
+                'timestamp' => $request->approved_at->format('Y-m-d H:i:s'),
+                'details' => $request->approval_notes ?: 'Request approved'
+            ];
+        }
+
+        // Add denial event
+        if ($request->denied_at) {
+            $history[] = [
+                'action' => 'denied',
+                'user' => $request->deniedBy?->name ?? 'Unknown',
+                'timestamp' => $request->denied_at->format('Y-m-d H:i:s'),
+                'details' => $request->denial_reason ?: 'Request denied'
+            ];
+        }
+
+        // Add cancellation event
+        if ($request->cancelled_at) {
+            $cancelledBy = $request->cancelledBy?->name ?? ($request->cancelled_by ? User::find($request->cancelled_by)?->name : 'Unknown');
+            $history[] = [
+                'action' => 'cancelled',
+                'user' => $cancelledBy,
+                'timestamp' => $request->cancelled_at->format('Y-m-d H:i:s'),
+                'details' => $request->cancellation_reason ?: 'Request cancelled'
+            ];
+        }
+
+        // Sort by timestamp
+        usort($history, function($a, $b) {
+            return strtotime($a['timestamp']) - strtotime($b['timestamp']);
+        });
+
+        return $history;
     }
 
     public function destroy(User $user)
