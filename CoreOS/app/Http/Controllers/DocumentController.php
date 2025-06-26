@@ -8,6 +8,7 @@ use App\Models\Folder;
 use App\Models\Tag;
 use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Inertia\Inertia;
@@ -15,6 +16,12 @@ use Inertia\Response;
 
 class DocumentController extends Controller
 {
+    /**
+     * Display a listing of the documents.
+     *
+     * @param Request $request
+     * @return Response
+     */
     public function index(Request $request): Response
     {
         $user = $request->user();
@@ -116,6 +123,11 @@ class DocumentController extends Controller
         ]);
     }
 
+    /**
+     * Show the form for creating a new document.
+     *
+     * @return Response
+     */
     public function create(): Response
     {
         $user = request()->user();
@@ -177,9 +189,14 @@ class DocumentController extends Controller
         ]);
     }
 
+    /**
+     * Store a newly created document in storage.
+     *
+     * @param Request $request
+     * @return \Illuminate\Http\RedirectResponse
+     */
     public function store(Request $request)
     {
-        // Handle the "none" value from frontend before validation
         if ($request->folder_id === 'none') {
             return back()->withErrors(['folder_id' => 'Please select a valid folder.']);
         }
@@ -207,11 +224,9 @@ class DocumentController extends Controller
             $extension = $file->getClientOriginalExtension();
             $fileSize = $file->getSize();
 
-            // Generate unique filename
             $filename = Str::uuid() . '.' . $extension;
             $s3Key = "Company Documents/{$folder->s3_path}/{$filename}";
 
-            // Upload to S3 with proper headers for inline viewing
             $headers = [
                 'ContentType' => $file->getMimeType(),
                 'ContentDisposition' => 'inline; filename="' . $originalName . '"',
@@ -240,7 +255,6 @@ class DocumentController extends Controller
                 'uploaded_by' => $user->id,
             ]);
 
-            // Attach tags
             if ($request->tag_ids) {
                 $document->tags()->attach($request->tag_ids);
             }
@@ -252,6 +266,12 @@ class DocumentController extends Controller
             ->with('success', count($documents) . ' document(s) uploaded successfully.');
     }
 
+    /**
+     * Display the specified document.
+     *
+     * @param Document $document
+     * @return Response
+     */
     public function show(Document $document): Response
     {
         $user = request()->user();
@@ -262,7 +282,6 @@ class DocumentController extends Controller
 
         $document->load(['folder.parent', 'uploader', 'tags']);
 
-        // Build folder path for breadcrumbs
         $folderPath = [];
         $currentFolder = $document->folder;
         while ($currentFolder) {
@@ -304,6 +323,12 @@ class DocumentController extends Controller
         ]);
     }
 
+    /**
+     * Show the form for editing the specified document.
+     *
+     * @param Document $document
+     * @return Response
+     */
     public function edit(Document $document): Response
     {
         $user = request()->user();
@@ -344,6 +369,13 @@ class DocumentController extends Controller
         ]);
     }
 
+    /**
+     * Update the specified document in storage.
+     *
+     * @param Request $request
+     * @param Document $document
+     * @return \Illuminate\Http\RedirectResponse
+     */
     public function update(Request $request, Document $document)
     {
         $user = $request->user();
@@ -375,13 +407,18 @@ class DocumentController extends Controller
             'assignment_ids' => $request->assignment_ids,
         ]);
 
-        // Sync tags
         $document->tags()->sync($request->tag_ids ?? []);
 
         return redirect()->route('documents.show', $document)
             ->with('success', 'Document updated successfully.');
     }
 
+    /**
+     * Remove the specified document from storage.
+     *
+     * @param Document $document
+     * @return \Illuminate\Http\RedirectResponse
+     */
     public function destroy(Document $document)
     {
         $user = request()->user();
@@ -390,16 +427,19 @@ class DocumentController extends Controller
             abort(403, 'You do not have access to this document.');
         }
 
-        // Delete from S3
         Storage::disk('s3')->delete($document->s3_key);
-
-        // Soft delete the document
         $document->delete();
 
         return redirect()->route('documents.index')
             ->with('success', 'Document deleted successfully.');
     }
 
+    /**
+     * Redirect to a pre-signed URL for downloading the document.
+     *
+     * @param Document $document
+     * @return \Illuminate\Http\RedirectResponse
+     */
     public function download(Document $document)
     {
         $user = request()->user();
@@ -414,7 +454,10 @@ class DocumentController extends Controller
     }
 
     /**
-     * View document inline (especially for PDFs)
+     * [UPDATED] Generate a temporary URL and redirect to view the document inline.
+     *
+     * @param Document $document
+     * @return \Illuminate\Http\RedirectResponse
      */
     public function view(Document $document)
     {
@@ -424,37 +467,46 @@ class DocumentController extends Controller
             abort(403, 'You do not have access to this document.');
         }
 
-        // Increment view count
+        // Increment view count as the user is accessing the file.
         $document->incrementDownloadCount();
 
+        // Dynamically determine the MIME type for the response header.
+        $mimeType = match(strtolower($document->file_type)) {
+            'pdf' => 'application/pdf',
+            'jpg', 'jpeg' => 'image/jpeg',
+            'png' => 'image/png',
+            'gif' => 'image/gif',
+            'txt' => 'text/plain',
+            'html' => 'text/html',
+            'css' => 'text/css',
+            'js' => 'application/javascript',
+            'json' => 'application/json',
+            'xml' => 'application/xml',
+            default => 'application/octet-stream' // A generic byte stream
+        };
+
         try {
-            // Get file content from S3
-            $fileContent = Storage::disk('s3')->get($document->s3_key);
+            // Generate a temporary, pre-signed URL to the file on S3.
+            // This URL is valid for a short time (e.g., 15 minutes).
+            // We override the response headers to ensure it's displayed inline in the browser.
+            $temporaryUrl = Storage::disk('s3')->temporaryUrl(
+                $document->s3_key,
+                now()->addMinutes(15),
+                [
+                    'ResponseContentType' => $mimeType,
+                    'ResponseContentDisposition' => 'inline; filename="' . $document->original_filename . '"',
+                ]
+            );
 
-            // Determine mime type
-            $mimeType = match(strtolower($document->file_type)) {
-                'pdf' => 'application/pdf',
-                'jpg', 'jpeg' => 'image/jpeg',
-                'png' => 'image/png',
-                'gif' => 'image/gif',
-                'txt' => 'text/plain',
-                'html' => 'text/html',
-                'css' => 'text/css',
-                'js' => 'application/javascript',
-                'json' => 'application/json',
-                'xml' => 'application/xml',
-                default => 'application/octet-stream'
-            };
-
-            return response($fileContent)
-                ->header('Content-Type', $mimeType)
-                ->header('Content-Disposition', 'inline; filename="' . $document->original_filename . '"')
-                ->header('Cache-Control', 'public, max-age=31536000')
-                ->header('X-Content-Type-Options', 'nosniff')
-                ->header('Access-Control-Allow-Origin', '*');
+            // Redirect the user's browser directly to the S3 file.
+            return redirect($temporaryUrl);
 
         } catch (\Exception $e) {
-            // Fallback to S3 direct URL if file serving fails
+            // Log the error for debugging purposes.
+            Log::error("Could not generate temporary URL for document ID {$document->id}: " . $e->getMessage());
+
+            // As a fallback, redirect to the permanent S3 URL.
+            // Note: This may not display correctly if the S3 bucket objects are private.
             return redirect($document->s3_url);
         }
     }

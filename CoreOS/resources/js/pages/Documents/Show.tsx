@@ -1,3 +1,4 @@
+// Documennts - Show.tsx
 import {Head, Link, router} from '@inertiajs/react';
 import AppLayout from '@/layouts/app-layout';
 import {Button} from '@/components/ui/button';
@@ -23,18 +24,6 @@ import {
     Video
 } from 'lucide-react';
 import type {BreadcrumbItem} from "@/types";
-
-const breadcrumbs: BreadcrumbItem[] = [
-    {
-        title: 'Documents',
-        href: route('documents.index'),
-    },
-    // {
-    //     title: document.original_filename,
-    //     href: '/document',
-    // },
-];
-
 
 interface DocumentData {
     id: number;
@@ -69,12 +58,32 @@ interface DocumentData {
     view_url: string;
 }
 
-interface Props {
-    document: DocumentData;
-    folderPath: Array<{
+interface FolderPathItem {
+    id: number;
+    name: string;
+}
+interface CurrentFolder {
+    id: number;
+    name: string;
+    description?: string;
+    full_path: string;
+    creator: string;
+    created_at: string;
+    assignment_type: string;
+    assigned_entities: {
+        type: string;
+        entities: Array<{ id: number; name: string; }>;
+    };
+    tags: Array<{
         id: number;
         name: string;
+        color: string;
     }>;
+}
+interface Props {
+    document: DocumentData;
+    folderPath: FolderPathItem[];
+    currentFolder?: CurrentFolder;
 }
 
 const getFileIcon = (fileType: string) => {
@@ -146,7 +155,7 @@ const FilePreview = ({ document }: { document: DocumentData }) => {
 
     // PDF files
     if (fileType === 'pdf') {
-       return (
+        return (
             <Card>
                 <CardHeader>
                     <CardTitle className="flex items-center gap-2">
@@ -172,13 +181,10 @@ const FilePreview = ({ document }: { document: DocumentData }) => {
                                 {/* Fallback to iframe if object tag is not supported */}
                                 <iframe
                                     src={viewUrl}
-                                    type="application/pdf"
-                                    internalid={document.id.toString()}
-                                    allow="fullscreen *"
+                                    allow="fullscreen"
                                     className="w-full border-0"
                                     style={{ height: '800px' }}
                                     title={document.name}
-                                    name={document.id.toString()}
                                     onLoad={() => {
                                         console.log('PDF iframe loaded successfully');
                                     }}
@@ -402,9 +408,31 @@ const formatDate = (dateString: string): string => {
     });
 };
 
-export default function DocumentsShow({ document }: Props) {
+export default function DocumentsShow({ document,  folderPath}: Props) {
     const FileIcon = getFileIcon(document.file_type);
     const AssignmentIcon = getAssignmentIcon(document.assigned_entities.type);
+
+    // Build breadcrumbs for AppLayout
+    const breadcrumbs: BreadcrumbItem[] = [
+        {
+            title: 'Dashboard',
+            href: '/dashboard',
+        },
+        {
+            title: 'Folders',
+            href: route('folders.index'),
+        },
+        // Add folder hierarchy from folderPath
+        ...folderPath.map((folder) => ({
+            title: folder.name,
+            href: route('folders.index', { parent_id: folder.id }),
+        })),
+        // Add current document
+        {
+            title: document.name,
+            href: route('documents.show', document.id),
+        }
+    ];
 
     const handleDelete = () => {
         if (confirm(`Are you sure you want to delete "${document.name}"?`)) {

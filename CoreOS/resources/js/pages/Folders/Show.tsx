@@ -1,3 +1,4 @@
+//Folders - Show.tsx
 import {Head, Link, router} from '@inertiajs/react';
 import AppLayout from '@/layouts/app-layout';
 import {Button} from '@/components/ui/button';
@@ -24,6 +25,7 @@ import {
     Users,
     Video
 } from 'lucide-react';
+import type {BreadcrumbItem} from "@/types";
 
 interface FolderData {
     id: number;
@@ -65,10 +67,16 @@ interface Document {
     created_at: string;
 }
 
+interface Breadcrumb {
+    id: number;
+    name: string;
+}
+
 interface Props {
     folder: FolderData;
     childFolders: ChildFolder[];
     documents: Document[];
+    breadcrumbs: Breadcrumb[];
 }
 
 const getFileIcon = (fileType: string) => {
@@ -109,8 +117,26 @@ const formatDate = (dateString: string): string => {
     });
 };
 
-export default function FoldersShow({ folder, childFolders, documents }: Props) {
+export default function FoldersShow({ folder, childFolders, documents, breadcrumbs }: Props) {
     const AssignmentIcon = getAssignmentIcon(folder.assigned_entities.type);
+
+    // Build breadcrumbs for AppLayout
+    const appBreadcrumbs: BreadcrumbItem[] = [
+        {
+            title: 'Dashboard',
+            href: '/dashboard',
+        },
+        {
+            title: 'Folders',
+            href: route('folders.index'),
+        },
+        ...breadcrumbs.map((breadcrumb, index) => ({
+            title: breadcrumb.name,
+            href: index === breadcrumbs.length - 1
+                ? route('folders.show', breadcrumb.id)
+                : route('folders.index', { parent_id: breadcrumb.id }),
+        }))
+    ];
 
     const handleDelete = () => {
         if (childFolders.length > 0 || documents.length > 0) {
@@ -124,7 +150,7 @@ export default function FoldersShow({ folder, childFolders, documents }: Props) 
     };
 
     return (
-        <AppLayout>
+        <AppLayout breadcrumbs={appBreadcrumbs}>
             <Head title={`Folder: ${folder.name}`} />
 
             <div className="space-y-6">
