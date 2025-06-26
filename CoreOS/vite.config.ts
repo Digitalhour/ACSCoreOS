@@ -1,8 +1,8 @@
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import laravel from 'laravel-vite-plugin';
-import { resolve } from 'node:path';
-import { defineConfig } from 'vite';
+import {resolve} from 'node:path';
+import {defineConfig} from 'vite';
 
 export default defineConfig({
     plugins: [
@@ -22,4 +22,5 @@ export default defineConfig({
             'ziggy-js': resolve(__dirname, 'vendor/tightenco/ziggy'),
         },
     },
+
 });

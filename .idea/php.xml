@@ -172,6 +172,10 @@
       <path value="$PROJECT_DIR$/CoreOS/vendor/react/socket" />
       <path value="$PROJECT_DIR$/CoreOS/vendor/evenement/evenement" />
       <path value="$PROJECT_DIR$/CoreOS/vendor/laravel/reverb" />
+      <path value="$PROJECT_DIR$/CoreOS/vendor/league/flysystem-aws-s3-v3" />
+      <path value="$PROJECT_DIR$/CoreOS/vendor/aws/aws-crt-php" />
+      <path value="$PROJECT_DIR$/CoreOS/vendor/aws/aws-sdk-php" />
+      <path value="$PROJECT_DIR$/CoreOS/vendor/mtdowling/jmespath.php" />
     </include_path>
   </component>
   <component name="PhpProjectSharedConfiguration" php_language_level="8.2" />

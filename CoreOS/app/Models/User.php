@@ -297,7 +297,51 @@ class User extends Authenticatable
     }
 
 
+    /*
+  |--------------------------------------------------------------------------
+  | Document Management System Relationships
+  |--------------------------------------------------------------------------
+  */
 
+    /**
+     * Get folders created by this user.
+     */
+    public function createdFolders(): HasMany
+    {
+        return $this->hasMany(Folder::class, 'created_by');
+    }
+
+    /**
+     * Get documents uploaded by this user.
+     */
+    public function uploadedDocuments(): HasMany
+    {
+        return $this->hasMany(Document::class, 'uploaded_by');
+    }
+
+    /**
+     * Get tags created by this user.
+     */
+    public function createdTags(): HasMany
+    {
+        return $this->hasMany(Tag::class, 'created_by');
+    }
+
+    /**
+     * Get folders accessible by this user.
+     */
+    public function accessibleFolders(): Collection
+    {
+        return Folder::accessibleByUser($this)->get();
+    }
+
+    /**
+     * Get documents accessible by this user.
+     */
+    public function accessibleDocuments(): Collection
+    {
+        return Document::accessibleByUser($this)->get();
+    }
 
 
 }
