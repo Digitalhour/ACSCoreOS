@@ -8,6 +8,7 @@ use App\Http\Controllers\Api\PtoApi\PTOSubmitHistoricalController;
 use App\Http\Controllers\DepartmentController;
 use App\Http\Controllers\DocumentController;
 use App\Http\Controllers\FolderController;
+use App\Http\Controllers\TagController;
 use App\Http\Controllers\UserManagementController;
 use Illuminate\Support\Facades\Route;
 use Laravel\WorkOS\Http\Middleware\ValidateSessionWithWorkOS;
@@ -40,19 +41,19 @@ Route::middleware(['auth', ValidateSessionWithWorkOS::class,])->group(function (
 //        Route::delete('/{folder}', [FolderController::class, 'destroy'])->name('destroy');
 //    });
 //
-//    // Tag Routes
-//    Route::prefix('tags')->name('tags.')->group(function () {
-//        Route::get('/', [TagController::class, 'index'])->name('index');
-//        Route::get('/create', [TagController::class, 'create'])->name('create');
-//        Route::post('/', [TagController::class, 'store'])->name('store');
-//        Route::get('/{tag}', [TagController::class, 'show'])->name('show');
-//        Route::get('/{tag}/edit', [TagController::class, 'edit'])->name('edit');
-//        Route::put('/{tag}', [TagController::class, 'update'])->name('update');
-//        Route::delete('/{tag}', [TagController::class, 'destroy'])->name('destroy');
-//
-//        // AJAX search route for tags
-//        Route::get('/search/ajax', [TagController::class, 'search'])->name('search');
-//    });
+    // Tag Routes
+    Route::prefix('tags')->name('tags.')->group(function () {
+        Route::get('/', [TagController::class, 'index'])->name('index');
+        Route::get('/create', [TagController::class, 'create'])->name('create');
+        Route::post('/', [TagController::class, 'store'])->name('store');
+        Route::get('/{tag}', [TagController::class, 'show'])->name('show');
+        Route::get('/{tag}/edit', [TagController::class, 'edit'])->name('edit');
+        Route::put('/{tag}', [TagController::class, 'update'])->name('update');
+        Route::delete('/{tag}', [TagController::class, 'destroy'])->name('destroy');
+
+        // AJAX search route for tags
+        Route::get('/search/ajax', [TagController::class, 'search'])->name('search');
+    });
 
     /*
     |--------------------------------------------------------------------------
@@ -107,13 +108,8 @@ Route::middleware(['auth', ValidateSessionWithWorkOS::class,])->group(function (
     Route::get('/documents/{document}/view', [DocumentController::class, 'view'])
         ->name('documents.view');
 
-    // Bulk document operations
-    Route::post('/documents/bulk-delete', [DocumentController::class, 'bulkDelete'])
-        ->name('documents.bulk-delete');
-    Route::post('/documents/bulk-move', [DocumentController::class, 'bulkMove'])
-        ->name('documents.bulk-move');
-    Route::post('/documents/bulk-update-tags', [DocumentController::class, 'bulkUpdateTags'])
-        ->name('documents.bulk-update-tags');
+    Route::get('/employee/documents/{document}/view', [DocumentController::class, 'employeeView'])
+        ->name('employee.documents.view');
 
 
 

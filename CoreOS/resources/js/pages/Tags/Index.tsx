@@ -1,11 +1,21 @@
 import {useState} from 'react';
-import {Head, Link, router} from '@inertiajs/react';
+import {Head, Link, router, useForm} from '@inertiajs/react';
 import AppLayout from '@/layouts/app-layout';
 import {Button} from '@/components/ui/button';
 import {Input} from '@/components/ui/input';
 import {Badge} from '@/components/ui/badge';
 import {Card, CardContent, CardDescription, CardHeader, CardTitle} from '@/components/ui/card';
 import {Separator} from '@/components/ui/separator';
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle
+} from '@/components/ui/dialog';
+import {Label} from '@/components/ui/label';
+import {Textarea} from '@/components/ui/textarea';
 import {Calendar, Edit, Eye, File, Folder, Plus, Search, Tag, Trash2, User} from 'lucide-react';
 
 interface TagData {
@@ -26,7 +36,14 @@ interface Props {
     tags: {
         data: TagData[];
         links: any[];
-        meta: any;
+        meta: {
+            current_page: number;
+            last_page: number;
+            per_page: number;
+            total: number;
+            from: number | null;
+            to: number | null;
+        };
     };
     filters: {
         search?: string;
@@ -43,6 +60,28 @@ const formatDate = (dateString: string): string => {
 
 export default function TagsIndex({ tags, filters }: Props) {
     const [searchTerm, setSearchTerm] = useState(filters.search || '');
+    const [showCreateModal, setShowCreateModal] = useState(false);
+    const [showEditModal, setShowEditModal] = useState(false);
+    const [editingTag, setEditingTag] = useState<TagData | null>(null);
+
+    // Defensive checks for data structure
+    const tagsData = tags?.data || [];
+    const tagsMeta = tags?.meta || { total: 0, last_page: 1 };
+    const tagsLinks = tags?.links || [];
+
+    // Form for creating tags
+    const createForm = useForm({
+        name: '',
+        color: '#3B82F6',
+        description: '',
+    });
+
+    // Form for editing tags
+    const editForm = useForm({
+        name: '',
+        color: '#3B82F6',
+        description: '',
+    });
 
     const handleSearch = () => {
         const params: any = {};
@@ -70,6 +109,57 @@ export default function TagsIndex({ tags, filters }: Props) {
         }
     };
 
+    const handleCreateTag = (e: React.FormEvent) => {
+        e.preventDefault();
+
+        createForm.post(route('tags.store'), {
+            onSuccess: () => {
+                setShowCreateModal(false);
+                createForm.reset();
+            },
+        });
+    };
+
+    const handleEditTag = (e: React.FormEvent) => {
+        e.preventDefault();
+
+        if (!editingTag) return;
+
+        editForm.put(route('tags.update', editingTag.id), {
+            onSuccess: () => {
+                setShowEditModal(false);
+                setEditingTag(null);
+                editForm.reset();
+            },
+        });
+    };
+
+    const openCreateModal = () => {
+        createForm.reset();
+        setShowCreateModal(true);
+    };
+
+    const closeCreateModal = () => {
+        setShowCreateModal(false);
+        createForm.reset();
+    };
+
+    const openEditModal = (tag: TagData) => {
+        setEditingTag(tag);
+        editForm.setData({
+            name: tag.name,
+            color: tag.color,
+            description: tag.description || '',
+        });
+        setShowEditModal(true);
+    };
+
+    const closeEditModal = () => {
+        setShowEditModal(false);
+        setEditingTag(null);
+        editForm.reset();
+    };
+
     return (
         <AppLayout>
             <Head title="Tags Management" />
@@ -84,11 +174,9 @@ export default function TagsIndex({ tags, filters }: Props) {
                         </p>
                     </div>
                     <div className="flex gap-2">
-                        <Button asChild>
-                            <Link href={route('tags.create')}>
-                                <Plus className="mr-2 h-4 w-4" />
-                                Create Tag
-                            </Link>
+                        <Button onClick={openCreateModal}>
+                            <Plus className="mr-2 h-4 w-4" />
+                            Create Tag
                         </Button>
                     </div>
                 </div>
@@ -131,12 +219,12 @@ export default function TagsIndex({ tags, filters }: Props) {
                 <div className="space-y-4">
                     <div className="flex items-center justify-between">
                         <p className="text-sm text-muted-foreground">
-                            {tags.meta.total} tag{tags.meta.total !== 1 ? 's' : ''} found
+                            {tagsMeta.total} tag{tagsMeta.total !== 1 ? 's' : ''} found
                         </p>
                     </div>
 
                     <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-                        {tags.data.map((tag) => (
+                        {tagsData.map((tag) => (
                             <Card key={tag.id} className="hover:shadow-md transition-shadow">
                                 <CardHeader className="pb-3">
                                     <div className="flex items-start justify-between">
@@ -163,18 +251,18 @@ export default function TagsIndex({ tags, filters }: Props) {
                                     <div className="grid grid-cols-2 gap-4 text-sm">
                                         <div className="flex items-center gap-2">
                                             <File className="h-4 w-4 text-muted-foreground" />
-                                            <span>{tag.documents_count} documents</span>
+                                            <span>{tag.documents_count || 0} documents</span>
                                         </div>
                                         <div className="flex items-center gap-2">
                                             <Folder className="h-4 w-4 text-muted-foreground" />
-                                            <span>{tag.folders_count} folders</span>
+                                            <span>{tag.folders_count || 0} folders</span>
                                         </div>
                                     </div>
 
                                     {/* Total Usage */}
                                     <div className="text-center p-2 bg-muted rounded-lg">
                                         <div className="text-lg font-semibold">
-                                            {tag.documents_count + tag.folders_count}
+                                            {(tag.documents_count || 0) + (tag.folders_count || 0)}
                                         </div>
                                         <div className="text-xs text-muted-foreground">
                                             Total Usage
@@ -185,7 +273,7 @@ export default function TagsIndex({ tags, filters }: Props) {
                                     <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground">
                                         <div className="flex items-center gap-1">
                                             <User className="h-3 w-3" />
-                                            <span className="line-clamp-1">{tag.creator.name}</span>
+                                            <span className="line-clamp-1">{tag.creator?.name || 'Unknown'}</span>
                                         </div>
                                         <div className="flex items-center gap-1">
                                             <Calendar className="h-3 w-3" />
@@ -217,23 +305,25 @@ export default function TagsIndex({ tags, filters }: Props) {
                                                 View
                                             </Link>
                                         </Button>
-                                        <Button size="sm" variant="outline" asChild>
-                                            <Link href={route('tags.edit', tag.id)}>
-                                                <Edit className="h-3 w-3" />
-                                            </Link>
+                                        <Button
+                                            size="sm"
+                                            variant="outline"
+                                            onClick={() => openEditModal(tag)}
+                                        >
+                                            <Edit className="h-3 w-3" />
                                         </Button>
                                         <Button
                                             size="sm"
                                             variant="outline"
                                             onClick={() => handleDelete(tag)}
-                                            disabled={tag.documents_count > 0 || tag.folders_count > 0}
+                                            disabled={(tag.documents_count || 0) > 0 || (tag.folders_count || 0) > 0}
                                         >
                                             <Trash2 className="h-3 w-3" />
                                         </Button>
                                     </div>
 
                                     {/* Usage Warning */}
-                                    {(tag.documents_count > 0 || tag.folders_count > 0) && (
+                                    {((tag.documents_count || 0) > 0 || (tag.folders_count || 0) > 0) && (
                                         <div className="text-xs text-muted-foreground bg-muted p-2 rounded">
                                             <strong>Note:</strong> This tag is currently in use and cannot be deleted.
                                         </div>
@@ -244,7 +334,7 @@ export default function TagsIndex({ tags, filters }: Props) {
                     </div>
 
                     {/* Empty State */}
-                    {tags.data.length === 0 && (
+                    {tagsData.length === 0 && (
                         <Card>
                             <CardContent className="flex flex-col items-center justify-center py-12">
                                 <Tag className="h-12 w-12 text-muted-foreground mb-4" />
@@ -254,21 +344,19 @@ export default function TagsIndex({ tags, filters }: Props) {
                                         ? "Try adjusting your search to see more results."
                                         : "Get started by creating your first tag."}
                                 </p>
-                                <Button asChild>
-                                    <Link href={route('tags.create')}>
-                                        <Plus className="mr-2 h-4 w-4" />
-                                        Create Tag
-                                    </Link>
+                                <Button onClick={openCreateModal}>
+                                    <Plus className="mr-2 h-4 w-4" />
+                                    Create Tag
                                 </Button>
                             </CardContent>
                         </Card>
                     )}
 
                     {/* Pagination */}
-                    {tags.meta.last_page > 1 && (
+                    {tagsMeta.last_page > 1 && (
                         <div className="flex justify-center">
                             <div className="flex gap-2">
-                                {tags.links.map((link, index) => (
+                                {tagsLinks.map((link, index) => (
                                     <Button
                                         key={index}
                                         variant={link.active ? "default" : "outline"}
@@ -282,6 +370,178 @@ export default function TagsIndex({ tags, filters }: Props) {
                         </div>
                     )}
                 </div>
+
+                {/* Create Tag Modal */}
+                <Dialog open={showCreateModal} onOpenChange={setShowCreateModal}>
+                    <DialogContent className="sm:max-w-[425px]">
+                        <DialogHeader>
+                            <DialogTitle className="flex items-center gap-2">
+                                <Tag className="h-5 w-5" />
+                                Create New Tag
+                            </DialogTitle>
+                            <DialogDescription>
+                                Create a new tag to organize your documents and folders.
+                            </DialogDescription>
+                        </DialogHeader>
+
+                        <form onSubmit={handleCreateTag} className="space-y-4">
+                            <div className="space-y-2">
+                                <Label htmlFor="create-name">Tag Name *</Label>
+                                <Input
+                                    id="create-name"
+                                    value={createForm.data.name}
+                                    onChange={(e) => createForm.setData('name', e.target.value)}
+                                    placeholder="Enter tag name..."
+                                    className={createForm.errors.name ? 'border-red-500' : ''}
+                                />
+                                {createForm.errors.name && (
+                                    <p className="text-sm text-red-500">{createForm.errors.name}</p>
+                                )}
+                            </div>
+
+                            <div className="space-y-2">
+                                <Label htmlFor="create-color">Color *</Label>
+                                <div className="flex gap-3 items-center">
+                                    <Input
+                                        id="create-color"
+                                        type="color"
+                                        value={createForm.data.color}
+                                        onChange={(e) => createForm.setData('color', e.target.value)}
+                                        className="w-20 h-10 p-1 border rounded cursor-pointer"
+                                    />
+                                    <Input
+                                        value={createForm.data.color}
+                                        onChange={(e) => createForm.setData('color', e.target.value)}
+                                        placeholder="#3B82F6"
+                                        className={`flex-1 ${createForm.errors.color ? 'border-red-500' : ''}`}
+                                    />
+                                    <div
+                                        className="w-10 h-10 rounded border-2 border-gray-300"
+                                        style={{ backgroundColor: createForm.data.color }}
+                                    />
+                                </div>
+                                {createForm.errors.color && (
+                                    <p className="text-sm text-red-500">{createForm.errors.color}</p>
+                                )}
+                            </div>
+
+                            <div className="space-y-2">
+                                <Label htmlFor="create-description">Description</Label>
+                                <Textarea
+                                    id="create-description"
+                                    value={createForm.data.description}
+                                    onChange={(e) => createForm.setData('description', e.target.value)}
+                                    placeholder="Optional description..."
+                                    rows={3}
+                                    className={createForm.errors.description ? 'border-red-500' : ''}
+                                />
+                                {createForm.errors.description && (
+                                    <p className="text-sm text-red-500">{createForm.errors.description}</p>
+                                )}
+                            </div>
+
+                            <DialogFooter>
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    onClick={closeCreateModal}
+                                    disabled={createForm.processing}
+                                >
+                                    Cancel
+                                </Button>
+                                <Button type="submit" disabled={createForm.processing}>
+                                    {createForm.processing ? 'Creating...' : 'Create Tag'}
+                                </Button>
+                            </DialogFooter>
+                        </form>
+                    </DialogContent>
+                </Dialog>
+
+                {/* Edit Tag Modal */}
+                <Dialog open={showEditModal} onOpenChange={setShowEditModal}>
+                    <DialogContent className="sm:max-w-[425px]">
+                        <DialogHeader>
+                            <DialogTitle className="flex items-center gap-2">
+                                <Edit className="h-5 w-5" />
+                                Edit Tag
+                            </DialogTitle>
+                            <DialogDescription>
+                                Update the tag information.
+                            </DialogDescription>
+                        </DialogHeader>
+
+                        <form onSubmit={handleEditTag} className="space-y-4">
+                            <div className="space-y-2">
+                                <Label htmlFor="edit-name">Tag Name *</Label>
+                                <Input
+                                    id="edit-name"
+                                    value={editForm.data.name}
+                                    onChange={(e) => editForm.setData('name', e.target.value)}
+                                    placeholder="Enter tag name..."
+                                    className={editForm.errors.name ? 'border-red-500' : ''}
+                                />
+                                {editForm.errors.name && (
+                                    <p className="text-sm text-red-500">{editForm.errors.name}</p>
+                                )}
+                            </div>
+
+                            <div className="space-y-2">
+                                <Label htmlFor="edit-color">Color *</Label>
+                                <div className="flex gap-3 items-center">
+                                    <Input
+                                        id="edit-color"
+                                        type="color"
+                                        value={editForm.data.color}
+                                        onChange={(e) => editForm.setData('color', e.target.value)}
+                                        className="w-20 h-10 p-1 border rounded cursor-pointer"
+                                    />
+                                    <Input
+                                        value={editForm.data.color}
+                                        onChange={(e) => editForm.setData('color', e.target.value)}
+                                        placeholder="#3B82F6"
+                                        className={`flex-1 ${editForm.errors.color ? 'border-red-500' : ''}`}
+                                    />
+                                    <div
+                                        className="w-10 h-10 rounded border-2 border-gray-300"
+                                        style={{ backgroundColor: editForm.data.color }}
+                                    />
+                                </div>
+                                {editForm.errors.color && (
+                                    <p className="text-sm text-red-500">{editForm.errors.color}</p>
+                                )}
+                            </div>
+
+                            <div className="space-y-2">
+                                <Label htmlFor="edit-description">Description</Label>
+                                <Textarea
+                                    id="edit-description"
+                                    value={editForm.data.description}
+                                    onChange={(e) => editForm.setData('description', e.target.value)}
+                                    placeholder="Optional description..."
+                                    rows={3}
+                                    className={editForm.errors.description ? 'border-red-500' : ''}
+                                />
+                                {editForm.errors.description && (
+                                    <p className="text-sm text-red-500">{editForm.errors.description}</p>
+                                )}
+                            </div>
+
+                            <DialogFooter>
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    onClick={closeEditModal}
+                                    disabled={editForm.processing}
+                                >
+                                    Cancel
+                                </Button>
+                                <Button type="submit" disabled={editForm.processing}>
+                                    {editForm.processing ? 'Updating...' : 'Update Tag'}
+                                </Button>
+                            </DialogFooter>
+                        </form>
+                    </DialogContent>
+                </Dialog>
             </div>
         </AppLayout>
     );

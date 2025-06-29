@@ -262,7 +262,7 @@ class DocumentController extends Controller
             $documents[] = $document;
         }
 
-        return redirect()->route('documents.index', ['folder_id' => $folder->id])
+        return redirect()->route('folders.index', ['parent_id' => $folder->id])
             ->with('success', count($documents) . ' document(s) uploaded successfully.');
     }
 
@@ -409,7 +409,7 @@ class DocumentController extends Controller
 
         $document->tags()->sync($request->tag_ids ?? []);
 
-        return redirect()->route('documents.show', $document)
+        return redirect()->route('folders.index', ['parent_id' => $document->folder_id])
             ->with('success', 'Document updated successfully.');
     }
 
@@ -427,10 +427,12 @@ class DocumentController extends Controller
             abort(403, 'You do not have access to this document.');
         }
 
+        $folderId = $document->folder_id;
+
         Storage::disk('s3')->delete($document->s3_key);
         $document->delete();
 
-        return redirect()->route('documents.index')
+        return redirect()->route('folders.index', ['parent_id' => $folderId])
             ->with('success', 'Document deleted successfully.');
     }
 
@@ -454,7 +456,7 @@ class DocumentController extends Controller
     }
 
     /**
-     * [UPDATED] Generate a temporary URL and redirect to view the document inline.
+     * Generate a temporary URL and redirect to view the document inline.
      *
      * @param Document $document
      * @return \Illuminate\Http\RedirectResponse
@@ -507,6 +509,103 @@ class DocumentController extends Controller
 
             // As a fallback, redirect to the permanent S3 URL.
             // Note: This may not display correctly if the S3 bucket objects are private.
+            return redirect($document->s3_url);
+        }
+    }
+
+    /**
+     * Employee view for documents - uses the same view method for generating S3 URLs
+     */
+    public function employeeView(Document $document): Response
+    {
+        $user = request()->user();
+
+        if (!$document->isAccessibleBy($user)) {
+            abort(403, 'You do not have access to this document.');
+        }
+
+        $document->load(['folder.parent', 'uploader', 'tags']);
+
+        $folderPath = [];
+        $currentFolder = $document->folder;
+        while ($currentFolder) {
+            $folderPath[] = [
+                'id' => $currentFolder->id,
+                'name' => $currentFolder->name,
+            ];
+            $currentFolder = $currentFolder->parent;
+        }
+        $folderPath = array_reverse($folderPath);
+
+        return Inertia::render('Documents/EmployeeView', [
+            'document' => [
+                'id' => $document->id,
+                'name' => $document->name,
+                'original_filename' => $document->original_filename,
+                'description' => $document->description,
+                'file_type' => $document->file_type,
+                'file_size' => $document->getFormattedFileSize(),
+                'folder' => [
+                    'id' => $document->folder->id,
+                    'name' => $document->folder->name,
+                    'full_path' => $document->folder->getFullPath(),
+                ],
+                'uploader' => [
+                    'id' => $document->uploader->id,
+                    'name' => $document->uploader->name,
+                ],
+                'tags' => $document->tags,
+                'download_count' => $document->download_count,
+                'created_at' => $document->created_at,
+                'download_url' => $document->getDownloadUrl(),
+                'view_url' => route('documents.view', $document->id), // This should work the same as show method
+            ],
+            'folderPath' => $folderPath,
+        ]);
+    }
+
+    /**
+     * Alternative employee view method that generates temporary URL directly
+     */
+    public function employeeViewFile(Document $document)
+    {
+        $user = request()->user();
+
+        if (!$document->isAccessibleBy($user)) {
+            abort(403, 'You do not have access to this document.');
+        }
+
+        // This is the same logic as the view method but for employee context
+        $document->incrementDownloadCount();
+
+        $mimeType = match(strtolower($document->file_type)) {
+            'pdf' => 'application/pdf',
+            'jpg', 'jpeg' => 'image/jpeg',
+            'png' => 'image/png',
+            'gif' => 'image/gif',
+            'txt' => 'text/plain',
+            'html' => 'text/html',
+            'css' => 'text/css',
+            'js' => 'application/javascript',
+            'json' => 'application/json',
+            'xml' => 'application/xml',
+            default => 'application/octet-stream'
+        };
+
+        try {
+            $temporaryUrl = Storage::disk('s3')->temporaryUrl(
+                $document->s3_key,
+                now()->addMinutes(15),
+                [
+                    'ResponseContentType' => $mimeType,
+                    'ResponseContentDisposition' => 'inline; filename="' . $document->original_filename . '"',
+                ]
+            );
+
+            return redirect($temporaryUrl);
+
+        } catch (\Exception $e) {
+            Log::error("Could not generate temporary URL for document ID {$document->id}: " . $e->getMessage());
             return redirect($document->s3_url);
         }
     }

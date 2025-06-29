@@ -21,7 +21,18 @@ class TagController extends Controller
         $tags = $query->latest()->paginate(20);
 
         return Inertia::render('Tags/Index', [
-            'tags' => $tags,
+            'tags' => [
+                'data' => $tags->items(),
+                'links' => $tags->linkCollection()->toArray(),
+                'meta' => [
+                    'current_page' => $tags->currentPage(),
+                    'last_page' => $tags->lastPage(),
+                    'per_page' => $tags->perPage(),
+                    'total' => $tags->total(),
+                    'from' => $tags->firstItem(),
+                    'to' => $tags->lastItem(),
+                ]
+            ],
             'filters' => $request->only(['search']),
         ]);
     }
@@ -110,7 +121,7 @@ class TagController extends Controller
             'description' => $request->description,
         ]);
 
-        return redirect()->route('tags.show', $tag)
+        return redirect()->route('tags.index')
             ->with('success', 'Tag updated successfully.');
     }
 

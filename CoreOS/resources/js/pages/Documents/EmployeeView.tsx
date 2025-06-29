@@ -1,5 +1,5 @@
-// Documents - Show.tsx
-import {Head, Link, router} from '@inertiajs/react';
+// Documents - EmployeeView.tsx
+import {Head} from '@inertiajs/react';
 import {useEffect, useState} from 'react';
 import AppLayout from '@/layouts/app-layout';
 import {Button} from '@/components/ui/button';
@@ -7,24 +7,7 @@ import {Badge} from '@/components/ui/badge';
 import {Label} from '@/components/ui/label';
 import {Card, CardContent, CardHeader, CardTitle} from '@/components/ui/card';
 import {Skeleton} from '@/components/ui/skeleton';
-import {
-    Archive,
-    Building2,
-    Download,
-    Edit,
-    ExternalLink,
-    Eye,
-    File,
-    FileSpreadsheet,
-    FileText,
-    Folder,
-    Globe,
-    Image,
-    Trash2,
-    User,
-    Users,
-    Video
-} from 'lucide-react';
+import {Download, ExternalLink, Eye, File, FileSpreadsheet, FileText, Image, User, Video} from 'lucide-react';
 import type {BreadcrumbItem} from "@/types";
 
 interface DocumentData {
@@ -49,13 +32,7 @@ interface DocumentData {
         color: string;
     }>;
     download_count: number;
-    last_accessed_at?: string;
     created_at: string;
-    updated_at: string;
-    assigned_entities: {
-        type: string;
-        entities: Array<{ id: number; name: string; }>;
-    };
     download_url: string;
     view_url: string;
 }
@@ -65,29 +42,9 @@ interface FolderPathItem {
     name: string;
 }
 
-interface CurrentFolder {
-    id: number;
-    name: string;
-    description?: string;
-    full_path: string;
-    creator: string;
-    created_at: string;
-    assignment_type: string;
-    assigned_entities: {
-        type: string;
-        entities: Array<{ id: number; name: string; }>;
-    };
-    tags: Array<{
-        id: number;
-        name: string;
-        color: string;
-    }>;
-}
-
 interface Props {
     document: DocumentData;
     folderPath: FolderPathItem[];
-    currentFolder?: CurrentFolder;
 }
 
 const getFileIcon = (fileType: string) => {
@@ -96,7 +53,6 @@ const getFileIcon = (fileType: string) => {
     if (['xls', 'xlsx', 'csv'].includes(type)) return FileSpreadsheet;
     if (['jpg', 'jpeg', 'png', 'gif'].includes(type)) return Image;
     if (['mp4', 'avi', 'mov'].includes(type)) return Video;
-    if (['zip', 'rar', '7z'].includes(type)) return Archive;
     return File;
 };
 
@@ -130,12 +86,10 @@ const FilePreview = ({ document }: { document: DocumentData }) => {
     const downloadUrl = document.download_url;
 
     useEffect(() => {
-        // Simulate loading time and fetch CSV content if needed
         const timer = setTimeout(() => {
             setIsLoading(false);
         }, 500);
 
-        // If it's a CSV, fetch the content for preview
         if (fileType === 'csv') {
             fetchCsvContent();
         }
@@ -189,23 +143,23 @@ const FilePreview = ({ document }: { document: DocumentData }) => {
                             <Image className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
                             <p className="text-muted-foreground">Unable to preview image</p>
                             <Button className="mt-4" asChild>
-                                <Link href={downloadUrl}>
+                                <a href={downloadUrl} download>
                                     <Download className="h-4 w-4 mr-2" />
                                     Download Image
-                                </Link>
+                                </a>
                             </Button>
                         </div>
-                        <div className="absolute top-2 right-2 flex gap-2">
+                        <div className="absolute top-2 right-2">
                             <Button
                                 size="sm"
                                 variant="outline"
                                 className="bg-white/90"
                                 asChild
                             >
-                                <Link href={viewUrl} target="_blank">
+                                <a href={viewUrl} target="_blank">
                                     <ExternalLink className="h-3 w-3 mr-1" />
                                     Full Size
-                                </Link>
+                                </a>
                             </Button>
                         </div>
                     </div>
@@ -217,15 +171,9 @@ const FilePreview = ({ document }: { document: DocumentData }) => {
     // PDF files
     if (fileType === 'pdf') {
         return (
-            <Card>
-                <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                        <FileText className="h-4 w-4" />
-                        PDF Preview
-                    </CardTitle>
-                </CardHeader>
-                <CardContent>
-                    <div className="space-y-4">
+            <div>
+
+                    <div >
                         <div className="border rounded-lg overflow-hidden bg-gray-50">
                             <object
                                 data={viewUrl}
@@ -248,26 +196,13 @@ const FilePreview = ({ document }: { document: DocumentData }) => {
                                 />
                             </object>
                         </div>
-                        <div className="flex gap-2 flex-wrap">
-                            <Button asChild>
-                                <Link href={viewUrl} target="_blank">
-                                    <ExternalLink className="h-4 w-4 mr-2" />
-                                    Open in New Tab
-                                </Link>
-                            </Button>
-                            <Button variant="outline" asChild>
-                                <Link href={downloadUrl}>
-                                    <Download className="h-4 w-4 mr-2" />
-                                    Download PDF
-                                </Link>
-                            </Button>
-                        </div>
+
                         <div className="text-xs text-muted-foreground bg-blue-50 p-3 rounded border-l-4 border-blue-400">
                             <strong>View Options:</strong> The PDF is displayed inline above. If you experience any issues, use "Open in New Tab" for the best viewing experience or download the file directly.
                         </div>
                     </div>
-                </CardContent>
-            </Card>
+
+            </div>
         );
     }
 
@@ -289,18 +224,18 @@ const FilePreview = ({ document }: { document: DocumentData }) => {
                             style={{ height: '400px' }}
                             title={document.name}
                         />
-                        <div className="flex gap-2">
+                        <div className="flex gap-2 justify-center">
                             <Button asChild>
-                                <Link href={viewUrl} target="_blank">
+                                <a href={viewUrl} target="_blank">
                                     <ExternalLink className="h-4 w-4 mr-2" />
                                     View Full Content
-                                </Link>
+                                </a>
                             </Button>
                             <Button variant="outline" asChild>
-                                <Link href={downloadUrl}>
+                                <a href={downloadUrl} download>
                                     <Download className="h-4 w-4 mr-2" />
                                     Download File
-                                </Link>
+                                </a>
                             </Button>
                         </div>
                     </div>
@@ -326,10 +261,10 @@ const FilePreview = ({ document }: { document: DocumentData }) => {
                                 <FileSpreadsheet className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
                                 <p className="text-muted-foreground mb-4">{csvError}</p>
                                 <Button asChild>
-                                    <Link href={downloadUrl}>
+                                    <a href={downloadUrl} download>
                                         <Download className="h-4 w-4 mr-2" />
                                         Download CSV
-                                    </Link>
+                                    </a>
                                 </Button>
                             </div>
                         ) : csvContent ? (
@@ -347,24 +282,24 @@ const FilePreview = ({ document }: { document: DocumentData }) => {
                             </div>
                         )}
 
-                        <div className="flex gap-2 flex-wrap">
+                        <div className="flex gap-2 justify-center flex-wrap">
                             <Button variant="outline" asChild>
-                                <Link href={viewUrl} target="_blank">
+                                <a href={viewUrl} target="_blank">
                                     <ExternalLink className="h-4 w-4 mr-2" />
                                     View Raw Data
-                                </Link>
+                                </a>
                             </Button>
                             <Button asChild>
-                                <Link href={downloadUrl}>
+                                <a href={downloadUrl} download>
                                     <Download className="h-4 w-4 mr-2" />
                                     Download CSV
-                                </Link>
+                                </a>
                             </Button>
                         </div>
 
                         {csvContent && (
                             <div className="text-xs text-muted-foreground bg-green-50 p-3 rounded border-l-4 border-green-400">
-                                <strong>CSV Preview:</strong> Showing content preview above. Use "Download CSV" to get the complete file or "View Raw Data" to see the full content in a new tab.
+                                <strong>CSV Preview:</strong> Showing content preview above. Use "Download CSV" to get the complete file.
                             </div>
                         )}
                     </div>
@@ -393,18 +328,18 @@ const FilePreview = ({ document }: { document: DocumentData }) => {
                             <source src={viewUrl} type={`video/${fileType}`} />
                             Your browser does not support the video tag.
                         </video>
-                        <div className="flex gap-2">
+                        <div className="flex gap-2 justify-center">
                             <Button asChild>
-                                <Link href={viewUrl} target="_blank">
+                                <a href={viewUrl} target="_blank">
                                     <ExternalLink className="h-4 w-4 mr-2" />
                                     Open Video
-                                </Link>
+                                </a>
                             </Button>
                             <Button variant="outline" asChild>
-                                <Link href={downloadUrl}>
+                                <a href={downloadUrl} download>
                                     <Download className="h-4 w-4 mr-2" />
                                     Download Video
-                                </Link>
+                                </a>
                             </Button>
                         </div>
                     </div>
@@ -437,65 +372,23 @@ const FilePreview = ({ document }: { document: DocumentData }) => {
                     <div className="flex gap-2">
                         {['doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx'].includes(fileType) && (
                             <Button variant="outline" asChild>
-                                <Link href={viewUrl} target="_blank">
+                                <a href={viewUrl} target="_blank">
                                     <Eye className="h-4 w-4 mr-2" />
                                     Quick View
-                                </Link>
+                                </a>
                             </Button>
                         )}
                         <Button asChild>
-                            <Link href={downloadUrl}>
+                            <a href={downloadUrl} download>
                                 <Download className="h-4 w-4 mr-2" />
                                 Download File
-                            </Link>
+                            </a>
                         </Button>
                     </div>
                 </div>
             </CardContent>
         </Card>
     );
-};
-
-const SidebarSkeleton = () => (
-    <div className="space-y-6">
-        {[1, 2, 3, 4].map((i) => (
-            <Card key={i}>
-                <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                        <Skeleton className="h-4 w-4" />
-                        <Skeleton className="h-5 w-24" />
-                    </CardTitle>
-                </CardHeader>
-                <CardContent>
-                    <div className="space-y-2">
-                        <Skeleton className="h-4 w-full" />
-                        <Skeleton className="h-4 w-3/4" />
-                        <Skeleton className="h-4 w-1/2" />
-                    </div>
-                </CardContent>
-            </Card>
-        ))}
-    </div>
-);
-
-const getAssignmentIcon = (type: string) => {
-    switch (type) {
-        case 'company_wide': return Globe;
-        case 'department': return Building2;
-        case 'user': return User;
-        case 'hierarchy': return Users;
-        default: return Globe;
-    }
-};
-
-const getAssignmentLabel = (type: string) => {
-    switch (type) {
-        case 'company_wide': return 'Company Wide';
-        case 'department': return 'Department';
-        case 'user': return 'Specific Users';
-        case 'hierarchy': return 'User Hierarchy';
-        default: return 'Unknown';
-    }
 };
 
 const formatDate = (dateString: string): string => {
@@ -508,10 +401,9 @@ const formatDate = (dateString: string): string => {
     });
 };
 
-export default function DocumentsShow({ document, folderPath }: Props) {
+export default function EmployeeView({ document, folderPath }: Props) {
     const [isPageLoading, setIsPageLoading] = useState(true);
     const FileIcon = getFileIcon(document.file_type);
-    const AssignmentIcon = getAssignmentIcon(document.assigned_entities.type);
 
     useEffect(() => {
         const timer = setTimeout(() => {
@@ -523,38 +415,29 @@ export default function DocumentsShow({ document, folderPath }: Props) {
     // Build breadcrumbs for AppLayout
     const breadcrumbs: BreadcrumbItem[] = [
         {
-            title: 'Dashboard',
-            href: '/dashboard',
-        },
-        {
-            title: 'Folders',
-            href: route('folders.index'),
+            title: 'My Documents',
+            href: route('employee.folders.index'),
         },
         // Add folder hierarchy from folderPath
         ...folderPath.map((folder) => ({
             title: folder.name,
-            href: route('folders.index', { parent_id: folder.id }),
+            href: route('employee.folders.index', { parent_id: folder.id }),
         })),
         // Add current document
         {
             title: document.name,
-            href: route('documents.show', document.id),
+            href: route('employee.documents.view', document.id),
         }
     ];
-
-    const handleDelete = () => {
-        if (confirm(`Are you sure you want to delete "${document.name}"?`)) {
-            router.delete(route('documents.destroy', document.id));
-        }
-    };
 
     if (isPageLoading) {
         return (
             <AppLayout breadcrumbs={breadcrumbs}>
                 <Head title="Loading Document..." />
-                <div className="space-y-6">
+                <div className="flex h-full max-h-screen flex-1 flex-col gap-4 rounded-xl p-4">
                     {/* Header Skeleton */}
                     <div className="flex items-center gap-4">
+                        <Skeleton className="h-10 w-20" />
                         <div className="flex-1">
                             <div className="flex items-center gap-3">
                                 <Skeleton className="h-10 w-10 rounded-md" />
@@ -567,26 +450,30 @@ export default function DocumentsShow({ document, folderPath }: Props) {
                         <div className="flex gap-2">
                             <Skeleton className="h-10 w-24" />
                             <Skeleton className="h-10 w-20" />
-                            <Skeleton className="h-10 w-10" />
                         </div>
                     </div>
 
-                    <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+                    <div className="grid grid-cols-1 gap-6 lg:grid-cols-4">
                         {/* Main Content Skeleton */}
-                        <div className="lg:col-span-2 space-y-6">
+                        <div className="lg:col-span-3 space-y-6">
                             <PreviewSkeleton />
-                            <Card>
-                                <CardHeader>
-                                    <Skeleton className="h-6 w-32" />
-                                </CardHeader>
-                                <CardContent>
-                                    <Skeleton className="h-20 w-full" />
-                                </CardContent>
-                            </Card>
                         </div>
 
                         {/* Sidebar Skeleton */}
-                        <SidebarSkeleton />
+                        <div className="space-y-6">
+                            <Card>
+                                <CardHeader>
+                                    <Skeleton className="h-6 w-24" />
+                                </CardHeader>
+                                <CardContent>
+                                    <div className="space-y-2">
+                                        <Skeleton className="h-4 w-full" />
+                                        <Skeleton className="h-4 w-3/4" />
+                                        <Skeleton className="h-4 w-1/2" />
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        </div>
                     </div>
                 </div>
             </AppLayout>
@@ -597,9 +484,10 @@ export default function DocumentsShow({ document, folderPath }: Props) {
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title={`Document: ${document.name}`} />
 
-            <div className="space-y-6">
+            <div className="flex h-full max-h-screen flex-1 flex-col gap-4 rounded-xl p-4">
                 {/* Header */}
                 <div className="flex items-center gap-4">
+
                     <div className="flex-1">
                         <div className="flex items-center gap-3">
                             <div className="rounded-md bg-muted p-2">
@@ -613,28 +501,26 @@ export default function DocumentsShow({ document, folderPath }: Props) {
                             </div>
                         </div>
                     </div>
+
                     <div className="flex gap-2">
+                        <Button variant="outline" asChild>
+                            <a href={document.view_url} target="_blank">
+                                <ExternalLink className="mr-2 h-4 w-4" />
+                                Open
+                            </a>
+                        </Button>
                         <Button asChild>
-                            <Link href={document.download_url}>
+                            <a href={document.download_url} download>
                                 <Download className="mr-2 h-4 w-4" />
                                 Download
-                            </Link>
-                        </Button>
-                        <Button variant="outline" asChild>
-                            <Link href={route('documents.edit', document.id)}>
-                                <Edit className="mr-2 h-4 w-4" />
-                                Edit
-                            </Link>
-                        </Button>
-                        <Button variant="outline" onClick={handleDelete}>
-                            <Trash2 className="h-4 w-4" />
+                            </a>
                         </Button>
                     </div>
                 </div>
 
-                <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+                <div className="grid grid-cols-1 gap-6 lg:grid-cols-4">
                     {/* Main Content */}
-                    <div className="lg:col-span-2 space-y-6">
+                    <div className="lg:col-span-3 space-y-6">
                         {/* File Preview */}
                         <FilePreview document={document} />
 
@@ -649,35 +535,28 @@ export default function DocumentsShow({ document, folderPath }: Props) {
                                 </CardContent>
                             </Card>
                         )}
+                    </div>
 
-                        {/* File Information */}
+                    {/* Sidebar */}
+                    <div className="space-y-6">
+                        {/* Upload Information */}
                         <Card>
                             <CardHeader>
-                                <CardTitle>File Information</CardTitle>
+                                <CardTitle className="flex items-center gap-2">
+                                    <User className="h-4 w-4" />
+                                    Document Info
+                                </CardTitle>
                             </CardHeader>
-                            <CardContent className="space-y-4">
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div>
-                                        <Label className="text-sm font-medium">File Type</Label>
-                                        <p className="text-muted-foreground">{document.file_type.toUpperCase()}</p>
-                                    </div>
-                                    <div>
-                                        <Label className="text-sm font-medium">File Size</Label>
-                                        <p className="text-muted-foreground">{document.file_size}</p>
-                                    </div>
-                                    <div>
-                                        <Label className="text-sm font-medium">Downloads</Label>
-                                        <p className="text-muted-foreground">{document.download_count}</p>
-                                    </div>
-                                    <div>
-                                        <Label className="text-sm font-medium">Last Accessed</Label>
-                                        <p className="text-muted-foreground">
-                                            {document.last_accessed_at
-                                                ? formatDate(document.last_accessed_at)
-                                                : 'Never'
-                                            }
-                                        </p>
-                                    </div>
+                            <CardContent className="space-y-3">
+                                <div>
+                                    <Label className="text-sm font-medium">Uploaded By</Label>
+                                    <p className="text-muted-foreground text-sm">{document.uploader.name}</p>
+                                </div>
+                                <div>
+                                    <Label className="text-sm font-medium">Upload Date</Label>
+                                    <p className="text-muted-foreground text-sm">
+                                        {formatDate(document.created_at)}
+                                    </p>
                                 </div>
                             </CardContent>
                         </Card>
@@ -707,126 +586,8 @@ export default function DocumentsShow({ document, folderPath }: Props) {
                                 </CardContent>
                             </Card>
                         )}
-                    </div>
 
-                    {/* Sidebar */}
-                    <div className="space-y-6">
-                        {/* Location */}
-                        <Card>
-                            <CardHeader>
-                                <CardTitle className="flex items-center gap-2">
-                                    <Folder className="h-4 w-4" />
-                                    Location
-                                </CardTitle>
-                            </CardHeader>
-                            <CardContent>
-                                <div className="space-y-2">
-                                    <Link
-                                        href={route('folders.index', { parent_id: document.folder.id })}
-                                        className="flex items-center gap-2 text-sm hover:underline"
-                                    >
-                                        <Folder className="h-3 w-3" />
-                                        {document.folder.full_path}
-                                    </Link>
-                                </div>
-                            </CardContent>
-                        </Card>
 
-                        {/* Access Control */}
-                        <Card>
-                            <CardHeader>
-                                <CardTitle className="flex items-center gap-2">
-                                    <AssignmentIcon className="h-4 w-4" />
-                                    Access Control
-                                </CardTitle>
-                            </CardHeader>
-                            <CardContent>
-                                <div className="space-y-3">
-                                    <div>
-                                        <Label className="text-sm font-medium">Access Level</Label>
-                                        <p className="text-muted-foreground text-sm">
-                                            {getAssignmentLabel(document.assigned_entities.type)}
-                                        </p>
-                                    </div>
-
-                                    {document.assigned_entities.entities.length > 0 && (
-                                        <div>
-                                            <Label className="text-sm font-medium">Assigned To</Label>
-                                            <div className="mt-1 space-y-1">
-                                                {document.assigned_entities.entities.map((entity) => (
-                                                    <p key={entity.id} className="text-muted-foreground text-sm">
-                                                        {entity.name}
-                                                    </p>
-                                                ))}
-                                            </div>
-                                        </div>
-                                    )}
-                                </div>
-                            </CardContent>
-                        </Card>
-
-                        {/* Upload Information */}
-                        <Card>
-                            <CardHeader>
-                                <CardTitle className="flex items-center gap-2">
-                                    <User className="h-4 w-4" />
-                                    Upload Information
-                                </CardTitle>
-                            </CardHeader>
-                            <CardContent>
-                                <div className="space-y-3">
-                                    <div>
-                                        <Label className="text-sm font-medium">Uploaded By</Label>
-                                        <p className="text-muted-foreground text-sm">{document.uploader.name}</p>
-                                    </div>
-                                    <div>
-                                        <Label className="text-sm font-medium">Upload Date</Label>
-                                        <p className="text-muted-foreground text-sm">
-                                            {formatDate(document.created_at)}
-                                        </p>
-                                    </div>
-                                    <div>
-                                        <Label className="text-sm font-medium">Last Modified</Label>
-                                        <p className="text-muted-foreground text-sm">
-                                            {formatDate(document.updated_at)}
-                                        </p>
-                                    </div>
-                                </div>
-                            </CardContent>
-                        </Card>
-
-                        {/* Quick Actions */}
-                        <Card>
-                            <CardHeader>
-                                <CardTitle>Quick Actions</CardTitle>
-                            </CardHeader>
-                            <CardContent className="space-y-2">
-                                <Button size="sm" className="w-full" asChild>
-                                    <Link href={document.download_url}>
-                                        <Download className="mr-2 h-4 w-4" />
-                                        Download File
-                                    </Link>
-                                </Button>
-                                <Button size="sm" variant="outline" className="w-full" asChild>
-                                    <Link href={document.view_url} target="_blank">
-                                        <Eye className="mr-2 h-4 w-4" />
-                                        View in New Tab
-                                    </Link>
-                                </Button>
-                                <Button size="sm" variant="outline" className="w-full" asChild>
-                                    <Link href={route('folders.index', { parent_id: document.folder.id })}>
-                                        <Folder className="mr-2 h-4 w-4" />
-                                        View Folder
-                                    </Link>
-                                </Button>
-                                <Button size="sm" variant="outline" className="w-full" asChild>
-                                    <Link href={route('documents.edit', document.id)}>
-                                        <Edit className="mr-2 h-4 w-4" />
-                                        Edit Document
-                                    </Link>
-                                </Button>
-                            </CardContent>
-                        </Card>
                     </div>
                 </div>
             </div>

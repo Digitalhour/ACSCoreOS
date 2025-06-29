@@ -305,7 +305,7 @@ export default function PtoRequestsView() {
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Manage PTO Requests" />
             <HrLayout>
-            <div className="flex h-full flex-1 flex-col gap-6 p-4">
+            <div className="flex h-full flex-1 flex-col gap-6 ">
                 <div className="flex items-center justify-between">
                     <h1 className="text-2xl font-bold">Manage PTO Requests</h1>
                     <div className="flex items-center gap-2">
@@ -321,6 +321,7 @@ export default function PtoRequestsView() {
                 </div>
 
                 <Card>
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-5">
                     <CardHeader>
                         <CardTitle className="flex items-center gap-2">
                             <Filter className="h-5 w-5" />
@@ -328,6 +329,7 @@ export default function PtoRequestsView() {
                         </CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-4">{/* Filters remain the same */}</CardContent>
+                    </div>
                 </Card>
 
                 <Card>
