@@ -62,7 +62,7 @@ ValidateSessionWithWorkOS::class,
             Route::get('/', [PtoRequestController::class, 'index']);
             Route::post('/', [PtoRequestController::class, 'store']);
             Route::get('/users', [PtoRequestController::class, 'getUsersList']);
-            Route::get('/pto-types', [PtoRequestController::class, 'getPtoTypes']);
+            Route::get('/pto-types-legacy', [UserManagementController::class, 'getPtoTypes']);
 
             // New blackout-related routes
             Route::post('/preview-blackouts', [PtoRequestController::class, 'previewBlackouts']);
@@ -85,7 +85,7 @@ ValidateSessionWithWorkOS::class,
 
         Route::get('/users/list', [UserController::class, 'list'])->middleware('auth');
         Route::prefix('pto-types')->name('pto-types.')->group(function () {
-            Route::get('/', [PtoTypeController::class, 'index'])->name('index');
+        Route::get('/', [PtoTypeController::class, 'index'])->name('index');
             Route::post('/', [PtoTypeController::class, 'store'])->name('store');
             Route::get('{pto_type}', [PtoTypeController::class, 'show'])->name('show');
             Route::put('{pto_type}', [PtoTypeController::class, 'update'])->name('update');
@@ -239,7 +239,7 @@ ValidateSessionWithWorkOS::class,
 
 //        Route::get('/positions', [PositionController::class, 'index']);
 //        Route::get('/managers', [UserManagementController::class, 'getManagers']);
-        Route::get('/pto-types', [UserManagementController::class, 'getPtoTypes']);
+//        Route::get('/pto-types', [UserManagementController::class, 'getPtoTypes']);
         Route::get('/departments', [UserManagementController::class, 'getDepartments']);
         Route::get('/departments/{departmentId}/users', [UserManagementController::class, 'getDepartmentUsers']);
         Route::get('/positions', [UserManagementController::class, 'getPositions']);

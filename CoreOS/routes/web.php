@@ -51,8 +51,8 @@ Route::middleware([
         Route::post('/api/deactivate-user', [UserManagementController::class, 'deactivateUser']);
         Route::post('/api/reactivate-user', [UserManagementController::class, 'reactivateUser']);
         Route::post('/api/invite-user-with-pto', [UserManagementController::class, 'inviteUserWithPto']);
-        Route::get('/pto-types', [UserManagementController::class, 'getPtoTypes']);
-        
+
+
         Route::post('/user-management/invite-user', [UserManagementController::class, 'inviteUserWithPto'])
             ->name('user-management.invite');
 
@@ -695,3 +695,4 @@ require __DIR__.'/api.php';
 require __DIR__.'/auth.php';
 require __DIR__.'/hr-routes.php';
 require __DIR__.'/channels.php';
+require __DIR__.'/debug-routes.php';

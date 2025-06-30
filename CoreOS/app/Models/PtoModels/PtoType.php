@@ -213,6 +213,11 @@ class PtoType extends Model
                 $maxOrder = static::max('sort_order') ?? 0;
                 $ptoType->sort_order = $maxOrder + 10;
             }
+
+            // Set is_active to true by default if not explicitly set
+            if (!isset($ptoType->is_active)) {
+                $ptoType->is_active = true;
+            }
         });
     }
 }

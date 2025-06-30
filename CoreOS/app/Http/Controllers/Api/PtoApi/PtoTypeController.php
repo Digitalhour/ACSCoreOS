@@ -30,23 +30,58 @@ class PtoTypeController extends Controller
         try {
             $query = PtoType::query();
 
-//            if ($request->boolean('active_only')) {
-//                $query->active();
-//            }
+            // Only filter by active status if explicitly requested
+            if ($request->has('active_only') && $request->boolean('active_only')) {
+                $query->active();
+            }
 
+            // Get all PTO types, both active and inactive, ordered properly
             $ptoTypes = $query->ordered()->get();
 
+            // Ensure proper boolean casting for each item
+            $ptoTypes->transform(function ($ptoType) {
+                $ptoType->is_active = (bool) $ptoType->is_active;
+                $ptoType->multi_level_approval = (bool) $ptoType->multi_level_approval;
+                $ptoType->disable_hierarchy_approval = (bool) $ptoType->disable_hierarchy_approval;
+                $ptoType->uses_balance = (bool) $ptoType->uses_balance;
+                $ptoType->carryover_allowed = (bool) $ptoType->carryover_allowed;
+                $ptoType->negative_allowed = (bool) $ptoType->negative_allowed;
+                $ptoType->affects_schedule = (bool) $ptoType->affects_schedule;
+                $ptoType->show_in_department_calendar = (bool) $ptoType->show_in_department_calendar;
+                return $ptoType;
+            });
+
+            // Add usage stats if requested
             if ($request->boolean('with_stats')) {
                 $ptoTypes->each(function ($ptoType) {
                     $ptoType->usage_stats = $ptoType->getUsageStats();
                 });
             }
 
+            // Log the count of active and inactive PTO types for debugging
+            $activeCount = $ptoTypes->where('is_active', true)->count();
+            $inactiveCount = $ptoTypes->where('is_active', false)->count();
+
+            Log::info("PTO Types fetched", [
+                'total' => $ptoTypes->count(),
+                'active' => $activeCount,
+                'inactive' => $inactiveCount,
+                'types_data' => $ptoTypes->map(function($pt) {
+                    return [
+                        'id' => $pt->id,
+                        'name' => $pt->name,
+                        'is_active' => $pt->is_active,
+                        'is_active_type' => gettype($pt->is_active)
+                    ];
+                })
+            ]);
+
             return response()->json([
-                'data' => $ptoTypes,
+                'data' => $ptoTypes->values(), // Reset array keys
                 'meta' => [
                     'total' => $ptoTypes->count(),
-                    'active_count' => $ptoTypes->where('is_active', false)->count(),
+                    'active_count' => $activeCount,
+                    'inactive_count' => $inactiveCount,
                 ]
             ]);
 
@@ -82,7 +117,6 @@ class PtoTypeController extends Controller
             'sort_order' => 'nullable|integer|min:0',
         ]);
 
-
         if ($validator->fails()) {
             return response()->json([
                 'error' => 'Validation failed.',
@@ -94,7 +128,17 @@ class PtoTypeController extends Controller
             DB::beginTransaction();
 
             $validatedData = $validator->validated();
-            if (!$request->input('multi_level_approval', false)) {
+
+            // Ensure boolean values are properly set
+            $validatedData['is_active'] = $request->boolean('is_active', true);
+            $validatedData['multi_level_approval'] = $request->boolean('multi_level_approval', false);
+            $validatedData['uses_balance'] = $request->boolean('uses_balance', true);
+            $validatedData['carryover_allowed'] = $request->boolean('carryover_allowed', false);
+            $validatedData['negative_allowed'] = $request->boolean('negative_allowed', false);
+            $validatedData['affects_schedule'] = $request->boolean('affects_schedule', true);
+            $validatedData['show_in_department_calendar'] = $request->boolean('show_in_department_calendar', true);
+
+            if (!$validatedData['multi_level_approval']) {
                 $validatedData['disable_hierarchy_approval'] = false;
                 $validatedData['specific_approvers'] = null;
             }
@@ -171,7 +215,16 @@ class PtoTypeController extends Controller
 
             $validatedData = $validator->validated();
 
-            if (!$request->input('multi_level_approval', false)) {
+            // Ensure boolean values are properly set
+            $validatedData['is_active'] = $request->boolean('is_active');
+            $validatedData['multi_level_approval'] = $request->boolean('multi_level_approval');
+            $validatedData['uses_balance'] = $request->boolean('uses_balance');
+            $validatedData['carryover_allowed'] = $request->boolean('carryover_allowed');
+            $validatedData['negative_allowed'] = $request->boolean('negative_allowed');
+            $validatedData['affects_schedule'] = $request->boolean('affects_schedule');
+            $validatedData['show_in_department_calendar'] = $request->boolean('show_in_department_calendar');
+
+            if (!$validatedData['multi_level_approval']) {
                 $validatedData['disable_hierarchy_approval'] = false;
                 $validatedData['specific_approvers'] = null;
             }
@@ -194,7 +247,6 @@ class PtoTypeController extends Controller
         }
     }
 
-    // ... other methods
     /**
      * Remove the specified resource from storage.
      */
@@ -244,6 +296,39 @@ class PtoTypeController extends Controller
 
             return response()->json([
                 'error' => 'Failed to delete PTO Type.',
+                'details' => App::environment('local') ? $e->getMessage() : 'An unexpected error occurred.'
+            ], 500);
+        }
+    }
+
+    /**
+     * Toggle the active status of the specified PTO type.
+     */
+    public function toggleActive(PtoType $ptoType): JsonResponse
+    {
+        try {
+            DB::beginTransaction();
+
+            // Toggle the is_active status
+            $ptoType->is_active = !$ptoType->is_active;
+            $ptoType->save();
+
+            DB::commit();
+
+            $status = $ptoType->is_active ? 'active' : 'inactive';
+            Log::info("PTO Type status toggled: ID {$ptoType->id}, Name: {$ptoType->name}, Status: {$status}");
+
+            return response()->json([
+                'data' => $ptoType,
+                'message' => "PTO Type '{$ptoType->name}' is now {$status}."
+            ]);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error("Error toggling PTO Type status ID {$ptoType->id}: " . $e->getMessage());
+
+            return response()->json([
+                'error' => 'Failed to toggle PTO Type status.',
                 'details' => App::environment('local') ? $e->getMessage() : 'An unexpected error occurred.'
             ], 500);
         }
