@@ -1,4 +1,3 @@
-//Folders - Create.tsx
 import {useState} from 'react';
 import {Head, Link, useForm} from '@inertiajs/react';
 import AppLayout from '@/layouts/app-layout';
@@ -11,8 +10,8 @@ import {Card, CardContent, CardDescription, CardHeader, CardTitle} from '@/compo
 import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from '@/components/ui/select';
 import {Checkbox} from '@/components/ui/checkbox';
 import {Alert, AlertDescription} from '@/components/ui/alert';
-import {Building2, ChevronLeft, Folder, Globe, Plus, User, Users} from 'lucide-react';
-import {cn} from '@/lib/utils';
+import {Folder, FolderPlus, Users} from 'lucide-react';
+import {BreadcrumbItem} from '@/types';
 
 interface FolderOption {
     id: number;
@@ -26,12 +25,13 @@ interface Tag {
     color: string;
 }
 
-interface Department {
+interface Subordinate {
     id: number;
     name: string;
+    email: string;
 }
 
-interface User {
+interface Manager {
     id: number;
     name: string;
     email: string;
@@ -40,12 +40,12 @@ interface User {
 interface Props {
     folders: FolderOption[];
     tags: Tag[];
-    departments: Department[];
-    users: User[];
+    subordinates: Subordinate[];
+    manager: Manager;
     parent_id?: number;
 }
 
-export default function FoldersCreate({ folders, tags, departments, users, parent_id }: Props) {
+export default function ManagerCreate({ folders, tags, subordinates, manager, parent_id }: Props) {
     const [selectedTags, setSelectedTags] = useState<number[]>([]);
 
     // Ensure we have valid data arrays
@@ -55,19 +55,26 @@ export default function FoldersCreate({ folders, tags, departments, users, paren
     const safeTags = Array.isArray(tags) ? tags.filter(t =>
         t && t.id && t.id > 0 && t.name && String(t.id).trim() !== ''
     ) : [];
-    const safeDepartments = Array.isArray(departments) ? departments.filter(d =>
-        d && d.id && d.id > 0 && d.name && String(d.id).trim() !== ''
+    const safeSubordinates = Array.isArray(subordinates) ? subordinates.filter(s =>
+        s && s.id && s.id > 0 && s.name && s.email && String(s.id).trim() !== ''
     ) : [];
-    const safeUsers = Array.isArray(users) ? users.filter(u =>
-        u && u.id && u.id > 0 && u.name && u.email && String(u.id).trim() !== ''
-    ) : [];
+
+    // All users that can be assigned (manager + subordinates)
+    const assignableUsers = [
+        {
+            id: manager.id,
+            name: manager.name + ' (You)',
+            email: manager.email,
+        },
+        ...safeSubordinates
+    ];
 
     const { data, setData, post, processing, errors } = useForm({
         name: '',
         description: '',
         parent_id: parent_id ? parent_id.toString() : 'none',
-        assignment_type: 'company_wide',
-        assignment_ids: [] as number[],
+        assignment_type: 'hierarchy', // Always hierarchy for manager folders
+        assignment_ids: [manager.id] as number[], // Include manager by default
         tag_ids: [] as number[],
     });
 
@@ -78,11 +85,6 @@ export default function FoldersCreate({ folders, tags, departments, users, paren
 
         setSelectedTags(newSelectedTags);
         setData('tag_ids', newSelectedTags);
-    };
-
-    const handleAssignmentTypeChange = (type: string) => {
-        setData('assignment_type', type);
-        setData('assignment_ids', []);
     };
 
     const handleAssignmentIdChange = (id: number, checked: boolean) => {
@@ -97,58 +99,47 @@ export default function FoldersCreate({ folders, tags, departments, users, paren
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
 
+        // Ensure manager is always included
+        const assignmentIds = data.assignment_ids.includes(manager.id)
+            ? data.assignment_ids
+            : [...data.assignment_ids, manager.id];
+
         // Update form data with current selections
-        setData('tag_ids', selectedTags);
+        setData(prev => ({
+            ...prev,
+            tag_ids: selectedTags,
+            assignment_ids: assignmentIds,
+        }));
 
-        post(route('folders.store'));
-    };
-
-    const getAssignmentIcon = (type: string) => {
-        switch (type) {
-            case 'company_wide': return Globe;
-            case 'department': return Building2;
-            case 'user': return User;
-            case 'hierarchy': return Users;
-            default: return Globe;
-        }
-    };
-
-    const getAssignmentOptions = () => {
-        switch (data.assignment_type) {
-            case 'department':
-                return safeDepartments;
-            case 'user':
-            case 'hierarchy':
-                return safeUsers;
-            default:
-                return [];
-        }
+        post(route('manager.folders.store'));
     };
 
     const parentFolder = parent_id && safeFolders.length > 0 ? safeFolders.find(f => f.id === parent_id) : null;
-
+    const breadcrumbs: BreadcrumbItem[] = [
+        {
+            title: 'Your Documents',
+            href: route('employee.folders.index'),
+        },
+        {
+            title: 'Create Team Folder',
+            href: route('employee.folders.index'),
+        }
+    ];
     return (
-        <AppLayout>
-            <Head title="Create Folder" />
+        <AppLayout breadcrumbs={breadcrumbs}>
+            <Head title="Create Team Folder" />
 
-            <div className="space-y-6">
+            <div className="flex h-full max-h-screen flex-1 flex-col gap-4 rounded-xl p-4">
                 {/* Header */}
-                <div className="flex items-center gap-4">
-                    <Button variant="outline" size="sm" asChild>
-                        <Link href={route('folders.index', parent_id ? { parent_id } : {})}>
-                            <ChevronLeft className="h-4 w-4 mr-2" />
-                            Back to Folders
-                        </Link>
-                    </Button>
-                    <div>
-                        <h1 className="text-3xl font-bold tracking-tight">Create Folder</h1>
+                <div>
+                        <h1 className="text-3xl font-bold tracking-tight">
+                            Create Team Folder
+                        </h1>
                         <p className="text-muted-foreground">
-                            Create a new folder to organize your documents
+                            Create a new folder for your team to organize documents
                         </p>
-                    </div>
                 </div>
 
-                {/* Parent Folder Info */}
                 {parentFolder && (
                     <Card>
                         <CardHeader>
@@ -166,13 +157,20 @@ export default function FoldersCreate({ folders, tags, departments, users, paren
                     </Card>
                 )}
 
-                <form onSubmit={handleSubmit} className="space-y-6">
+
+
+
+
+
+                <form onSubmit={handleSubmit} className="space-y-6 grid grid-cols-2 gap-4">
+                    {/* Parent Folder Info */}
+
                     {/* Basic Information */}
                     <Card>
                         <CardHeader>
-                            <CardTitle>Basic Information</CardTitle>
+                            <CardTitle>Basic Folder Information</CardTitle>
                             <CardDescription>
-                                Enter the basic details for your new folder
+                                Enter the basic details for your new team folder
                             </CardDescription>
                         </CardHeader>
                         <CardContent className="space-y-4">
@@ -218,124 +216,82 @@ export default function FoldersCreate({ folders, tags, departments, users, paren
                                         </SelectTrigger>
                                         <SelectContent>
                                             <SelectItem value="none">No parent (root folder)</SelectItem>
-                                            {folders.map((folder) => (
-                                                <SelectItem key={folder.id} value={folder.id.toString()}>
-                                                    {folder.full_path}
+                                            {safeFolders.length > 0 ? (
+                                                safeFolders.map((folder) => (
+                                                    <SelectItem key={folder.id} value={folder.id.toString()}>
+                                                        {folder.full_path}
+                                                    </SelectItem>
+                                                ))
+                                            ) : (
+                                                <SelectItem value="no-folders" disabled>
+                                                    No folders available - create your first folder at root level
                                                 </SelectItem>
-                                            ))}
+                                            )}
                                         </SelectContent>
                                     </Select>
                                     {errors.parent_id && (
                                         <p className="text-sm text-destructive">{errors.parent_id}</p>
                                     )}
+                                    <p className="text-sm text-muted-foreground">
+                                        You can only create folders inside folders you created yourself.
+                                    </p>
                                 </div>
                             )}
                         </CardContent>
                     </Card>
 
-                    {/* Access Control */}
+                    {/* Team Access */}
                     <Card>
                         <CardHeader>
-                            <CardTitle>Access Control</CardTitle>
+                            <CardTitle>Team Access</CardTitle>
                             <CardDescription>
-                                Configure who can access this folder and its contents
+                                Choose which team members should have access to this folder
                             </CardDescription>
                         </CardHeader>
                         <CardContent className="space-y-4">
-                            {/* Assignment Type */}
+                            {/* Access Level Info */}
+                            <Alert>
+                                <Users className="h-4 w-4" />
+                                <AlertDescription>
+                                    This folder will use hierarchy access. Selected team members, their managers, and their direct reports will automatically have access.
+                                </AlertDescription>
+                            </Alert>
+
+                            {/* Team Member Selection */}
                             <div className="space-y-3">
-                                <Label>Access Level *</Label>
-                                <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-                                    {[
-                                        { value: 'company_wide', label: 'Company Wide', icon: Globe, description: 'Everyone in the company' },
-                                        { value: 'department', label: 'Department', icon: Building2, description: 'Specific departments' },
-                                        { value: 'user', label: 'Specific Users', icon: User, description: 'Individual users' },
-                                        { value: 'hierarchy', label: 'User Hierarchy', icon: Users, description: 'Users and their reports' },
-                                    ].map(({ value, label, icon: Icon, description }) => (
-                                        <div
-                                            key={value}
-                                            className={cn(
-                                                "border rounded-lg p-3 cursor-pointer transition-colors",
-                                                data.assignment_type === value
-                                                    ? "border-primary bg-primary/5"
-                                                    : "border-muted hover:border-primary/50"
-                                            )}
-                                            onClick={() => handleAssignmentTypeChange(value)}
-                                        >
-                                            <div className="flex items-center gap-2 mb-1">
-                                                <Icon className="h-4 w-4" />
-                                                <span className="text-sm font-medium">{label}</span>
-                                            </div>
-                                            <p className="text-xs text-muted-foreground">{description}</p>
+                                <Label>Select Team Members *</Label>
+                                <div className="grid grid-cols-1 gap-2 max-h-48 overflow-y-auto border rounded-lg p-3 md:grid-cols-2">
+                                    {assignableUsers.map((user) => (
+                                        <div key={user.id} className="flex items-center space-x-2">
+                                            <Checkbox
+                                                id={`assignment-${user.id}`}
+                                                checked={data.assignment_ids?.includes(user.id)}
+                                                onCheckedChange={(checked) =>
+                                                    handleAssignmentIdChange(user.id, checked as boolean)
+                                                }
+                                                disabled={user.id === manager.id} // Manager is always included
+                                            />
+                                            <Label
+                                                htmlFor={`assignment-${user.id}`}
+                                                className="text-sm font-normal cursor-pointer flex-1"
+                                            >
+                                                <div>
+                                                    <p className={user.id === manager.id ? 'font-medium' : ''}>{user.name}</p>
+                                                    <p className="text-xs text-muted-foreground">
+                                                        {user.email}
+                                                    </p>
+                                                </div>
+                                            </Label>
                                         </div>
                                     ))}
                                 </div>
-                                {errors.assignment_type && (
-                                    <p className="text-sm text-destructive">{errors.assignment_type}</p>
+                                {errors.assignment_ids && (
+                                    <p className="text-sm text-destructive">{errors.assignment_ids}</p>
                                 )}
+                                <p className="text-sm text-muted-foreground">
+                                    * You are automatically included and cannot be removed
+                                </p>
                             </div>
-
-                            {/* Assignment Selection */}
-                            {data.assignment_type !== 'company_wide' && (
-                                <div className="space-y-3">
-                                    <Label>
-                                        Select {data.assignment_type === 'department' ? 'Departments' :
-                                        data.assignment_type === 'hierarchy' ? 'Users (includes their managers)' : 'Users'} *
-                                    </Label>
-                                    <div className="grid grid-cols-1 gap-2 max-h-48 overflow-y-auto border rounded-lg p-3 md:grid-cols-2">
-                                        {getAssignmentOptions().filter(option => option && option.id).map((option) => (
-                                            <div key={option.id} className="flex items-center space-x-2">
-                                                <Checkbox
-                                                    id={`assignment-${option.id}`}
-                                                    checked={data.assignment_ids?.includes(option.id)}
-                                                    onCheckedChange={(checked) =>
-                                                        handleAssignmentIdChange(option.id, checked as boolean)
-                                                    }
-                                                />
-                                                <Label
-                                                    htmlFor={`assignment-${option.id}`}
-                                                    className="text-sm font-normal cursor-pointer flex-1"
-                                                >
-                                                    <div>
-                                                        <p>{option.name}</p>
-                                                        {'email' in option && (
-                                                            <p className="text-xs text-muted-foreground">
-                                                                {option.email}
-                                                            </p>
-                                                        )}
-                                                        {data.assignment_type === 'hierarchy' && 'reports_to_user_id' in option && (
-                                                            <p className="text-xs text-blue-600">
-                                                                + Manager: {safeUsers.find(u => u.id === option.reports_to_user_id)?.name || 'No manager'}
-                                                            </p>
-                                                        )}
-                                                    </div>
-                                                </Label>
-                                            </div>
-                                        ))}
-                                    </div>
-                                    {errors.assignment_ids && (
-                                        <p className="text-sm text-destructive">{errors.assignment_ids}</p>
-                                    )}
-                                </div>
-                            )}
-
-                            {/* Access Level Info */}
-                            <Alert>
-                                <AlertDescription>
-                                    {data.assignment_type === 'company_wide' &&
-                                        "This folder will be accessible to all users in your organization."
-                                    }
-                                    {data.assignment_type === 'department' &&
-                                        "Only users in the selected departments will have access to this folder."
-                                    }
-                                    {data.assignment_type === 'user' &&
-                                        "Only the specifically selected users will have access to this folder."
-                                    }
-                                    {data.assignment_type === 'hierarchy' &&
-                                        "The selected users and all their direct reports will have access to this folder."
-                                    }
-                                </AlertDescription>
-                            </Alert>
                         </CardContent>
                     </Card>
 
@@ -378,7 +334,7 @@ export default function FoldersCreate({ folders, tags, departments, users, paren
 
                     {/* Submit Actions */}
                     <Card>
-                        <CardContent className="pt-6">
+                        <CardContent className="">
                             <div className="flex gap-4">
                                 <Button
                                     type="submit"
@@ -387,18 +343,18 @@ export default function FoldersCreate({ folders, tags, departments, users, paren
                                 >
                                     {processing ? (
                                         <>
-                                            <Plus className="mr-2 h-4 w-4 animate-spin" />
+                                            <FolderPlus className="mr-2 h-4 w-4 animate-spin" />
                                             Creating Folder...
                                         </>
                                     ) : (
                                         <>
-                                            <Plus className="mr-2 h-4 w-4" />
-                                            Create Folder
+                                            <FolderPlus className="mr-2 h-4 w-4" />
+                                            Create Team Folder
                                         </>
                                     )}
                                 </Button>
                                 <Button type="button" variant="outline" asChild>
-                                    <Link href={route('folders.index', parent_id ? { parent_id } : {})}>
+                                    <Link href={route('employee.folders.index', parent_id ? { parent_id } : {})}>
                                         Cancel
                                     </Link>
                                 </Button>
@@ -406,6 +362,7 @@ export default function FoldersCreate({ folders, tags, departments, users, paren
                         </CardContent>
                     </Card>
                 </form>
+
             </div>
         </AppLayout>
     );

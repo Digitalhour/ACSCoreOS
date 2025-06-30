@@ -90,11 +90,10 @@ class Document extends Model
                 ->orWhere(function ($subQ) use ($user) {
                     $subQ->where('assignment_type', 'hierarchy')
                         ->where(function ($hierQ) use ($user) {
-                            $accessibleUserIds = collect([$user->id])
-                                ->merge($user->subordinates->pluck('id'))
-                                ->toArray();
+                            // Get all users in hierarchy (user + manager + subordinates)
+                            $hierarchyUserIds = $user->getHierarchyUserIds();
 
-                            foreach ($accessibleUserIds as $userId) {
+                            foreach ($hierarchyUserIds as $userId) {
                                 $hierQ->orWhereJsonContains('assignment_ids', $userId);
                             }
                         });
@@ -127,10 +126,14 @@ class Document extends Model
                 return !empty(array_intersect($userDepartmentIds, $this->assignment_ids ?? []));
 
             case 'hierarchy':
-                $accessibleUserIds = collect([$user->id])
-                    ->merge($user->subordinates->pluck('id'))
-                    ->toArray();
-                return !empty(array_intersect($accessibleUserIds, $this->assignment_ids ?? []));
+                // Check if any assigned user is in the current user's hierarchy
+                $assignedUserIds = $this->assignment_ids ?? [];
+                foreach ($assignedUserIds as $assignedUserId) {
+                    if ($user->canAccessUserViaHierarchy($assignedUserId)) {
+                        return true;
+                    }
+                }
+                return false;
 
             default:
                 return false;
@@ -198,11 +201,47 @@ class Document extends Model
                 return ['type' => 'departments', 'entities' => $departments];
 
             case 'hierarchy':
-                $users = User::whereIn('id', $this->assignment_ids ?? [])->get();
+                $users = User::with('manager')->whereIn('id', $this->assignment_ids ?? [])->get();
                 return ['type' => 'hierarchy', 'entities' => $users];
 
             default:
                 return ['type' => 'unknown', 'entities' => []];
+        }
+    }
+
+    /**
+     * Get all users who have access to this document including hierarchy relationships
+     */
+    public function getAllAccessibleUsers(): array
+    {
+        switch ($this->assignment_type) {
+            case 'company_wide':
+                return User::pluck('id')->toArray();
+
+            case 'user':
+                return $this->assignment_ids ?? [];
+
+            case 'department':
+                return User::whereHas('departments', function ($q) {
+                    $q->whereIn('departments.id', $this->assignment_ids ?? []);
+                })->pluck('id')->toArray();
+
+            case 'hierarchy':
+                $allAccessibleUserIds = [];
+                $assignedUserIds = $this->assignment_ids ?? [];
+
+                foreach ($assignedUserIds as $assignedUserId) {
+                    $assignedUser = User::find($assignedUserId);
+                    if ($assignedUser) {
+                        $hierarchyIds = $assignedUser->getHierarchyUserIds();
+                        $allAccessibleUserIds = array_merge($allAccessibleUserIds, $hierarchyIds);
+                    }
+                }
+
+                return array_unique($allAccessibleUserIds);
+
+            default:
+                return [];
         }
     }
 }

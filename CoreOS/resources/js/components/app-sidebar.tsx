@@ -45,6 +45,7 @@ const mainNavItems: NavItem[] = [
     { title: 'Articles', href: '/articles', icon: Users, description:null },
     { title: 'Roles and Permissions', href: '/roles-permissions', icon: Users, description:null },
     { title: 'Company Documents', href: '/employee/documents', icon:BookOpenText , description:null },
+    { title: 'Admin Documents', href: '/folders', icon:BookOpenText , description:null },
 ];
 
 const footerNavItems: NavItem[] = [

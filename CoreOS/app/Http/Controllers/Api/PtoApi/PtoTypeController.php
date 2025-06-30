@@ -30,9 +30,9 @@ class PtoTypeController extends Controller
         try {
             $query = PtoType::query();
 
-            if ($request->boolean('active_only')) {
-                $query->active();
-            }
+//            if ($request->boolean('active_only')) {
+//                $query->active();
+//            }
 
             $ptoTypes = $query->ordered()->get();
 
@@ -46,9 +46,10 @@ class PtoTypeController extends Controller
                 'data' => $ptoTypes,
                 'meta' => [
                     'total' => $ptoTypes->count(),
-                    'active_count' => $ptoTypes->where('is_active', true)->count(),
+                    'active_count' => $ptoTypes->where('is_active', false)->count(),
                 ]
             ]);
+
         } catch (\Exception $e) {
             Log::error("Error fetching PTO Types: " . $e->getMessage());
             return response()->json([

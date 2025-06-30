@@ -111,7 +111,18 @@ Route::middleware(['auth', ValidateSessionWithWorkOS::class,])->group(function (
     Route::get('/employee/documents/{document}/view', [DocumentController::class, 'employeeView'])
         ->name('employee.documents.view');
 
+    Route::prefix('manager/folders')->name('manager.folders.')->group(function () {
+        Route::get('create', [FolderController::class, 'managerCreate'])->name('create');
+        Route::post('/', [FolderController::class, 'managerStore'])->name('store');
+        Route::get('{folder}/edit', [FolderController::class, 'managerEdit'])->name('edit');
+        Route::put('{folder}', [FolderController::class, 'managerUpdate'])->name('update');
+    });
 
+    // Employee document browsing routes
+//    Route::prefix('employee')->name('employee.')->group(function () {
+//        Route::get('folders', [FolderController::class, 'employeeIndex'])->name('folders.index');
+//        Route::get('documents/{document}', [DocumentController::class, 'employeeView'])->name('documents.view');
+//    });
 
 
 

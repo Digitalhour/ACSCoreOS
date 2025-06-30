@@ -109,15 +109,14 @@ class FolderController extends Controller
                     'assignment_type' => $document->assignment_type,
                     'assignment_ids' => $document->assignment_ids,
                     'download_url' => $document->getDownloadUrl(),
-                    'view_url' => route('documents.show', $document->id), // Use the existing show route
+                    'view_url' => route('documents.show', $document->id),
                 ];
             });
         }
-        // At root level, don't show any documents - only folders
 
         $tags = Tag::withCount(['documents', 'folders'])->get();
 
-        // Get data for creating folders/documents
+        // Get data for creating folders/documents with manager information
         $availableFolders = Folder::accessibleByUser($user)
             ->active()
             ->whereNotNull('id')
@@ -154,7 +153,9 @@ class FolderController extends Controller
                 return !empty($dept->id) && !empty(trim($dept->name));
             });
 
-        $users = User::select('id', 'name', 'email')
+        // Include manager information for hierarchy functionality
+        $users = User::select('id', 'name', 'email', 'reports_to_user_id')
+            ->with('manager:id,name')
             ->whereNotNull('id')
             ->where('id', '>', 0)
             ->whereNotNull('name')
@@ -162,8 +163,17 @@ class FolderController extends Controller
             ->whereNotNull('email')
             ->where('email', '!=', '')
             ->get()
+            ->map(function ($user) {
+                return [
+                    'id' => $user->id,
+                    'name' => $user->name,
+                    'email' => $user->email,
+                    'reports_to_user_id' => $user->reports_to_user_id,
+                    'manager_name' => $user->manager ? $user->manager->name : null,
+                ];
+            })
             ->filter(function ($user) {
-                return !empty($user->id) && !empty(trim($user->name)) && !empty(trim($user->email));
+                return !empty($user['id']) && !empty(trim($user['name'])) && !empty(trim($user['email']));
             });
 
         return Inertia::render('Folders/Index', [
@@ -244,7 +254,9 @@ class FolderController extends Controller
                 return !empty($dept->id) && !empty(trim($dept->name));
             });
 
-        $users = User::select('id', 'name', 'email')
+        // Include manager information for hierarchy functionality
+        $users = User::select('id', 'name', 'email', 'reports_to_user_id')
+            ->with('manager:id,name')
             ->whereNotNull('id')
             ->where('id', '>', 0)
             ->whereNotNull('name')
@@ -252,8 +264,17 @@ class FolderController extends Controller
             ->whereNotNull('email')
             ->where('email', '!=', '')
             ->get()
+            ->map(function ($user) {
+                return [
+                    'id' => $user->id,
+                    'name' => $user->name,
+                    'email' => $user->email,
+                    'reports_to_user_id' => $user->reports_to_user_id,
+                    'manager_name' => $user->manager ? $user->manager->name : null,
+                ];
+            })
             ->filter(function ($user) {
-                return !empty($user->id) && !empty(trim($user->name)) && !empty(trim($user->email));
+                return !empty($user['id']) && !empty(trim($user['name'])) && !empty(trim($user['email']));
             });
 
         return Inertia::render('Folders/Create', [
@@ -376,7 +397,20 @@ class FolderController extends Controller
 
         $tags = Tag::all();
         $departments = Department::active()->get();
-        $users = User::select('id', 'name', 'email')->get();
+
+        // Include manager information for hierarchy functionality
+        $users = User::select('id', 'name', 'email', 'reports_to_user_id')
+            ->with('manager:id,name')
+            ->get()
+            ->map(function ($user) {
+                return [
+                    'id' => $user->id,
+                    'name' => $user->name,
+                    'email' => $user->email,
+                    'reports_to_user_id' => $user->reports_to_user_id,
+                    'manager_name' => $user->manager ? $user->manager->name : null,
+                ];
+            });
 
         $folder->load(['tags']);
 
@@ -670,6 +704,7 @@ class FolderController extends Controller
                         ];
                     }),
                     'created_at' => $folder->created_at,
+                    'updated_at' => $folder->updated_at,
                 ];
             }),
             'documents' => $documents,
@@ -681,6 +716,7 @@ class FolderController extends Controller
                 'full_path' => $currentFolder->getFullPath(),
                 'creator' => $currentFolder->creator->name,
                 'created_at' => $currentFolder->created_at,
+                'updated_at' => $currentFolder->updated_at,
                 'tags' => $currentFolder->tags->map(function ($tag) {
                     return [
                         'id' => $tag->id,
@@ -690,8 +726,280 @@ class FolderController extends Controller
                 }),
             ] : null,
             'filters' => $request->only(['parent_id', 'search']),
+            'canCreateFolders' => $user->isManager(), // Add this line
+        ]);
+
+    }
+    /**
+     * Show the form for managers to create a new folder
+     */
+    public function managerCreate(Request $request): Response
+    {
+        $user = $request->user();
+
+        // Check if user is a manager
+        if (!$user->isManager()) {
+            abort(403, 'Only managers can create folders.');
+        }
+
+        // If parent_id is provided via URL, validate that the manager created it
+        if ($request->parent_id) {
+            $parentFolder = Folder::find($request->parent_id);
+            if (!$parentFolder || $parentFolder->created_by !== $user->id) {
+                abort(403, 'You can only create folders inside folders you created.');
+            }
+        }
+
+        // Only show folders created by this manager as potential parents
+        $folders = Folder::where('created_by', $user->id)
+            ->active()
+            ->whereNotNull('id')
+            ->where('id', '>', 0)
+            ->with('parent')
+            ->get()
+            ->map(function ($folder) {
+                return [
+                    'id' => $folder->id,
+                    'name' => $folder->name,
+                    'full_path' => $folder->getFullPath(),
+                ];
+            })
+            ->filter(function ($folder) {
+                return !empty($folder['id']) && !empty(trim($folder['name']));
+            });
+
+        $tags = Tag::whereNotNull('id')
+            ->where('id', '>', 0)
+            ->whereNotNull('name')
+            ->where('name', '!=', '')
+            ->get()
+            ->filter(function ($tag) {
+                return !empty($tag->id) && !empty(trim($tag->name));
+            });
+
+        // Get manager's subordinates for assignment
+        $subordinates = $user->getSubordinatesForFolderAssignment();
+
+        return Inertia::render('Folders/ManagerCreate', [
+            'folders' => $folders,
+            'tags' => $tags,
+            'subordinates' => $subordinates,
+            'parent_id' => $request->parent_id,
+            'manager' => [
+                'id' => $user->id,
+                'name' => $user->name,
+                'email' => $user->email,
+            ],
         ]);
     }
 
-    
+
+    /**
+     * Store a newly created folder by a manager
+     */
+    public function managerStore(Request $request)
+    {
+        $user = $request->user();
+
+        // Check if user is a manager
+        if (!$user->isManager()) {
+            abort(403, 'Only managers can create folders.');
+        }
+
+        // Transform parent_id before validation
+        $validationData = $request->all();
+        if ($validationData['parent_id'] === 'none') {
+            $validationData['parent_id'] = null;
+        }
+
+        $validator = \Validator::make($validationData, [
+            'name' => 'required|string|max:255',
+            'description' => 'nullable|string',
+            'parent_id' => 'nullable|exists:folders,id',
+            'assignment_type' => 'required|in:hierarchy', // Managers can only create hierarchy folders
+            'assignment_ids' => 'required|array|min:1', // Must assign to at least themselves
+            'tag_ids' => 'nullable|array',
+            'tag_ids.*' => 'exists:tags,id',
+        ]);
+
+        if ($validator->fails()) {
+            return back()->withErrors($validator)->withInput();
+        }
+
+        $parentId = $validationData['parent_id'];
+
+        // Check if parent folder is accessible and created by this manager
+        if ($parentId) {
+            $parentFolder = Folder::findOrFail($parentId);
+            if ($parentFolder->created_by !== $user->id) {
+                return back()->withErrors(['parent_id' => 'You can only create folders inside folders you created.']);
+            }
+            $s3Path = $parentFolder->s3_path . '/' . Str::slug($validationData['name']);
+        } else {
+            $s3Path = 'manager-folders/' . Str::slug($validationData['name']);
+        }
+
+        // Validate that assigned users are the manager's subordinates or the manager themselves
+        $assignmentIds = $validationData['assignment_ids'];
+        $allowedIds = array_merge([$user->id], array_column($user->getSubordinatesForFolderAssignment(), 'id'));
+
+        foreach ($assignmentIds as $assignedId) {
+            if (!in_array($assignedId, $allowedIds)) {
+                return back()->withErrors(['assignment_ids' => 'You can only assign folders to yourself and your direct reports.']);
+            }
+        }
+
+        $folder = Folder::create([
+            'name' => $validationData['name'],
+            'description' => $validationData['description'],
+            'parent_id' => $parentId,
+            's3_path' => $s3Path,
+            'assignment_type' => 'hierarchy', // Always hierarchy for manager-created folders
+            'assignment_ids' => $assignmentIds,
+            'created_by' => $user->id,
+        ]);
+
+        // Attach tags
+        if (!empty($validationData['tag_ids'])) {
+            $folder->tags()->attach($validationData['tag_ids']);
+        }
+
+        return redirect()->route('employee.folders.index', $parentId ? ['parent_id' => $parentId] : [])
+            ->with('success', 'Folder created successfully.');
+    }
+
+    /**
+     * Show the form for managers to edit their folders
+     */
+    public function managerEdit(Folder $folder): Response
+    {
+        $user = request()->user();
+
+        // Check if user is a manager and created this folder
+        if (!$user->isManager() || $folder->created_by !== $user->id) {
+            abort(403, 'You can only edit folders you created.');
+        }
+
+        if (!$folder->isAccessibleBy($user)) {
+            abort(403, 'You do not have access to this folder.');
+        }
+
+        $folders = Folder::where('created_by', $user->id)
+            ->active()
+            ->whereNotNull('id')
+            ->where('id', '>', 0)
+            ->where('id', '!=', $folder->id) // Exclude self
+            ->with('parent')
+            ->get()
+            ->filter(function ($f) use ($folder) {
+                // Exclude descendants to prevent circular references
+                return !str_starts_with($f->s3_path, $folder->s3_path . '/');
+            })
+            ->map(function ($f) {
+                return [
+                    'id' => $f->id,
+                    'name' => $f->name,
+                    'full_path' => $f->getFullPath(),
+                ];
+            })
+            ->filter(function ($folderData) {
+                return !empty($folderData['id']) && !empty(trim($folderData['name']));
+            })
+            ->values();
+
+        $tags = Tag::all();
+
+        // Get manager's subordinates for assignment
+        $subordinates = $user->getSubordinatesForFolderAssignment();
+
+        $folder->load(['tags']);
+
+        return Inertia::render('Folders/ManagerEdit', [
+            'folder' => $folder,
+            'folders' => $folders,
+            'tags' => $tags,
+            'subordinates' => $subordinates,
+            'manager' => [
+                'id' => $user->id,
+                'name' => $user->name,
+                'email' => $user->email,
+            ],
+        ]);
+    }
+
+    /**
+     * Update a folder created by a manager
+     */
+    public function managerUpdate(Request $request, Folder $folder)
+    {
+        $user = $request->user();
+
+        // Check if user is a manager and created this folder
+        if (!$user->isManager() || $folder->created_by !== $user->id) {
+            abort(403, 'You can only edit folders you created.');
+        }
+
+        if (!$folder->isAccessibleBy($user)) {
+            abort(403, 'You do not have access to this folder.');
+        }
+
+        // Transform parent_id before validation
+        $validationData = $request->all();
+        if ($validationData['parent_id'] === 'none') {
+            $validationData['parent_id'] = null;
+        }
+
+        $validator = \Validator::make($validationData, [
+            'name' => 'required|string|max:255',
+            'description' => 'nullable|string',
+            'parent_id' => 'nullable|exists:folders,id',
+            'assignment_type' => 'required|in:hierarchy', // Managers can only create hierarchy folders
+            'assignment_ids' => 'required|array|min:1',
+            'tag_ids' => 'nullable|array',
+            'tag_ids.*' => 'exists:tags,id',
+        ]);
+
+        if ($validator->fails()) {
+            return back()->withErrors($validator)->withInput();
+        }
+
+        $parentId = $validationData['parent_id'];
+
+        // Check if parent folder is created by this manager
+        if ($parentId) {
+            $parentFolder = Folder::findOrFail($parentId);
+            if ($parentFolder->created_by !== $user->id) {
+                return back()->withErrors(['parent_id' => 'You can only move folders to folders you created.']);
+            }
+
+            // Prevent circular references
+            if ($parentFolder->s3_path && str_starts_with($parentFolder->s3_path, $folder->s3_path . '/')) {
+                return back()->withErrors(['parent_id' => 'Cannot move folder to its own descendant.']);
+            }
+        }
+
+        // Validate that assigned users are the manager's subordinates or the manager themselves
+        $assignmentIds = $validationData['assignment_ids'];
+        $allowedIds = array_merge([$user->id], array_column($user->getSubordinatesForFolderAssignment(), 'id'));
+
+        foreach ($assignmentIds as $assignedId) {
+            if (!in_array($assignedId, $allowedIds)) {
+                return back()->withErrors(['assignment_ids' => 'You can only assign folders to yourself and your direct reports.']);
+            }
+        }
+
+        $folder->update([
+            'name' => $validationData['name'],
+            'description' => $validationData['description'],
+            'parent_id' => $parentId,
+            'assignment_type' => 'hierarchy',
+            'assignment_ids' => $assignmentIds,
+        ]);
+
+        // Sync tags
+        $folder->tags()->sync($validationData['tag_ids'] ?? []);
+
+        return redirect()->route('employee.folders.index', ['parent_id' => $folder->parent_id])
+            ->with('success', 'Folder updated successfully.');
+    }
 }

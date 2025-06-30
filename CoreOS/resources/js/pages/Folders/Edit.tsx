@@ -14,6 +14,7 @@ import {Checkbox} from '@/components/ui/checkbox';
 import {Alert, AlertDescription} from '@/components/ui/alert';
 import {Building2, ChevronLeft, Folder, Globe, Save, User, Users} from 'lucide-react';
 import {cn} from '@/lib/utils';
+import {BreadcrumbItem} from "@/types";
 
 interface FolderData {
     id: number;
@@ -133,9 +134,18 @@ export default function FoldersEdit({ folder, folders, tags, departments, users 
                 return [];
         }
     };
-
+    const breadcrumbs: BreadcrumbItem[] = [
+        {
+            title: 'Your Documents',
+            href: route('employee.folders.index'),
+        },
+        {
+            title: 'Edit Folder',
+            href: route('employee.folders.index'),
+        }
+    ];
     return (
-        <AppLayout>
+        <AppLayout breadcrumbs={breadcrumbs}>
             <Head title={`Edit Folder: ${folder.name}`} />
 
             <div className="space-y-6">
@@ -271,10 +281,11 @@ export default function FoldersEdit({ folder, folders, tags, departments, users 
                             {data.assignment_type !== 'company_wide' && (
                                 <div className="space-y-3">
                                     <Label>
-                                        Select {data.assignment_type === 'department' ? 'Departments' : 'Users'} *
+                                        Select {data.assignment_type === 'department' ? 'Departments' :
+                                        data.assignment_type === 'hierarchy' ? 'Users (includes their managers)' : 'Users'} *
                                     </Label>
                                     <div className="grid grid-cols-1 gap-2 max-h-48 overflow-y-auto border rounded-lg p-3 md:grid-cols-2">
-                                        {getAssignmentOptions().map((option) => (
+                                        {getAssignmentOptions().filter(option => option && option.id).map((option) => (
                                             <div key={option.id} className="flex items-center space-x-2">
                                                 <Checkbox
                                                     id={`assignment-${option.id}`}
@@ -292,6 +303,11 @@ export default function FoldersEdit({ folder, folders, tags, departments, users 
                                                         {'email' in option && (
                                                             <p className="text-xs text-muted-foreground">
                                                                 {option.email}
+                                                            </p>
+                                                        )}
+                                                        {data.assignment_type === 'hierarchy' && 'reports_to_user_id' in option && (
+                                                            <p className="text-xs text-blue-600">
+                                                                + Manager: {safeUsers.find(u => u.id === option.reports_to_user_id)?.name || 'No manager'}
                                                             </p>
                                                         )}
                                                     </div>

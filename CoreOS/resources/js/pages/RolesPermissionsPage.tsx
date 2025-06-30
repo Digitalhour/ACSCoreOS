@@ -8,15 +8,16 @@ import {
     AlertDialogHeader,
     AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import {Tabs, TabsContent, TabsList, TabsTrigger} from '@/components/ui/tabs';
 import AppLayout from '@/layouts/app-layout';
-import { Head, router } from '@inertiajs/react';
-import { useEffect, useState } from 'react';
-import { toast } from 'sonner';
+import {Head, router} from '@inertiajs/react';
+import {useEffect, useState} from 'react';
+import {toast} from 'sonner';
 
 import PermissionsTab from '@/components/rbac/permissions';
 import UserAssignmentsTab from '@/components/rbac/role-permission-user-assignment';
 import RolesTab from '@/components/rbac/roles';
+import HrLayout from "@/layouts/settings/hr-layout";
 
 // Define interfaces for props
 export interface Permission {
@@ -114,8 +115,8 @@ export default function RolesPermissionsPage({
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Roles & Permissions Management" />
-
-            <div className="space-y-6 p-4 md:p-6">
+<HrLayout >
+            <div className="space-y-4 p-4 md:p-4">
                 <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
                     <TabsList className="grid w-full grid-cols-1 sm:grid-cols-3">
                         <TabsTrigger value="permissions">Permissions</TabsTrigger>
@@ -162,6 +163,7 @@ export default function RolesPermissionsPage({
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>
+</HrLayout>
         </AppLayout>
     );
 }

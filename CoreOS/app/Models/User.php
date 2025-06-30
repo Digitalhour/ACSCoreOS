@@ -342,6 +342,54 @@ class User extends Authenticatable
     {
         return Document::accessibleByUser($this)->get();
     }
+    /**
+     * Get all users in this user's hierarchy (including manager and subordinates)
+     * This is used for folder/document access when assignment_type is 'hierarchy'
+     */
+    public function getHierarchyUserIds(): array
+    {
+        $userIds = [$this->id];
+
+        // Add manager if exists
+        if ($this->reports_to_user_id) {
+            $userIds[] = $this->reports_to_user_id;
+        }
+
+        // Add all subordinates
+        $subordinateIds = $this->subordinates()->pluck('id')->toArray();
+        $userIds = array_merge($userIds, $subordinateIds);
+
+        return array_unique($userIds);
+    }
+    /**
+     * Check if this user is a manager (has people reporting to them)
+     */
+    public function isManager(): bool
+    {
+        return $this->subordinates()->count() > 0;
+    }
+    /**
+     * Check if this user can access content assigned to another user via hierarchy
+     */
+    public function canAccessUserViaHierarchy($targetUserId): bool
+    {
+        $hierarchyIds = $this->getHierarchyUserIds();
+        return in_array($targetUserId, $hierarchyIds);
+    }
+    public function getSubordinatesForFolderAssignment(): array
+    {
+        return $this->subordinates()
+            ->select('id', 'name', 'email')
+            ->get()
+            ->map(function ($user) {
+                return [
+                    'id' => $user->id,
+                    'name' => $user->name,
+                    'email' => $user->email,
+                ];
+            })
+            ->toArray();
+    }
 
 
 }

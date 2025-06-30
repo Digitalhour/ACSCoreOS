@@ -52,6 +52,7 @@ Route::middleware([
         Route::post('/api/reactivate-user', [UserManagementController::class, 'reactivateUser']);
         Route::post('/api/invite-user-with-pto', [UserManagementController::class, 'inviteUserWithPto']);
         Route::get('/pto-types', [UserManagementController::class, 'getPtoTypes']);
+        
         Route::post('/user-management/invite-user', [UserManagementController::class, 'inviteUserWithPto'])
             ->name('user-management.invite');
 

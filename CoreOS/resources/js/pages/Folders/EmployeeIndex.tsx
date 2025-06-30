@@ -19,6 +19,7 @@ import {
     FileText,
     FileVideo,
     Folder,
+    FolderPlus,
     Image,
     Presentation,
     Search
@@ -38,6 +39,7 @@ interface FolderData {
         color: string;
     }>;
     created_at: string;
+    updated_at:string;
 }
 
 interface DocumentData {
@@ -57,6 +59,7 @@ interface DocumentData {
     download_count: number;
     download_url: string;
     view_url: string;
+    updated_at:string;
 }
 
 interface BreadcrumbData {
@@ -87,9 +90,10 @@ interface Props {
         parent_id?: number;
         search?: string;
     };
+    canCreateFolders?: boolean; // Whether current user can create folders (is a manager)
 }
 
-export default function EmployeeIndex({ folders, documents, breadcrumbs, currentFolder, filters }: Props) {
+export default function EmployeeIndex({ folders, documents, breadcrumbs, currentFolder, canCreateFolders, filters }: Props) {
     const [searchTerm, setSearchTerm] = useState(filters.search || '');
 
     // Build breadcrumbs for AppLayout
@@ -219,24 +223,34 @@ export default function EmployeeIndex({ folders, documents, breadcrumbs, current
                                     </div>
                                 )}
                             </div>
+                        )}
 
-
+                        <div className="flex items-center gap-3">
+                            {canCreateFolders && (
+                                <Button asChild>
+                                    <Link href={route('manager.folders.create', filters.parent_id ? { parent_id: filters.parent_id } : {})}>
+                                        <FolderPlus className="h-4 w-4 mr-2" />
+                                        Create Folder
+                                    </Link>
+                                </Button>
                             )}
-                        <form onSubmit={handleSearch} className="flex gap-2 max-w-md">
-                            <div className="relative flex-1">
-                                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                                <Input
-                                    type="text"
-                                    placeholder="Search documents and folders..."
-                                    value={searchTerm}
-                                    onChange={(e) => setSearchTerm(e.target.value)}
-                                    className="pl-10"
-                                />
-                            </div>
-                            <Button type="submit" variant="outline">
-                                Search
-                            </Button>
-                        </form>
+
+                            <form onSubmit={handleSearch} className="flex gap-2 max-w-md">
+                                <div className="relative flex-1">
+                                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                                    <Input
+                                        type="text"
+                                        placeholder="Search documents and folders..."
+                                        value={searchTerm}
+                                        onChange={(e) => setSearchTerm(e.target.value)}
+                                        className="pl-10"
+                                    />
+                                </div>
+                                <Button type="submit" variant="outline">
+                                    Search
+                                </Button>
+                            </form>
+                        </div>
                     </div>
 
 
@@ -255,8 +269,8 @@ export default function EmployeeIndex({ folders, documents, breadcrumbs, current
                                         <TableHead>Name</TableHead>
                                         <TableHead>Contents</TableHead>
                                         <TableHead>Tags</TableHead>
-                                        <TableHead>Created By</TableHead>
-                                        <TableHead>Created</TableHead>
+
+                                        <TableHead>Updated</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
@@ -309,11 +323,9 @@ export default function EmployeeIndex({ folders, documents, breadcrumbs, current
                                                     )}
                                                 </div>
                                             </TableCell>
+
                                             <TableCell>
-                                                <div className="text-sm">{folder.creator}</div>
-                                            </TableCell>
-                                            <TableCell>
-                                                <div className="text-sm">{formatDate(folder.created_at)}</div>
+                                                <div className="text-sm">{formatDate(folder.updated_at)}</div>
                                             </TableCell>
                                         </TableRow>
                                     ))}
