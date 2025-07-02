@@ -1,7 +1,15 @@
 <?php
 
 use App\Http\Controllers\Admin\BlackoutController;
+use App\Http\Controllers\Admin\LessonContentController;
+use App\Http\Controllers\Admin\LessonController;
+use App\Http\Controllers\Admin\ModuleController;
 use App\Http\Controllers\Admin\PtoAdminController;
+use App\Http\Controllers\Admin\QuestionController;
+use App\Http\Controllers\Admin\QuizController;
+use App\Http\Controllers\Admin\ReportController;
+use App\Http\Controllers\Admin\TestController;
+use App\Http\Controllers\Admin\TestQuestionController;
 use App\Http\Controllers\Api\PtoApi\HREmployeesController;
 use App\Http\Controllers\Api\PtoApi\PtoOverviewController;
 use App\Http\Controllers\Api\PtoApi\PTOSubmitHistoricalController;
@@ -9,6 +17,7 @@ use App\Http\Controllers\DepartmentController;
 use App\Http\Controllers\DocumentController;
 use App\Http\Controllers\FolderController;
 use App\Http\Controllers\TagController;
+use App\Http\Controllers\TrainingController;
 use App\Http\Controllers\UserManagementController;
 use Illuminate\Support\Facades\Route;
 use Laravel\WorkOS\Http\Middleware\ValidateSessionWithWorkOS;
@@ -184,4 +193,65 @@ Route::middleware(['auth', ValidateSessionWithWorkOS::class,])->group(function (
 
 
     });
+
+
+
+
+    Route::prefix('training')->name('training.')->group(function () {
+        Route::get('/', [TrainingController::class, 'index'])->name('index');
+        Route::get('/modules/{module}', [TrainingController::class, 'module'])->name('module');
+        Route::get('/modules/{module}/enroll', [TrainingController::class, 'enroll'])->name('enroll');
+
+        Route::get('/modules/{module}/lessons/{lesson}', [TrainingController::class, 'lesson'])->name('lesson');
+        Route::post('/content/{content}/complete', [TrainingController::class, 'completeContent'])->name('content.complete');
+
+        Route::get('/modules/{module}/lessons/{lesson}/quiz', [TrainingController::class, 'quiz'])->name('quiz');
+        Route::post('/modules/{module}/lessons/{lesson}/quiz', [TrainingController::class, 'submitQuiz'])->name('quiz.submit');
+
+        Route::get('/modules/{module}/test', [TrainingController::class, 'test'])->name('test');
+        Route::post('/modules/{module}/test', [TrainingController::class, 'submitTest'])->name('test.submit');
+    });
+    Route::get('/training/content/{content}/file', [TrainingController::class, 'serveFile'])
+        ->name('training.content.file');
+    // Admin Training Routes
+    Route::prefix('admin')->name('admin.')->group(function () {
+        // Modules Management
+        Route::resource('modules', ModuleController::class);
+        Route::post('modules/reorder', [ModuleController::class, 'reorder'])->name('modules.reorder');
+
+        // Lessons Management
+        Route::resource('modules.lessons', LessonController::class)->except(['index']);
+        Route::post('lessons/reorder', [LessonController::class, 'reorder'])->name('lessons.reorder');
+
+        // Lesson Content Management
+        Route::resource('lessons.contents', LessonContentController::class)->except(['index', 'show']);
+        Route::post('content/upload', [LessonContentController::class, 'upload'])->name('content.upload');
+        Route::delete('content/{content}', [LessonContentController::class, 'destroy'])->name('content.destroy');
+
+        // Quiz Management
+        Route::resource('lessons.quizzes', QuizController::class)->except(['index']);
+        Route::resource('quizzes.questions', QuestionController::class)->except(['index', 'show']);
+
+        // Test Management
+        Route::resource('modules.tests', TestController::class)->except(['index']);
+        Route::resource('tests.questions', TestQuestionController::class)->except(['index', 'show']);
+
+        // Reports
+        Route::get('students/{user}/details', [ReportController::class, 'studentDetails'])->name('reports.student.details');
+        Route::get('reports', [ReportController::class, 'index'])->name('reports.index');
+        Route::get('reports/modules', [ReportController::class, 'modules'])->name('reports.modules');
+        Route::get('reports/students', [ReportController::class, 'students'])->name('reports.students');
+        Route::get('reports/progress', [ReportController::class, 'progress'])->name('reports.progress');
+    });
+
+
+
+
+
+
+
+
+
+
+
 });
