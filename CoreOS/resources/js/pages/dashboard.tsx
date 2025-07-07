@@ -1,8 +1,9 @@
 import AppLayout from '@/layouts/app-layout';
 import {type BreadcrumbItem} from '@/types';
 import {Head} from '@inertiajs/react';
-import Feed from "@/components/Feed";
 import {PlaceholderPattern} from "@/components/ui/placeholder-pattern";
+import TimeClock from "@/pages/TimeClock";
+
 
 interface User {
     id: number;
@@ -48,7 +49,8 @@ export default function Dashboard({ articles }: Props) {
                     <div className="flex flex-col col-span-2 gap-4">
 
                         <div className="border-sidebar-border/70 dark:border-sidebar-border relative aspect-video overflow-hidden rounded-xl border">
-                            <Feed articles={articles} limit={5} />
+                            {/*<Feed articles={articles} limit={5} />*/}
+                        <TimeClock />
                         </div>
 
                     </div>

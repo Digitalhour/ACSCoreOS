@@ -17,16 +17,141 @@ use App\Http\Controllers\HumanResources\ReportController;
 use App\Http\Controllers\HumanResources\TestController;
 use App\Http\Controllers\HumanResources\TestQuestionController;
 use App\Http\Controllers\OldStyleTrainingTrackingController;
+use App\Http\Controllers\PayrollController;
 use App\Http\Controllers\TagController;
+use App\Http\Controllers\TimeAdjustmentController;
+use App\Http\Controllers\TimeClockController;
+use App\Http\Controllers\TimesheetController;
 use App\Http\Controllers\Training\TrainingController;
 use App\Http\Controllers\UserManagementController;
 use Illuminate\Support\Facades\Route;
+use Inertia\Inertia;
 use Laravel\WorkOS\Http\Middleware\ValidateSessionWithWorkOS;
 
 //use App\Http\Controllers\TrainingController;
 
 
 Route::middleware(['auth', ValidateSessionWithWorkOS::class,])->group(function () {
+
+
+    // Time Clock
+    Route::get('/timeclock', function () {
+        return Inertia::render('TimeClock/Index');
+    })->name('timeclock.index');
+
+    // Employee Timesheet
+    Route::get('/timesheet', function () {
+        return Inertia::render('Timesheet/Employee');
+    })->name('timesheet.employee');
+
+    // Manager Views
+    Route::get('/timesheet/manage', function () {
+        return Inertia::render('Timesheet/Manager');
+    })->name('timesheet.manager');
+
+    // Payroll Views
+    Route::get('/payroll/timesheets', function () {
+        return Inertia::render('Payroll/Timesheets');
+    })->name('payroll.timesheets');
+
+    // Time Adjustments
+    Route::get('/time-adjustments', function () {
+        return Inertia::render('TimeAdjustments/Index');
+    })->name('time-adjustments.index');
+
+    Route::get('/time-adjustments/manage', function () {
+        return Inertia::render('TimeAdjustments/Manage');
+    })->name('time-adjustments.manage');
+
+    // Reports
+    Route::get('/reports/time-tracking', function () {
+        return Inertia::render('Reports/TimeTracking');
+    })->name('reports.time-tracking');
+
+
+
+
+
+
+    Route::prefix('api/timeclock')->group(function () {
+        Route::get('/status', [TimeClockController::class, 'getStatus']);
+        Route::post('/clock-in', [TimeClockController::class, 'clockIn']);
+        Route::post('/clock-out', [TimeClockController::class, 'clockOut']);
+        Route::post('/start-break', [TimeClockController::class, 'startBreak']);
+        Route::post('/end-break', [TimeClockController::class, 'endBreak']);
+        Route::get('/today-entries', [TimeClockController::class, 'getTodayEntries']);
+        Route::get('/entries', [TimeClockController::class, 'getEntriesForDateRange']);
+        Route::get('/break-types', [TimeClockController::class, 'getBreakTypes']);
+
+        Route::get('/manageable-users', [TimeClockController::class, 'getManageableUsers']);
+        Route::get('/manager/time-entries', [TimeClockController::class, 'getManagerTimeEntries']);
+        // Manager/Admin routes
+        Route::post('/force-clock-out/{userId}', [TimeClockController::class, 'forceClockOut']);
+
+        //manager dashboard
+        Route::get('/manager/dashboard', [TimeClockController::class, 'getManagerDashboard']);
+        Route::get('/manageable-users', [TimeClockController::class, 'getManageableUsers']);
+        Route::get('/manager/time-entries', [TimeClockController::class, 'getManagerTimeEntries']);
+    });
+
+
+    Route::prefix('api/timesheet')->group(function () {
+        // Employee routes
+        Route::get('/', [TimesheetController::class, 'index']);
+        Route::post('/submit', [TimesheetController::class, 'submit']);
+        Route::get('/legal-acknowledgment', [TimesheetController::class, 'getLegalAcknowledgment']);
+
+        // Manager/Admin routes
+        Route::get('/pending-submissions', [TimesheetController::class, 'getPendingSubmissions']);
+        Route::get('/history/{userId}', [TimesheetController::class, 'getSubmissionHistory']);
+        Route::get('/{userId}', [TimesheetController::class, 'show']);
+
+        // Approval routes
+        Route::post('/approve/{submissionId}', [TimesheetController::class, 'approve']);
+        Route::post('/reject/{submissionId}', [TimesheetController::class, 'reject']);
+
+        // Payroll routes
+        Route::post('/lock/{submissionId}', [TimesheetController::class, 'lock']);
+        Route::post('/unlock/{submissionId}', [TimesheetController::class, 'unlock']);
+    });
+
+// Time Adjustment Routes
+    Route::prefix('api/time-adjustments')->group(function () {
+        // Employee routes
+        Route::get('/', [TimeAdjustmentController::class, 'index']);
+        Route::post('/missed-punch', [TimeAdjustmentController::class, 'requestMissedPunch']);
+        Route::post('/time-correction', [TimeAdjustmentController::class, 'requestTimeCorrection']);
+        Route::post('/break-adjustment', [TimeAdjustmentController::class, 'requestBreakAdjustment']);
+        Route::get('/types', [TimeAdjustmentController::class, 'getAdjustmentTypes']);
+
+        // Manager/Admin routes
+        Route::get('/pending', [TimeAdjustmentController::class, 'getPendingAdjustments']);
+        Route::get('/history/{userId}', [TimeAdjustmentController::class, 'getAdjustmentHistory']);
+        Route::post('/approve/{adjustmentId}', [TimeAdjustmentController::class, 'approve']);
+        Route::post('/reject/{adjustmentId}', [TimeAdjustmentController::class, 'reject']);
+    });
+
+// Payroll Routes
+    Route::prefix('api/payroll')->group(function () {
+        Route::get('/timesheets', [PayrollController::class, 'getTimesheets']);
+        Route::get('/summary', [PayrollController::class, 'getSummary']);
+        Route::get('/export', [PayrollController::class, 'exportTimesheets']);
+        Route::get('/reports', [PayrollController::class, 'getReports']);
+        Route::post('/bulk-lock', [PayrollController::class, 'bulkLock']);
+        Route::post('/bulk-unlock', [PayrollController::class, 'bulkUnlock']);
+    });
+
+
+
+
+
+
+
+
+
+
+
+
 // Old Style Training Tracking Routes
     Route::get('/old-style-training-tracking', [OldStyleTrainingTrackingController::class, 'index'])
         ->name('old-style-training-tracking.index');

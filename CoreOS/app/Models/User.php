@@ -208,13 +208,13 @@ class User extends Authenticatable
         $users = $users->merge($this->directReports);
 
         // Add department members if user is a manager
-        if ($this->canApprovePto()) {
-            $departmentUsers = User::whereHas('departments', function ($query) {
-                $query->whereIn('departments.id', $this->departments->pluck('id'));
-            })->get();
-
-            $users = $users->merge($departmentUsers);
-        }
+//        if ($this->canApprovePto()) {
+//            $departmentUsers = User::whereHas('departments', function ($query) {
+//                $query->whereIn('departments.id', $this->departments->pluck('id'));
+//            })->get();
+//
+//            $users = $users->merge($departmentUsers);
+//        }
 
         return $users->unique('id');
     }
@@ -417,6 +417,32 @@ class User extends Authenticatable
         return array_unique($managerIds);
     }
 
+    public function timeEntries(): HasMany
+    {
+        return $this->hasMany(TimeEntry::class);
+    }
 
+    public function timesheetSubmissions(): HasMany
+    {
+        return $this->hasMany(TimesheetSubmission::class);
+    }
 
+    public function timeAdjustments(): HasMany
+    {
+        return $this->hasMany(TimeAdjustment::class);
+    }
+
+// Get current active time entry
+    public function getCurrentTimeEntry(): ?TimeEntry
+    {
+        return $this->timeEntries()
+            ->where('status', 'active')
+            ->whereNull('clock_out_time')
+            ->first();
+    }
+
+    public function currentTimeEntry()
+    {
+        return $this->hasOne(TimeEntry::class)->where('status', 'active')->whereNull('clock_out_time')->latest();
+    }
 }
