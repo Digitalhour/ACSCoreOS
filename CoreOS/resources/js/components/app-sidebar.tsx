@@ -46,13 +46,16 @@ const mainNavItems: NavItem[] = [
     { title: 'Roles and Permissions', href: '/roles-permissions', icon: Users, description:null },
     { title: 'Company Documents', href: '/employee/documents', icon:BookOpenText , description:null },
     { title: 'Admin Documents', href: '/folders', icon:BookOpenText , description:null },
-    { title: 'Your Training', href: '/training', icon:BookOpenText , description:null },
-    { title: 'Training Dashboard', href: '/admin/reports', icon:BookOpenText , description:null },
+    // New Training Stuff Not in use right now, Use Old style for right now.
+    // { title: 'Your Training', href: '/training', icon:BookOpenText , description:null },
+    // { title: 'Training Dashboard', href: '/admin/reports', icon:BookOpenText , description:null },
+    { title: 'Old Training Dashboard', href: route('old-style-training-tracking.index'), icon:BookOpenText , description:null },
 ];
 
 const footerNavItems: NavItem[] = [
     { title: 'Repository', href: 'https://github.com/laravel/react-starter-kit', icon: Folder, external: true, description:null },
     { title: 'Documentation', href: 'https://laravel.com/docs/starter-kits#react', icon: BookOpen, external: true, description:null },
+    { title: 'Shadcn Component explore', href: 'https://shipixen.com/component-explorer-shadcn', icon: BookOpen, external: true, description:null },
     { title: 'Admin Dashboard', href: '/admin', icon: ShieldCheck, roles: '', description:null },
 ];
 

@@ -51,12 +51,8 @@ export default function CreateContent({ lesson }: Props) {
             href: '/dashboard',
         },
         {
-            title: 'Admin',
-            href: '/admin',
-        },
-        {
-            title: 'Training Modules',
-            href: '/admin/modules',
+            title: 'Training Dashboard',
+            href: route('admin.reports.index'),
         },
         {
             title: lesson.module.title,
@@ -74,7 +70,7 @@ export default function CreateContent({ lesson }: Props) {
 
     const contentTypes = [
         { value: 'video', label: 'Video', icon: Video, accept: '.mp4,.avi,.mov,.wmv' },
-        { value: 'document', label: 'Document', icon: FileText, accept: '.pdf,.doc,.docx,.ppt,.pptx' },
+        { value: 'document', label: 'Document', icon: FileText, accept: '.pdf,.doc,.docx' },
         { value: 'slideshow', label: 'Slideshow', icon: Image, accept: '.pdf,.ppt,.pptx' },
         { value: 'audio', label: 'Audio', icon: Headphones, accept: '.mp3,.wav,.aac,.ogg' }
     ];

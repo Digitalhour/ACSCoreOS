@@ -88,7 +88,7 @@ class AuthKitAuthenticationRequest extends FormRequest
 
         // Block login for soft deleted users
         if ($user && $user->trashed()) {
-            abort(403, 'Account has been deactivated. Please contact your Human-Resources representative.');
+            abort(403, 'Account has been deactivated. Please contact your HumanResources representative.');
         }
 
         return $user;

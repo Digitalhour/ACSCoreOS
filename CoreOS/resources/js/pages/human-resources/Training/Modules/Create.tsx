@@ -16,17 +16,14 @@ const breadcrumbs: BreadcrumbItem[] = [
         title: 'Dashboard',
         href: '/dashboard',
     },
+
     {
-        title: 'Admin',
-        href: '/admin',
-    },
-    {
-        title: 'Training Modules',
-        href: '/admin/modules',
+        title: 'Training Dashboard',
+        href: route('admin.reports.index'),
     },
     {
         title: 'Create Module',
-        href: '/admin/modules/create',
+        href: route('admin.modules.create'),
     },
 ];
 

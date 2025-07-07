@@ -1,6 +1,5 @@
 <?php
-
-namespace App\Http\Controllers\Admin;
+namespace App\Http\Controllers\HumanResources;
 
 use App\Http\Controllers\Controller;
 use App\Models\Question;
@@ -12,7 +11,7 @@ class QuestionController extends Controller
 {
     public function create(Quiz $quiz)
     {
-        return Inertia::render('Admin/Questions/Create', [
+        return Inertia::render('human-resources/Training/Questions/Create', [
             'quiz' => $quiz->load('lesson.module')
         ]);
     }
@@ -42,7 +41,7 @@ class QuestionController extends Controller
 
     public function edit(Quiz $quiz, Question $question)
     {
-        return Inertia::render('Admin/Questions/Edit', [
+        return Inertia::render('human-resources/Training/Questions/Edit', [
             'quiz' => $quiz->load('lesson.module'),
             'question' => $question
         ]);

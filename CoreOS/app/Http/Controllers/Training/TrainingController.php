@@ -1,7 +1,8 @@
 <?php
 // app/Http/Controllers/TrainingController.php
-namespace App\Http\Controllers;
+namespace App\Http\Controllers\Training;
 
+use App\Http\Controllers\Controller;
 use App\Models\Enrollment;
 use App\Models\GradeResult;
 use App\Models\GradesResults;
@@ -18,7 +19,7 @@ class TrainingController extends Controller
 {
     public function index()
     {
-        $modules = Module::active()
+        $modules = Module::accessibleByUser(auth()->user())
             ->with(['lessons', 'test', 'enrollments' => function($query) {
                 $query->where('user_id', auth()->id());
             }])
@@ -52,6 +53,12 @@ class TrainingController extends Controller
             }
         ])->findOrFail($moduleId);
 
+        // Check if user can access this module
+        if (!$module->isAccessibleByUser(auth()->user())) {
+            return redirect()->route('training.index')
+                ->with('error', 'You do not have access to this module.');
+        }
+
         if ($module->enrollments->isEmpty()) {
             return redirect()->route('training.enroll', $module)->with('error', 'You need to enroll in this module first.');
         }
@@ -76,7 +83,6 @@ class TrainingController extends Controller
         $testBestScore = null;
 
         if ($module->test) {
-            // Test is available if all lessons are completed or test is not required
             $testAvailable = !$module->test_required || $moduleProgress >= 100;
             $testAttempts = $module->test->getAttemptsCountForUser(auth()->id());
             $testBestScore = $module->test->getBestGradeForUser(auth()->id())?->score;
@@ -90,6 +96,28 @@ class TrainingController extends Controller
             'testAttempts' => $testAttempts,
             'testBestScore' => $testBestScore
         ]);
+    }
+
+    public function enroll($moduleId)
+    {
+        $module = Module::findOrFail($moduleId);
+
+        // Check if user can access this module
+        if (!$module->isAccessibleByUser(auth()->user())) {
+            return redirect()->route('training.index')
+                ->with('error', 'You do not have access to this module.');
+        }
+
+        $enrollment = Enrollment::firstOrCreate([
+            'user_id' => auth()->id(),
+            'module_id' => $module->id
+        ], [
+            'enrolled_at' => now(),
+            'is_active' => true
+        ]);
+
+        return redirect()->route('training.module', $module)
+            ->with('success', 'Successfully enrolled in ' . $module->title);
     }
 
     public function lesson($moduleId, $lessonId)
@@ -340,21 +368,22 @@ class TrainingController extends Controller
         ]);
     }
 
-    public function enroll($moduleId)
-    {
-        $module = Module::findOrFail($moduleId);
-
-        $enrollment = Enrollment::firstOrCreate([
-            'user_id' => auth()->id(),
-            'module_id' => $module->id
-        ], [
-            'enrolled_at' => now(),
-            'is_active' => true
-        ]);
-
-        return redirect()->route('training.module', $module)
-            ->with('success', 'Successfully enrolled in ' . $module->title);
-    }
+//  OLD Enrollment
+//    public function enroll($moduleId)
+//    {
+//        $module = Module::findOrFail($moduleId);
+//
+//        $enrollment = Enrollment::firstOrCreate([
+//            'user_id' => auth()->id(),
+//            'module_id' => $module->id
+//        ], [
+//            'enrolled_at' => now(),
+//            'is_active' => true
+//        ]);
+//
+//        return redirect()->route('training.module', $module)
+//            ->with('success', 'Successfully enrolled in ' . $module->title);
+//    }
 
     protected function checkLessonCompletion($lesson)
     {

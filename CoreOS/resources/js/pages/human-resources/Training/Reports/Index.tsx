@@ -69,7 +69,7 @@ export default function ReportsIndex({
                                      }: Props) {
     const breadcrumbs: BreadcrumbItem[] = [
         { title: 'Dashboard', href: '/dashboard' },
-        { title: 'Training Dashboard', href: '/admin/reports' },
+        { title: 'Training Dashboard', href: route('admin.reports.index') },
     ];
 
     const reportCards = [

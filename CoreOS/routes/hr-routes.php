@@ -1,30 +1,50 @@
 <?php
 
 use App\Http\Controllers\Admin\BlackoutController;
-use App\Http\Controllers\Admin\LessonContentController;
-use App\Http\Controllers\Admin\LessonController;
-use App\Http\Controllers\Admin\ModuleController;
 use App\Http\Controllers\Admin\PtoAdminController;
-use App\Http\Controllers\Admin\QuestionController;
-use App\Http\Controllers\Admin\QuizController;
-use App\Http\Controllers\Admin\ReportController;
-use App\Http\Controllers\Admin\TestController;
-use App\Http\Controllers\Admin\TestQuestionController;
 use App\Http\Controllers\Api\PtoApi\HREmployeesController;
 use App\Http\Controllers\Api\PtoApi\PtoOverviewController;
 use App\Http\Controllers\Api\PtoApi\PTOSubmitHistoricalController;
 use App\Http\Controllers\DepartmentController;
 use App\Http\Controllers\DocumentController;
 use App\Http\Controllers\FolderController;
+use App\Http\Controllers\HumanResources\LessonContentController;
+use App\Http\Controllers\HumanResources\LessonController;
+use App\Http\Controllers\HumanResources\ModuleController;
+use App\Http\Controllers\HumanResources\QuestionController;
+use App\Http\Controllers\HumanResources\QuizController;
+use App\Http\Controllers\HumanResources\ReportController;
+use App\Http\Controllers\HumanResources\TestController;
+use App\Http\Controllers\HumanResources\TestQuestionController;
+use App\Http\Controllers\OldStyleTrainingTrackingController;
 use App\Http\Controllers\TagController;
-use App\Http\Controllers\TrainingController;
+use App\Http\Controllers\Training\TrainingController;
 use App\Http\Controllers\UserManagementController;
 use Illuminate\Support\Facades\Route;
 use Laravel\WorkOS\Http\Middleware\ValidateSessionWithWorkOS;
 
+//use App\Http\Controllers\TrainingController;
+
 
 Route::middleware(['auth', ValidateSessionWithWorkOS::class,])->group(function () {
+// Old Style Training Tracking Routes
+    Route::get('/old-style-training-tracking', [OldStyleTrainingTrackingController::class, 'index'])
+        ->name('old-style-training-tracking.index');
 
+    Route::post('/old-style-training-tracking', [OldStyleTrainingTrackingController::class, 'store'])
+        ->name('old-style-training-tracking.store');
+
+    Route::put('/old-style-training-tracking/{type}/{id}', [OldStyleTrainingTrackingController::class, 'update'])
+        ->name('old-style-training-tracking.update');
+
+    Route::delete('/old-style-training-tracking/{type}/{id}', [OldStyleTrainingTrackingController::class, 'destroy'])
+        ->name('old-style-training-tracking.destroy');
+
+    Route::get('/old-style-training-tracking/export-data', [OldStyleTrainingTrackingController::class, 'exportData'])
+        ->name('old-style-training-tracking.export-data');
+
+    Route::get('/old-style-training-tracking/export-logs', [OldStyleTrainingTrackingController::class, 'exportLogs'])
+        ->name('old-style-training-tracking.export-logs');
 
 //    // Document Routes
 //    Route::prefix('documents')->name('documents.')->group(function () {
@@ -213,12 +233,15 @@ Route::middleware(['auth', ValidateSessionWithWorkOS::class,])->group(function (
     });
     Route::get('/training/content/{content}/file', [TrainingController::class, 'serveFile'])
         ->name('training.content.file');
-    // Admin Training Routes
+    // Updated Admin Training Routes with Combined Reports
     Route::prefix('admin')->name('admin.')->group(function () {
         // Modules Management
         Route::resource('modules', ModuleController::class);
         Route::post('modules/reorder', [ModuleController::class, 'reorder'])->name('modules.reorder');
-
+// Module Assignment Routes
+        Route::get('modules/{module}/assignments', [ModuleController::class, 'assignments'])->name('modules.assignments');
+        Route::post('modules/{module}/assignments', [ModuleController::class, 'storeAssignment'])->name('modules.assignments.store');
+        Route::delete('modules/{module}/assignments/{assignment}', [ModuleController::class, 'destroyAssignment'])->name('modules.assignments.destroy');
         // Lessons Management
         Route::resource('modules.lessons', LessonController::class)->except(['index']);
         Route::post('lessons/reorder', [LessonController::class, 'reorder'])->name('lessons.reorder');
@@ -240,8 +263,16 @@ Route::middleware(['auth', ValidateSessionWithWorkOS::class,])->group(function (
         Route::get('students/{user}/details', [ReportController::class, 'studentDetails'])->name('reports.student.details');
         Route::get('reports', [ReportController::class, 'index'])->name('reports.index');
         Route::get('reports/modules', [ReportController::class, 'modules'])->name('reports.modules');
+
+        // Combined Students & Progress Report (NEW - Primary Route)
+        Route::get('reports/student-progress', [ReportController::class, 'combinedStudentsProgress'])->name('reports.combined-students-progress');
+
+        // Legacy routes - now redirect to combined report for seamless transition
         Route::get('reports/students', [ReportController::class, 'students'])->name('reports.students');
         Route::get('reports/progress', [ReportController::class, 'progress'])->name('reports.progress');
+
+        // Export functionality for combined report
+        Route::get('reports/export/combined', [ReportController::class, 'exportCombinedReport'])->name('reports.export.combined');
     });
 
 

@@ -6,6 +6,7 @@ import {type BreadcrumbItem} from '@/types';
 import {
     Award,
     BookOpen,
+    Building,
     CheckCircle,
     Clock,
     Edit,
@@ -18,7 +19,10 @@ import {
     Settings,
     Shapes,
     Trash2,
+    TreeDeciduous,
     TrendingUp,
+    User,
+    UserCog,
     Users,
     Video
 } from 'lucide-react';
@@ -78,6 +82,19 @@ interface Test {
     show_results_immediately: boolean;
 }
 
+interface Assignment {
+    id: number;
+    assignment_type: 'everyone' | 'user' | 'department' | 'hierarchy';
+    assignable_id: number | null;
+    display_name: string;
+    assignable?: {
+        id: number;
+        name: string;
+        email?: string;
+        avatar?: string;
+    };
+}
+
 interface Module {
     id: number;
     title: string;
@@ -95,13 +112,19 @@ interface Module {
     lessons: Lesson[];
     test: Test | null;
     enrollments: Enrollment[];
+    assignments: Assignment[];
 }
 
 interface Props {
     module: Module;
+    assignmentSummary: {
+        type: string;
+        count: number;
+        description: string;
+    };
 }
 
-export default function AdminModuleShow({ module }: Props) {
+export default function AdminModuleShow({ module, assignmentSummary }: Props) {
     const breadcrumbs: BreadcrumbItem[] = [
         {
             title: 'Dashboard',
@@ -146,6 +169,26 @@ export default function AdminModuleShow({ module }: Props) {
             case 'slideshow': return Image;
             case 'audio': return Headphones;
             default: return FileText;
+        }
+    };
+
+    const getAssignmentIcon = (type: string) => {
+        switch (type) {
+            case 'everyone': return Users;
+            case 'user': return User;
+            case 'department': return Building;
+            case 'hierarchy': return TreeDeciduous;
+            default: return Users;
+        }
+    };
+
+    const getAssignmentColor = (type: string) => {
+        switch (type) {
+            case 'everyone': return 'bg-green-100 text-green-800';
+            case 'user': return 'bg-blue-100 text-blue-800';
+            case 'department': return 'bg-purple-100 text-purple-800';
+            case 'hierarchy': return 'bg-orange-100 text-orange-800';
+            default: return 'bg-gray-100 text-gray-800';
         }
     };
 
@@ -253,6 +296,7 @@ export default function AdminModuleShow({ module }: Props) {
                                             {module.allow_retakes ? 'Retakes Allowed' : 'No Retakes'}
                                         </span>
                                     </div>
+
                                 </div>
                             </CardContent>
                         </Card>
@@ -317,6 +361,7 @@ export default function AdminModuleShow({ module }: Props) {
                                                         </div>
 
                                                         <div className="flex items-center gap-1">
+
                                                             <Button asChild variant="ghost" size="sm">
                                                                 <Link
                                                                     href={route('admin.modules.lessons.show', [module.id, lesson.id])}
@@ -458,7 +503,8 @@ export default function AdminModuleShow({ module }: Props) {
 
                     {/* Sidebar - Statistics */}
                     <div className="lg:col-span-1 space-y-6">
-                        {/* Quick Stats */}
+
+
                         <Card>
                             <CardHeader>
                                 <CardTitle>Statistics</CardTitle>
@@ -509,7 +555,100 @@ export default function AdminModuleShow({ module }: Props) {
                                 )}
                             </CardContent>
                         </Card>
-
+                        <Card>
+                            <CardHeader>
+                                <div className="flex items-center justify-between">
+                                    <CardTitle>Access Control</CardTitle>
+                                    <Button asChild variant="ghost" size="sm">
+                                        <Link href={route('admin.modules.assignments', module.id)}>
+                                            <UserCog className="w-4 h-4 mr-1" />
+                                            Manage
+                                        </Link>
+                                    </Button>
+                                </div>
+                            </CardHeader>
+                            <CardContent>
+                                {module.assignments && module.assignments.length > 0 ? (
+                                    <div className="space-y-3">
+                                        <div className="text-sm text-muted-foreground mb-3">
+                                            {assignmentSummary.description}
+                                        </div>
+                                        {module.assignments.slice(0, 4).map((assignment) => {
+                                            const IconComponent = getAssignmentIcon(assignment.assignment_type);
+                                            return (
+                                                <div key={assignment.id} className="flex items-center gap-2">
+                                                    {assignment.assignment_type === 'user' || assignment.assignment_type === 'hierarchy' ? (
+                                                        assignment.assignable ? (
+                                                            <div className="flex items-center gap-2 flex-1">
+                                                                <div className="relative">
+                                                                    {assignment.assignable.avatar ? (
+                                                                        <img
+                                                                            src={assignment.assignable.avatar}
+                                                                            alt={assignment.assignable.name}
+                                                                            className="w-6 h-6 rounded-full object-cover"
+                                                                        />
+                                                                    ) : (
+                                                                        <div className="w-6 h-6 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white font-medium text-xs">
+                                                                            {assignment.assignable.name.split(' ').map(n => n[0]).join('').toUpperCase()}
+                                                                        </div>
+                                                                    )}
+                                                                    <div className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full ${getAssignmentColor(assignment.assignment_type)} border border-white flex items-center justify-center`}>
+                                                                        <IconComponent className="w-1.5 h-1.5" />
+                                                                    </div>
+                                                                </div>
+                                                                <div className="min-w-0 flex-1">
+                                                                    <div className="text-sm font-medium truncate">{assignment.assignable.name}</div>
+                                                                    {assignment.assignable.email && (
+                                                                        <div className="text-xs text-muted-foreground truncate">{assignment.assignable.email}</div>
+                                                                    )}
+                                                                </div>
+                                                                <Badge variant="outline" className="text-xs">
+                                                                    {assignment.assignment_type === 'hierarchy' ? 'Team' : 'User'}
+                                                                </Badge>
+                                                            </div>
+                                                        ) : (
+                                                            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                                                <IconComponent className="w-4 h-4" />
+                                                                <span>Unknown {assignment.assignment_type}</span>
+                                                            </div>
+                                                        )
+                                                    ) : (
+                                                        <div className="flex items-center gap-2 flex-1">
+                                                            <div className={`p-1.5 rounded-full ${getAssignmentColor(assignment.assignment_type)}`}>
+                                                                <IconComponent className="w-3 h-3" />
+                                                            </div>
+                                                            <div className="min-w-0 flex-1">
+                                                                <div className="text-sm font-medium">{assignment.display_name}</div>
+                                                            </div>
+                                                            <Badge variant="outline" className="text-xs">
+                                                                {assignment.assignment_type.charAt(0).toUpperCase() + assignment.assignment_type.slice(1)}
+                                                            </Badge>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            );
+                                        })}
+                                        {module.assignments.length > 4 && (
+                                            <div className="text-xs text-muted-foreground text-center pt-2">
+                                                +{module.assignments.length - 4} more assignments
+                                            </div>
+                                        )}
+                                    </div>
+                                ) : (
+                                    <div className="text-center py-4">
+                                        <Users className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
+                                        <p className="text-sm text-muted-foreground mb-2">No assignments</p>
+                                        <p className="text-xs text-muted-foreground mb-3">Module accessible to everyone by default</p>
+                                        <Button asChild variant="outline" size="sm">
+                                            <Link href={route('admin.modules.assignments', module.id)}>
+                                                <Plus className="w-3 h-3 mr-1" />
+                                                Add Assignment
+                                            </Link>
+                                        </Button>
+                                    </div>
+                                )}
+                            </CardContent>
+                        </Card>
                         {/* Recent Enrollments */}
                         {module.enrollments.length > 0 && (
                             <Card>

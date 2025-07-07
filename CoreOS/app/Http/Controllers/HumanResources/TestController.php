@@ -1,7 +1,5 @@
 <?php
-// app/Http/Controllers/Admin/TestController.php
-namespace App\Http\Controllers\Admin;
-
+namespace App\Http\Controllers\HumanResources;
 use App\Http\Controllers\Controller;
 use App\Models\Module;
 use App\Models\Test;
@@ -12,7 +10,7 @@ class TestController extends Controller
 {
     public function create(Module $module)
     {
-        return Inertia::render('Admin/Tests/Create', [
+        return Inertia::render('human-resources/Training/Tests/Create', [
             'module' => $module
         ]);
     }
@@ -40,7 +38,7 @@ class TestController extends Controller
     {
         $test->load('questions');
 
-        return Inertia::render('Admin/Tests/Show', [
+        return Inertia::render('human-resources/Training/Tests/Show', [
             'module' => $module,
             'test' => $test
         ]);
@@ -48,7 +46,7 @@ class TestController extends Controller
 
     public function edit(Module $module, Test $test)
     {
-        return Inertia::render('Admin/Tests/Edit', [
+        return Inertia::render('human-resources/Training/Tests/Edit', [
             'module' => $module,
             'test' => $test
         ]);

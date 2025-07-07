@@ -395,7 +395,27 @@ class User extends Authenticatable
     {
         return $this->hasMany(Enrollment::class);
     }
+    /**
+     * Get all managers in this user's hierarchy (managers who could have this user in their hierarchy)
+     */
+    public function getManagersInHierarchy(): array
+    {
+        $managerIds = [];
 
+        // Direct manager
+        if ($this->reports_to_user_id) {
+            $managerIds[] = $this->reports_to_user_id;
+
+            // Get manager's manager (and so on up the chain)
+            $manager = $this->manager;
+            while ($manager && $manager->reports_to_user_id) {
+                $managerIds[] = $manager->reports_to_user_id;
+                $manager = $manager->manager;
+            }
+        }
+
+        return array_unique($managerIds);
+    }
 
 
 

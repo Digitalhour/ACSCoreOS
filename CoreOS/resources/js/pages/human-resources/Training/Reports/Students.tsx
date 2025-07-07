@@ -109,9 +109,8 @@ export default function StudentsReport({ students = [], all_students }: Props) {
 
     const breadcrumbs: BreadcrumbItem[] = [
         { title: 'Dashboard', href: '/dashboard' },
-        { title: 'Admin', href: '/admin' },
-        { title: 'Reports', href: '/admin/reports' },
-        { title: 'Students Report', href: '/admin/reports/students' },
+          { title: 'Reports', href: route('admin.reports.index') },
+        { title: 'Students Report', href: route('admin.reports.students') },
     ];
 
     const totalStudents = students.length;

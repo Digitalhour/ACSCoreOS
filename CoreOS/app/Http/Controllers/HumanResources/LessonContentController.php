@@ -1,7 +1,6 @@
 <?php
 
-namespace App\Http\Controllers\Admin;
-
+namespace App\Http\Controllers\HumanResources;
 use App\Http\Controllers\Controller;
 use App\Models\Lesson;
 use App\Models\LessonContent;
@@ -38,8 +37,6 @@ class LessonContentController extends Controller
             'mime_type' => $file->getMimeType()
         ];
 
-        // For videos, you might want to extract duration and create thumbnail
-        // This would require additional processing with FFmpeg or similar
 
         $content = LessonContent::create([
             'lesson_id' => $lesson->id,
