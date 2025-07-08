@@ -200,23 +200,118 @@ class User extends Authenticatable
     {
         return $this->hasMany(EmergencyContact::class);
     }
+    /**
+     * Get all users visible to this user (self + hierarchy + departments)
+     * Updated to include department members and full hierarchy
+     */
     public function getVisibleUsers(): Collection
     {
         $users = collect([$this]); // Always include self
 
-        // Add direct reports
-        $users = $users->merge($this->directReports);
+        // Add direct reports (subordinates)
+        $directReports = $this->subordinates()->with(['departments', 'currentPosition'])->get();
+        $users = $users->merge($directReports);
 
-        // Add department members if user is a manager
-//        if ($this->canApprovePto()) {
-//            $departmentUsers = User::whereHas('departments', function ($query) {
-//                $query->whereIn('departments.id', $this->departments->pluck('id'));
-//            })->get();
-//
-//            $users = $users->merge($departmentUsers);
-//        }
+        // Add all users in subordinate hierarchy (reports of reports, etc.)
+        $allSubordinateIds = $this->getAllSubordinateIds();
+        if (!empty($allSubordinateIds)) {
+            $allSubordinates = User::whereIn('id', $allSubordinateIds)
+                ->with(['departments', 'currentPosition'])
+                ->get();
+            $users = $users->merge($allSubordinates);
+        }
+
+        // Add department members if user is a manager or has department access
+        if ($this->isManager() || $this->hasRole(['manager', 'admin', 'hr'])) {
+            $departmentUsers = User::whereHas('departments', function ($query) {
+                $query->whereIn('departments.id', $this->departments->pluck('id'));
+            })->with(['departments', 'currentPosition'])->get();
+
+            $users = $users->merge($departmentUsers);
+        }
+
+        // Add manager and manager's other reports (peer visibility)
+        if ($this->reports_to_user_id) {
+            $manager = $this->manager()->with(['departments', 'currentPosition'])->first();
+            if ($manager) {
+                $users = $users->push($manager);
+
+                // Add peers (other direct reports of same manager)
+                $peers = $manager->subordinates()->with(['departments', 'currentPosition'])->get();
+                $users = $users->merge($peers);
+            }
+        }
 
         return $users->unique('id');
+    }
+    /**
+     * Get all subordinate user IDs recursively (entire hierarchy below this user)
+     */
+    public function getAllSubordinateIds(): array
+    {
+        $subordinateIds = [];
+        $directSubordinates = $this->subordinates()->pluck('id')->toArray();
+
+        foreach ($directSubordinates as $subordinateId) {
+            $subordinateIds[] = $subordinateId;
+
+            // Recursively get subordinates of subordinates
+            $subordinate = User::find($subordinateId);
+            if ($subordinate) {
+                $nestedSubordinates = $subordinate->getAllSubordinateIds();
+                $subordinateIds = array_merge($subordinateIds, $nestedSubordinates);
+            }
+        }
+
+        return array_unique($subordinateIds);
+    }
+    /**
+     * Get all users in complete hierarchy (managers above + subordinates below)
+     */
+    public function getCompleteHierarchy(): Collection
+    {
+        $users = collect([$this]);
+
+        // Add all managers up the chain
+        $managerIds = $this->getManagersInHierarchy();
+        if (!empty($managerIds)) {
+            $managers = User::whereIn('id', $managerIds)
+                ->with(['departments', 'currentPosition'])
+                ->get();
+            $users = $users->merge($managers);
+        }
+
+        // Add all subordinates down the chain
+        $subordinateIds = $this->getAllSubordinateIds();
+        if (!empty($subordinateIds)) {
+            $subordinates = User::whereIn('id', $subordinateIds)
+                ->with(['departments', 'currentPosition'])
+                ->get();
+            $users = $users->merge($subordinates);
+        }
+
+        return $users->unique('id');
+    }
+    /**
+     * Get employees that this user manages directly
+     */
+    public function getDirectReports(): Collection
+    {
+        return $this->subordinates()->with(['departments', 'currentPosition'])->get();
+    }
+
+    /**
+     * Get all department members for departments this user belongs to
+     */
+    public function getDepartmentMembers(): Collection
+    {
+        if ($this->departments->isEmpty()) {
+            return collect();
+        }
+
+        return User::whereHas('departments', function ($query) {
+            $query->whereIn('departments.id', $this->departments->pluck('id'));
+        })->with(['departments', 'currentPosition'])->get();
     }
     /**
      * Check if the user has a temporary WorkOS ID (invitation pending)

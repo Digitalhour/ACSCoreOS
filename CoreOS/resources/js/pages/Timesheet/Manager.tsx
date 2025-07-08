@@ -1,1302 +1,885 @@
 import React, {useEffect, useState} from 'react';
-import {
-    AlertTriangle,
-    Check,
-    ChevronLeft,
-    ChevronRight,
-    Clock,
-    Coffee,
-    Download,
-    Eye,
-    List,
-    RotateCcw,
-    Search,
-    TableIcon,
-    Users,
-    X
-} from 'lucide-react';
 import {Head, router} from '@inertiajs/react';
 import AppLayout from '@/layouts/app-layout';
 import {type BreadcrumbItem} from '@/types';
-import {Card, CardContent, CardHeader, CardTitle} from '@/components/ui/card';
-import {Button} from '@/components/ui/button';
+import {Card, CardContent, CardDescription, CardHeader, CardTitle,} from '@/components/ui/card';
+import {Table, TableBody, TableCell, TableHead, TableHeader, TableRow,} from '@/components/ui/table';
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog';
+import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue,} from '@/components/ui/select';
+import {Popover, PopoverContent, PopoverTrigger,} from '@/components/ui/popover';
+import {Calendar} from '@/components/ui/calendar';
 import {Badge} from '@/components/ui/badge';
-import {Table, TableBody, TableCell, TableHead, TableHeader, TableRow} from '@/components/ui/table';
-import {Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle} from '@/components/ui/dialog';
-import {Textarea} from '@/components/ui/textarea';
-import {Label} from '@/components/ui/label';
+import {Button} from '@/components/ui/button';
 import {Input} from '@/components/ui/input';
-import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from '@/components/ui/select';
-import {Tabs, TabsContent, TabsList, TabsTrigger} from '@/components/ui/tabs';
+import {Label} from '@/components/ui/label';
+import {Textarea} from '@/components/ui/textarea';
+import {Alert, AlertDescription} from '@/components/ui/alert';
+import {
+    AlertTriangle,
+    Building,
+    Calendar as CalendarIcon,
+    ChevronLeft,
+    ChevronRight,
+    Clock,
+    Edit3,
+    Eye,
+    Plus,
+    Save,
+    Trash2,
+    Users,
+    X
+} from 'lucide-react';
+import {addWeeks, format, parseISO, startOfWeek, subWeeks} from 'date-fns';
+import {cn} from '@/lib/utils';
 
+// ============================================================================
+// Type Definitions
+// ============================================================================
 interface User {
     id: number;
     name: string;
     email: string;
-    departments?: string[];
     position?: string;
+    departments?: string[];
+}
+
+// Updated EditHistoryItem to match the new controller response
+interface EditHistoryItem {
+    id: number;
+    adjustment_type: string;
+    reason: string;
+    employee_notes?: string;
+    status: string;
+    created_at: string;
+    original_data?: {
+        clock_in_time?: string;
+        clock_out_time?: string;
+        total_hours?: number;
+    };
+    adjusted_clock_in?: string;
+    adjusted_clock_out?: string;
+    adjusted_hours?: number;
+    requestedBy?: { id: number; name: string; };
+    approvedBy?: { id: number; name: string; };
+    rejectedBy?: { id: number; name: string; };
+    approved_at?: string;
+    rejection_reason?: string;
+    rejected_at?: string;
+    approval_notes?: string;
 }
 
 interface TimeEntry {
     id: number;
-    user: User;
     clock_in_time: string;
     clock_out_time?: string;
     total_hours?: number;
-    regular_hours?: number;
-    overtime_hours?: number;
     status: string;
-    break_count: number;
-    total_break_minutes: number;
-    adjustment_reason?: string;
-    submission_status?: string;
-    submission_id?: number;
+    is_active?: boolean;
+    is_edited?: boolean;
+    edit_history?: EditHistoryItem[];
 }
 
-interface DailySummary {
-    user: User;
+interface DayData {
     date: string;
     day_name: string;
-    entries_count: number;
+    is_weekend: boolean;
     total_hours: number;
-    regular_hours: number;
-    overtime_hours: number;
-    total_break_minutes: number;
-    first_clock_in: string;
-    last_clock_out?: string;
-    has_incomplete: boolean;
-    submission_status?: string;
-    submission_id?: number;
+    regular_hours?: number;
+    overtime_hours?: number;
+    entries_count?: number;
+    entries: TimeEntry[];
 }
 
-interface Summary {
-    total_entries: number;
+interface WeeklyTotals {
     total_hours: number;
-    total_regular: number;
-    total_overtime: number;
-    active_entries: number;
-    completed_entries: number;
-    adjusted_entries: number;
-    unique_employees: number;
+    regular_hours?: number;
+    overtime_hours?: number;
 }
 
 interface Submission {
     id: number;
-    user: User;
-    week_start_date: string;
-    week_end_date: string;
-    total_hours: number;
-    regular_hours: number;
-    overtime_hours: number;
-    break_hours: number;
     status: string;
-    submitted_at: string;
-    self_submitted: boolean;
+    submitted_at?: string;
+    can_edit?: boolean;
+    is_locked?: boolean;
 }
 
-interface Pagination {
-    current_page: number;
-    last_page: number;
-    per_page: number;
-    total: number;
-    from: number;
-    to: number;
-}
-
-interface ApprovalForm {
-    approval_notes: string;
-}
-
-interface RejectionForm {
-    rejection_reason: string;
-}
-
-interface TimesheetData {
+interface UserData {
     user: User;
-    week_info: {
+    week_info?: {
         start_date: string;
         end_date: string;
         display: string;
     };
-    submission?: {
-        id: number;
-        status: string;
-    };
-    weekly_totals: {
-        total_hours: number;
-        regular_hours: number;
-        overtime_hours: number;
-        break_hours: number;
-    };
-    daily_data: Array<{
-        date: string;
-        day_name: string;
-        total_hours: number;
-        break_minutes: number;
-        entries: Array<{
-            clock_in_time: string;
-            clock_out_time?: string;
-        }>;
-    }>;
+    submission?: Submission;
+    daily_data: DayData[];
+    weekly_totals: WeeklyTotals;
 }
 
+interface WeekInfo {
+    start_date: string;
+    end_date: string;
+    display: string;
+}
+
+interface WeeklyDataResponse {
+    week_info: WeekInfo;
+    users_data: UserData[];
+}
+
+interface EditingEntry extends TimeEntry {
+    user?: User;
+}
+
+interface AdjustmentData {
+    time_entry_id: number;
+    adjustment_type: string;
+    adjusted_clock_in: string;
+    adjusted_clock_out: string | null;
+    adjusted_hours: number;
+    reason: string;
+    employee_notes: string;
+    original_data: {
+        clock_in_time: string;
+        clock_out_time?: string;
+        total_hours?: number;
+    };
+}
+
+type AdjustmentType = 'time_correction' | 'missed_punch' | 'break_adjustment' | 'manual_entry';
+
 const breadcrumbs: BreadcrumbItem[] = [
-    {
-        title: 'Dashboard',
-        href: '/dashboard',
-    },
-    {
-        title: 'Team Time Management',
-        href: '/timesheet/manage',
-    },
+    { title: 'Dashboard', href: '/dashboard' },
+    { title: 'Timesheet', href: '/timesheet' },
+    { title: 'Manager', href: '/timesheet/manager' },
 ];
 
-export default function ManagerTimesheetView() {
-    // State for pending submissions (existing functionality)
-    const [pendingSubmissions, setPendingSubmissions] = useState<Submission[]>([]);
-    const [selectedUser, setSelectedUser] = useState<User | null>(null);
-    const [selectedSubmission, setSelectedSubmission] = useState<Submission | null>(null);
-    const [selectedWeek, setSelectedWeek] = useState<string>(new Date().toISOString().split('T')[0]);
-    const [timesheetData, setTimesheetData] = useState<TimesheetData | null>(null);
+// ============================================================================
+// DateTimePicker Component (for Edit Dialog only)
+// ============================================================================
+interface DateTimePickerProps {
+    value: string;
+    onChange: (value: string) => void;
+    placeholder?: string;
+}
 
-    // State for time entries view (new functionality)
-    const [timeEntries, setTimeEntries] = useState<TimeEntry[]>([]);
-    const [dailySummaries, setDailySummaries] = useState<DailySummary[]>([]);
-    const [manageableUsers, setManageableUsers] = useState<User[]>([]);
-    const [currentlyActive, setCurrentlyActive] = useState<TimeEntry[]>([]);
-    const [summary, setSummary] = useState<Summary | null>(null);
-    const [pagination, setPagination] = useState<Pagination | null>(null);
+const DateTimePicker: React.FC<DateTimePickerProps> = ({ value, onChange, placeholder = "Pick a date and time" }) => {
+    const [open, setOpen] = useState<boolean>(false);
+    const [selectedDate, setSelectedDate] = useState<Date | undefined>(value ? parseISO(value) : undefined);
+    const [timeValue, setTimeValue] = useState<string>(
+        value ? format(parseISO(value), 'HH:mm') : '09:00'
+    );
 
-    // Common state
-    const [loading, setLoading] = useState<boolean>(false);
-    const [activeTab, setActiveTab] = useState<string>('time-entries');
-
-    // Filter state
-    const [filters, setFilters] = useState({
-        start_date: '',
-        end_date: '',
-        user_id: '',
-        department: 'all',
-        status: 'all',
-        search: '',
-        view_type: 'entries', // 'entries' or 'daily'
-        per_page: 20
-    });
-
-    // Modal state
-    const [showApprovalModal, setShowApprovalModal] = useState<boolean>(false);
-    const [showRejectionModal, setShowRejectionModal] = useState<boolean>(false);
-    const [approvalForm, setApprovalForm] = useState<ApprovalForm>({ approval_notes: '' });
-    const [rejectionForm, setRejectionForm] = useState<RejectionForm>({ rejection_reason: '' });
-
-    useEffect(() => {
-        if (activeTab === 'pending') {
-            fetchPendingSubmissions();
-        } else if (activeTab === 'time-entries') {
-            fetchManageableUsers();
-            fetchTimeEntries();
-            fetchCurrentlyActive();
-        }
-    }, [activeTab]);
-
-    useEffect(() => {
-        if (activeTab === 'time-entries') {
-            fetchTimeEntries();
-        }
-    }, [filters]);
-
-    // Auto-refresh currently active entries every 30 seconds
-    useEffect(() => {
-        let interval: NodeJS.Timeout;
-        if (activeTab === 'time-entries') {
-            interval = setInterval(() => {
-                fetchCurrentlyActive();
-            }, 30000); // 30 seconds
-        }
-        return () => {
-            if (interval) clearInterval(interval);
-        };
-    }, [activeTab]);
-
-    useEffect(() => {
-        if (selectedUser && activeTab === 'individual') {
-            fetchUserTimesheet();
-        }
-    }, [selectedUser, selectedWeek, activeTab]);
-
-    const fetchPendingSubmissions = async (): Promise<void> => {
-        setLoading(true);
-        try {
-            const response = await fetch('/api/timesheet/pending-submissions');
-            const data = await response.json();
-            setPendingSubmissions(data.submissions || []);
-        } catch (error) {
-            console.error('Failed to fetch pending submissions:', error);
-        } finally {
-            setLoading(false);
+    const handleDateSelect = (date: Date | undefined): void => {
+        if (date) {
+            setSelectedDate(date);
+            const [hours, minutes] = timeValue.split(':');
+            const newDateTime = new Date(date);
+            newDateTime.setHours(parseInt(hours), parseInt(minutes));
+            onChange(format(newDateTime, "yyyy-MM-dd'T'HH:mm"));
         }
     };
 
-    const fetchManageableUsers = async (): Promise<void> => {
-        try {
-            const response = await fetch('/api/timeclock/manageable-users');
-            const data = await response.json();
-            setManageableUsers(data.users || []);
-        } catch (error) {
-            console.error('Failed to fetch manageable users:', error);
-        }
-    };
+    const handleTimeChange = (time: string): void => {
+        setTimeValue(time);
+        if (selectedDate && time) {
+            try {
+                const [hours, minutes] = time.split(':');
+                const hoursNum = parseInt(hours, 10);
+                const minutesNum = parseInt(minutes, 10);
 
-    const fetchTimeEntries = async (): Promise<void> => {
-        setLoading(true);
-        try {
-            const params = new URLSearchParams();
-            Object.entries(filters).forEach(([key, value]) => {
-                if (value && value !== 'all') {
-                    // Handle special "currently_active" filter
-                    if (key === 'status' && value === 'currently_active') {
-                        params.append('status', 'active');
-                    } else {
-                        params.append(key, value.toString());
-                    }
+                if (isNaN(hoursNum) || isNaN(minutesNum) || hoursNum < 0 || hoursNum > 23 || minutesNum < 0 || minutesNum > 59) {
+                    console.warn('Invalid time values:', hours, minutes);
+                    return;
                 }
-            });
 
-            const response = await fetch(`/api/timeclock/manager/time-entries?${params}`);
-            const data = await response.json();
+                const newDateTime = new Date(selectedDate);
+                newDateTime.setHours(hoursNum, minutesNum);
 
-            if (filters.view_type === 'daily') {
-                setDailySummaries(data.data || []);
-            } else {
-                setTimeEntries(data.data || []);
+                if (isNaN(newDateTime.getTime())) {
+                    console.warn('Invalid date created:', newDateTime);
+                    return;
+                }
+
+                onChange(format(newDateTime, "yyyy-MM-dd'T'HH:mm"));
+            } catch (err) {
+                console.error('Error handling time change:', err);
             }
+        }
+    };
 
-            setPagination(data.pagination);
-            setSummary(data.summary);
-        } catch (error) {
-            console.error('Failed to fetch time entries:', error);
+    useEffect(() => {
+        if (value) {
+            try {
+                const date = parseISO(value);
+                setSelectedDate(date);
+                setTimeValue(format(date, 'HH:mm'));
+            } catch (e) {
+                setSelectedDate(undefined);
+                setTimeValue('09:00');
+            }
+        } else {
+            setSelectedDate(undefined);
+            setTimeValue('09:00');
+        }
+    }, [value]);
+
+    return (
+        <Popover open={open} onOpenChange={setOpen}>
+            <PopoverTrigger asChild>
+                <Button
+                    variant="outline"
+                    className={cn(
+                        "w-full justify-start text-left font-normal",
+                        !value && "text-muted-foreground"
+                    )}
+                >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {value ? (
+                        format(parseISO(value), "PPP 'at' HH:mm")
+                    ) : (
+                        <span>{placeholder}</span>
+                    )}
+                </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="start">
+                <div className="space-y-4 p-4">
+                    <Calendar
+                        mode="single"
+                        selected={selectedDate}
+                        onSelect={handleDateSelect}
+                        initialFocus
+                    />
+                    <div className="space-y-2">
+                        <Label htmlFor="time">Time</Label>
+                        <Input
+                            id="time"
+                            type="time"
+                            value={timeValue}
+                            onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleTimeChange(e.target.value)}
+                        />
+                    </div>
+                    <Button
+                        onClick={() => setOpen(false)}
+                        className="w-full"
+                    >
+                        Set Date & Time
+                    </Button>
+                </div>
+            </PopoverContent>
+        </Popover>
+    );
+};
+
+// ============================================================================
+// Manager Component
+// ============================================================================
+const Manager: React.FC = () => {
+    // Component State
+    const [weeklyData, setWeeklyData] = useState<UserData[]>([]);
+    const [weekInfo, setWeekInfo] = useState<WeekInfo | null>(null);
+    const [loading, setLoading] = useState<boolean>(true);
+    const [error, setError] = useState<string | null>(null);
+    const [selectedWeek, setSelectedWeek] = useState<Date>(new Date());
+
+    // Dialog States
+    const [editingEntry, setEditingEntry] = useState<EditingEntry | null>(null);
+    const [showEditDialog, setShowEditDialog] = useState<boolean>(false);
+    const [showDeleteDialog, setShowDeleteDialog] = useState<boolean>(false);
+    const [showAddDialog, setShowAddDialog] = useState<boolean>(false);
+    const [showHistoryDialog, setShowHistoryDialog] = useState<boolean>(false);
+
+    // Add Entry Form State
+    const [selectedUser, setSelectedUser] = useState<User | null>(null);
+    const [selectedDate, setSelectedDate] = useState<string>('');
+    const [newClockInTime, setNewClockInTime] = useState<string>('09:00'); // Just time now
+    const [newClockOutTime, setNewClockOutTime] = useState<string>('17:00'); // Just time now
+    const [newEntryReason, setNewEntryReason] = useState<string>('');
+    const [newEntryNotes, setNewEntryNotes] = useState<string>('');
+    const [addEntryLoading, setAddEntryLoading] = useState<boolean>(false);
+    const [addEntryError, setAddEntryError] = useState<string>('');
+
+    // Edit Entry Form State
+    const [adjustmentType, setAdjustmentType] = useState<AdjustmentType>('time_correction');
+    const [adjustedClockIn, setAdjustedClockIn] = useState<string>('');
+    const [adjustedClockOut, setAdjustedClockOut] = useState<string>('');
+    const [reason, setReason] = useState<string>('');
+    const [employeeNotes, setEmployeeNotes] = useState<string>('');
+    const [submitLoading, setSubmitLoading] = useState<boolean>(false);
+    const [submitError, setSubmitError] = useState<string>('');
+
+    // Delete Entry Form State
+    const [deleteReason, setDeleteReason] = useState<string>('');
+    const [deleteLoading, setDeleteLoading] = useState<boolean>(false);
+    const [deleteError, setDeleteError] = useState<string>('');
+
+    // History Dialog State
+    const [historyLoading, setHistoryLoading] = useState<boolean>(false);
+    const [historyError, setHistoryError] = useState<string | null>(null);
+    const [adjustmentHistory, setAdjustmentHistory] = useState<EditHistoryItem[]>([]);
+
+    // Data Fetching Effect
+    useEffect(() => {
+        fetchWeeklyData();
+    }, [selectedWeek]);
+
+    // Async Functions & Handlers
+    const fetchWeeklyData = async (): Promise<void> => {
+        setLoading(true);
+        setError(null);
+        try {
+            const weekStart = startOfWeek(selectedWeek, { weekStartsOn: 1 });
+            const formattedDate = format(weekStart, 'yyyy-MM-dd');
+            const response = await fetch(`/api/timesheet/weekly-data?week_start=${formattedDate}`);
+            if (!response.ok) {
+                throw new Error(`Server responded with status: ${response.status}`);
+            }
+            const data: WeeklyDataResponse = await response.json();
+            if (!data.users_data || !Array.isArray(data.users_data)) {
+                throw new Error('Invalid data format received from server');
+            }
+            setWeeklyData(data.users_data);
+            setWeekInfo(data.week_info || null);
+        } catch (err) {
+            console.error('Error fetching weekly data:', err);
+            setError(err instanceof Error ? err.message : 'Failed to load timesheet data');
+            setWeeklyData([]);
+            setWeekInfo(null);
         } finally {
             setLoading(false);
         }
     };
 
-    const fetchCurrentlyActive = async (): Promise<void> => {
-        try {
-            const response = await fetch('/api/timeclock/manager/time-entries?status=active&view_type=entries&per_page=100');
-            const data = await response.json();
-            setCurrentlyActive(data.data || []);
-        } catch (error) {
-            console.error('Failed to fetch currently active entries:', error);
-        }
+    const navigateWeek = (direction: number): void => {
+        const newDate = direction > 0 ? addWeeks(selectedWeek, 1) : subWeeks(selectedWeek, 1);
+        setSelectedWeek(newDate);
     };
 
-    const fetchUserTimesheet = async (): Promise<void> => {
-        if (!selectedUser) return;
-
-        setLoading(true);
-        try {
-            const response = await fetch(`/api/timesheet/${selectedUser.id}?week_start=${selectedWeek}`);
-            const data = await response.json();
-            setTimesheetData(data);
-        } catch (error) {
-            console.error('Failed to fetch user timesheet:', error);
-        } finally {
-            setLoading(false);
+    const handleAddEntry = (userData: UserData): void => {
+        setSelectedUser(userData.user);
+        if (userData.daily_data && userData.daily_data.length > 0) {
+            const firstWorkableDay = userData.daily_data.find(d => !d.is_weekend)?.date || userData.daily_data[0].date;
+            setSelectedDate(firstWorkableDay);
+        } else {
+            setSelectedDate('');
         }
+        setNewClockInTime('09:00');
+        setNewClockOutTime('17:00');
+        setNewEntryReason('');
+        setNewEntryNotes('');
+        setAddEntryError('');
+        setAddEntryLoading(false);
+        setShowAddDialog(true);
     };
 
-    const handleApprove = (): void => {
-        if (!selectedSubmission) return;
+    // Helper function to combine date and time
+    const combineDateAndTime = (date: string, time: string): string => {
+        if (!date || !time) return '';
+        return `${date}T${time}:00`;
+    };
 
-        setLoading(true);
-        router.post(`/api/timesheet/approve/${selectedSubmission.id}`, approvalForm, {
+    const handleSubmitAddEntry = (e: React.FormEvent<HTMLFormElement>): void => {
+        e.preventDefault();
+        setAddEntryError('');
+
+        if (!selectedUser) { setAddEntryError('User is required'); return; }
+        if (!selectedDate) { setAddEntryError('Date is required'); return; }
+        if (!newClockInTime) { setAddEntryError('Clock in time is required'); return; }
+
+        const clockInDateTime = combineDateAndTime(selectedDate, newClockInTime);
+        const clockOutDateTime = newClockOutTime ? combineDateAndTime(selectedDate, newClockOutTime) : null;
+
+        if (clockOutDateTime && parseISO(clockInDateTime) >= parseISO(clockOutDateTime)) {
+            setAddEntryError('Clock out time must be after clock in time');
+            return;
+        }
+        if (!newEntryReason.trim()) { setAddEntryError('Reason is required'); return; }
+
+        setAddEntryLoading(true);
+        const newEntryData = {
+            user_id: selectedUser.id,
+            date: selectedDate,
+            clock_in_time: clockInDateTime,
+            clock_out_time: clockOutDateTime,
+            reason: newEntryReason.trim(),
+            notes: newEntryNotes.trim()
+        };
+
+        router.post('/api/time-entries', newEntryData, {
+            preserveState: true,
+            preserveScroll: true,
             onSuccess: () => {
-                setShowApprovalModal(false);
-                setApprovalForm({ approval_notes: '' });
-                fetchPendingSubmissions();
-                showNotification('Timesheet approved successfully!', 'success');
+                setShowAddDialog(false);
+                fetchWeeklyData();
             },
-            onError: (errors) => {
-                const errorMessage = Object.values(errors)[0] as string || 'Failed to approve timesheet';
-                showNotification(errorMessage, 'error');
+            onError: (errors: Record<string, string>) => {
+                setAddEntryError(errors.message || 'Failed to add time entry');
             },
             onFinish: () => {
-                setLoading(false);
-            },
-            preserveScroll: true
+                setAddEntryLoading(false);
+            }
         });
     };
 
-    const handleReject = (): void => {
-        if (!selectedSubmission || !rejectionForm.rejection_reason.trim()) {
-            showNotification('Please provide a reason for rejection', 'error');
+    const handleEditEntry = (entry: TimeEntry, userData: UserData): void => {
+        const entryWithContext: EditingEntry = { ...entry, user: userData.user };
+        setEditingEntry(entryWithContext);
+
+        setSubmitError('');
+        setAdjustmentType('time_correction');
+        setReason('');
+        setEmployeeNotes('');
+
+        setAdjustedClockIn(entry.clock_in_time ? format(parseISO(entry.clock_in_time), "yyyy-MM-dd'T'HH:mm") : '');
+        setAdjustedClockOut(entry.clock_out_time ? format(parseISO(entry.clock_out_time), "yyyy-MM-dd'T'HH:mm") : '');
+
+        setShowEditDialog(true);
+    };
+
+    const handleSubmitEdit = (e: React.FormEvent<HTMLFormElement>): void => {
+        e.preventDefault();
+        setSubmitError('');
+
+        if (!editingEntry) { setSubmitError('No entry selected for editing'); return; }
+        if (!reason.trim()) { setSubmitError('Reason for adjustment is required'); return; }
+        if (!adjustedClockIn) { setSubmitError('Clock in time is required'); return; }
+        if (adjustedClockOut && parseISO(adjustedClockIn) >= parseISO(adjustedClockOut)) {
+            setSubmitError('Clock out time must be after clock in time');
             return;
         }
 
-        setLoading(true);
-        router.post(`/api/timesheet/reject/${selectedSubmission.id}`, rejectionForm, {
-            onSuccess: () => {
-                setShowRejectionModal(false);
-                setRejectionForm({ rejection_reason: '' });
-                fetchPendingSubmissions();
-                showNotification('Timesheet rejected successfully!', 'success');
+        setSubmitLoading(true);
+        const adjustmentData: AdjustmentData = {
+            time_entry_id: editingEntry.id,
+            adjustment_type: adjustmentType,
+            adjusted_clock_in: adjustedClockIn,
+            adjusted_clock_out: adjustedClockOut || null,
+            adjusted_hours: calculateHours(adjustedClockIn, adjustedClockOut || ''),
+            reason: reason.trim(),
+            employee_notes: employeeNotes.trim(),
+            original_data: {
+                clock_in_time: editingEntry.clock_in_time,
+                clock_out_time: editingEntry.clock_out_time,
+                total_hours: editingEntry.total_hours,
             },
-            onError: (errors) => {
-                const errorMessage = Object.values(errors)[0] as string || 'Failed to reject timesheet';
-                showNotification(errorMessage, 'error');
+        };
+
+        router.post('/api/time-adjustments/manager/time-correction', adjustmentData as any, {
+            preserveState: true,
+            preserveScroll: true,
+            onSuccess: () => {
+                setShowEditDialog(false);
+                fetchWeeklyData();
+            },
+            onError: (errors: Record<string, string>) => {
+                setSubmitError(errors.message || 'Failed to submit time adjustment');
             },
             onFinish: () => {
-                setLoading(false);
+                setSubmitLoading(false);
+            }
+        });
+    };
+
+    const handleDeleteEntry = (entry: TimeEntry, userData: UserData): void => {
+        setEditingEntry({ ...entry, user: userData.user });
+        setDeleteReason('');
+        setDeleteError('');
+        setShowDeleteDialog(true);
+    };
+
+    const handleSubmitDelete = (e: React.FormEvent<HTMLFormElement>): void => {
+        e.preventDefault();
+        setDeleteError('');
+
+        if (!editingEntry) { setDeleteError('No entry selected for deletion'); return; }
+        if (!deleteReason.trim()) { setDeleteError('Reason is required'); return; }
+
+        setDeleteLoading(true);
+        router.delete(`/api/time-entries/${editingEntry.id}`, {
+            data: { reason: deleteReason.trim() },
+            preserveState: true,
+            preserveScroll: true,
+            onSuccess: () => {
+                setShowDeleteDialog(false);
+                fetchWeeklyData();
             },
-            preserveScroll: true
+            onError: (errors: Record<string, string>) => {
+                setDeleteError(errors.message || 'Failed to delete time entry');
+            },
+            onFinish: () => {
+                setDeleteLoading(false);
+            }
         });
     };
 
-    const resetFilters = (): void => {
-        setFilters({
-            start_date: '',
-            end_date: '',
-            user_id: '',
-            department: 'all',
-            status: 'all',
-            search: '',
-            view_type: 'entries',
-            per_page: 20
-        });
-    };
+    const handleViewHistory = (entry: TimeEntry, userData: UserData): void => {
+        setEditingEntry({ ...entry, user: userData.user });
+        setHistoryLoading(true);
+        setHistoryError(null);
+        setAdjustmentHistory([]);
+        setShowHistoryDialog(true);
 
-    const exportTimeEntries = async (): Promise<void> => {
-        try {
-            const params = new URLSearchParams();
-            Object.entries(filters).forEach(([key, value]) => {
-                if (value && value !== 'all') {
-                    params.append(key, value.toString());
-                }
+        fetch(`/api/time-adjustments/history/${entry.id}`)
+            .then(response => {
+                if (!response.ok) throw new Error('Failed to fetch adjustment history');
+                return response.json();
+            })
+            .then(data => {
+                setAdjustmentHistory(data.adjustments && Array.isArray(data.adjustments) ? data.adjustments : []);
+            })
+            .catch(err => {
+                setHistoryError(err instanceof Error ? err.message : 'Failed to load history');
+            })
+            .finally(() => {
+                setHistoryLoading(false);
             });
+    };
 
-            const link = document.createElement('a');
-            link.href = `/api/timeclock/export?${params}`;
-            link.download = `time_entries_${new Date().toISOString().split('T')[0]}.csv`;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-
-            showNotification('Export completed successfully!', 'success');
+    // Helper/Formatting Functions
+    const formatTime = (dateTime: string | undefined): string => {
+        if (!dateTime) return '--';
+        try {
+            return format(parseISO(dateTime), 'HH:mm');
         } catch (error) {
-            showNotification('Export failed. Please try again.', 'error');
+            return 'Invalid';
         }
     };
 
-    const showNotification = (message: string, type: 'success' | 'error'): void => {
-        console.log(`${type}: ${message}`);
+    const formatDateTime = (dateTimeString: string | undefined): string => {
+        if (!dateTimeString) return 'Not set';
+        try {
+            return format(parseISO(dateTimeString), 'EEE, MMM d \'at\' HH:mm');
+        } catch (error) {
+            return 'Invalid date';
+        }
     };
 
-    const formatDate = (dateString: string): string => {
-        return new Date(dateString).toLocaleDateString('en-US', {
-            month: 'short',
-            day: 'numeric',
-            year: 'numeric'
-        });
+    const getDayAbbrev = (dayName: string): string => dayName.substring(0, 3);
+    const formatHours = (hours: number | undefined, decimals: number = 1): string => {
+        const num = Number(hours);
+        return !isNaN(num) && num > 0 ? num.toFixed(decimals) : '0.0';
     };
 
-    const formatTime = (timeString: string): string => {
-        if (!timeString) return '--:--';
-        return new Date(timeString).toLocaleTimeString('en-US', {
-            hour: '2-digit',
-            minute: '2-digit',
-            hour12: true
-        });
+    const calculateHours = (clockIn: string, clockOut: string): number => {
+        if (!clockIn || !clockOut) return 0;
+        try {
+            const start = parseISO(clockIn);
+            const end = parseISO(clockOut);
+            if (isNaN(start.getTime()) || isNaN(end.getTime()) || end <= start) return 0;
+            const diffMs = end.getTime() - start.getTime();
+            return diffMs / (1000 * 60 * 60);
+        } catch (error) {
+            return 0;
+        }
     };
 
-    const formatHours = (hours: number | null): string => {
-        if (!hours) return '0.00';
-        return parseFloat(hours.toString()).toFixed(2);
+    // Calculate hours for time-only inputs
+    const calculateHoursFromTimes = (clockInTime: string, clockOutTime: string): number => {
+        if (!clockInTime || !clockOutTime || !selectedDate) return 0;
+
+        const clockIn = combineDateAndTime(selectedDate, clockInTime);
+        const clockOut = combineDateAndTime(selectedDate, clockOutTime);
+
+        return calculateHours(clockIn, clockOut);
     };
 
-    const getStatusBadge = (status: string) => {
-        const badges = {
-            active: { color: 'bg-green-100 text-green-800', text: 'Active' },
-            completed: { color: 'bg-blue-100 text-blue-800', text: 'Completed' },
-            adjusted: { color: 'bg-purple-100 text-purple-800', text: 'Adjusted' },
-            draft: { color: 'bg-gray-100 text-gray-800', text: 'Draft' },
-            submitted: { color: 'bg-yellow-100 text-yellow-800', text: 'Pending' },
-            approved: { color: 'bg-green-100 text-green-800', text: 'Approved' },
-            rejected: { color: 'bg-red-100 text-red-800', text: 'Rejected' },
-            locked: { color: 'bg-blue-100 text-blue-800', text: 'Locked' }
-        };
+    const adjustmentTypes: Record<AdjustmentType, string> = {
+        'time_correction': 'Time Correction',
+        'missed_punch': 'Missed Punch',
+        'break_adjustment': 'Break Adjustment',
+        'manual_entry': 'Manual Entry',
+    };
 
-        const badge = badges[status as keyof typeof badges] || badges.completed;
+    const getStatusBadgeVariant = (status: string) => {
+        switch (status) {
+            case 'approved': return 'default';
+            case 'pending': return 'secondary';
+            case 'rejected': return 'destructive';
+            default: return 'outline';
+        }
+    };
 
+    const formatAdjustmentType = (type: string) => {
+        return type.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+    };
+
+    // Render Logic
+    if (loading) {
         return (
-            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${badge.color}`}>
-                {badge.text}
-            </span>
+            <AppLayout breadcrumbs={breadcrumbs}><Head title="Timesheet Manager" /><div className="p-6">Loading...</div></AppLayout>
         );
-    };
+    }
 
-    const navigateWeek = (direction: number) => {
-        const currentWeek = new Date(selectedWeek);
-        currentWeek.setDate(currentWeek.getDate() + (direction * 7));
-        setSelectedWeek(currentWeek.toISOString().split('T')[0]);
-    };
+    if (error) {
+        return (
+            <AppLayout breadcrumbs={breadcrumbs}><Head title="Timesheet Manager" /><div className="p-6"><Alert variant="destructive">{error}</Alert></div></AppLayout>
+        );
+    }
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
-            <Head title="Team Time Management" />
-            <div className="flex h-full max-h-screen flex-1 flex-col gap-4 rounded-xl p-4">
-                {/* Header */}
-                <div className="flex items-center justify-between">
-                    <div>
-                        <h1 className="text-3xl font-bold tracking-tight">Team Time Management</h1>
-                        <p className="text-muted-foreground">
-                            Manage employee time tracking and timesheet approvals
-                        </p>
+            <Head title="Timesheet Manager" />
+            <div className="min-h-screen bg-gray-50 p-6">
+                <div className="max-w-7xl mx-auto space-y-6">
+                    {/* Header & Week Navigation */}
+                    <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+                        <div className="flex items-center gap-2">
+                            <Users className="h-6 w-6 text-blue-600" />
+                            <h1 className="text-2xl font-bold text-gray-900">Timesheet Manager</h1>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <Button variant="outline" size="sm" onClick={() => navigateWeek(-1)}><ChevronLeft className="h-4 w-4" /></Button>
+                            <div className="flex items-center gap-2 px-4 py-2 bg-white rounded-md border">
+                                <CalendarIcon className="h-4 w-4 text-gray-500" />
+                                <span className="font-medium text-sm">{weekInfo?.display || format(startOfWeek(selectedWeek, { weekStartsOn: 1 }), 'MMM d, yyyy')}</span>
+                            </div>
+                            <Button variant="outline" size="sm" onClick={() => navigateWeek(1)}><ChevronRight className="h-4 w-4" /></Button>
+                        </div>
                     </div>
 
-                    {activeTab === 'time-entries' && (
-                        <Button onClick={exportTimeEntries} variant="outline">
-                            <Download className="w-4 h-4 mr-2" />
-                            Export
-                        </Button>
-                    )}
-                </div>
+                    {/* Team Overview Card */}
+                    <Card>
+                        <CardHeader>
+                            <CardTitle className="flex items-center gap-2"><Building className="h-5 w-5" />Team Overview</CardTitle>
+                            <CardDescription>Manage timesheets for {weeklyData.length} team member{weeklyData.length !== 1 ? 's' : ''}</CardDescription>
+                        </CardHeader>
+                    </Card>
 
-                {/* Summary Stats for Time Entries */}
-                {activeTab === 'time-entries' && summary && (
-                    <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-                        <Card>
-                            <CardContent className="p-4">
-                                <div className="flex items-center">
-                                    <div className="p-2 bg-green-100 dark:bg-green-900 rounded-lg">
-                                        <div className="w-5 h-5 bg-green-500 rounded-full animate-pulse" />
-                                    </div>
-                                    <div className="ml-3">
-                                        <p className="text-sm font-medium text-muted-foreground">Currently Active</p>
-                                        <p className="text-lg font-semibold text-green-600">{currentlyActive.length}</p>
-                                    </div>
-                                </div>
-                            </CardContent>
-                        </Card>
-                        <Card>
-                            <CardContent className="p-4">
-                                <div className="flex items-center">
-                                    <div className="p-2 bg-blue-100 dark:bg-blue-900 rounded-lg">
-                                        <Users className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-                                    </div>
-                                    <div className="ml-3">
-                                        <p className="text-sm font-medium text-muted-foreground">Employees</p>
-                                        <p className="text-lg font-semibold">{summary.unique_employees}</p>
-                                    </div>
-                                </div>
-                            </CardContent>
-                        </Card>
-                        <Card>
-                            <CardContent className="p-4">
-                                <div className="flex items-center">
-                                    <div className="p-2 bg-gray-100 dark:bg-gray-900 rounded-lg">
-                                        <Clock className="h-5 w-5 text-gray-600 dark:text-gray-400" />
-                                    </div>
-                                    <div className="ml-3">
-                                        <p className="text-sm font-medium text-muted-foreground">Total Hours</p>
-                                        <p className="text-lg font-semibold">{formatHours(summary.total_hours)}</p>
-                                    </div>
-                                </div>
-                            </CardContent>
-                        </Card>
-                        <Card>
-                            <CardContent className="p-4">
-                                <div className="flex items-center">
-                                    <div className="p-2 bg-amber-100 dark:bg-amber-900 rounded-lg">
-                                        <AlertTriangle className="h-5 w-5 text-amber-600 dark:text-amber-400" />
-                                    </div>
-                                    <div className="ml-3">
-                                        <p className="text-sm font-medium text-muted-foreground">Overtime</p>
-                                        <p className="text-lg font-semibold">{formatHours(summary.total_overtime)}</p>
-                                    </div>
-                                </div>
-                            </CardContent>
-                        </Card>
-                        <Card>
-                            <CardContent className="p-4">
-                                <div className="flex items-center">
-                                    <div className="p-2 bg-purple-100 dark:bg-purple-900 rounded-lg">
-                                        <Clock className="h-5 w-5 text-purple-600 dark:text-purple-400" />
-                                    </div>
-                                    <div className="ml-3">
-                                        <p className="text-sm font-medium text-muted-foreground">Total Entries</p>
-                                        <p className="text-lg font-semibold">{summary.total_entries}</p>
-                                    </div>
-                                </div>
-                            </CardContent>
-                        </Card>
-                    </div>
-                )}
-
-                {/* Tabs */}
-                <Tabs value={activeTab} onValueChange={setActiveTab}>
-                    <TabsList className="grid w-fit grid-cols-3">
-                        <TabsTrigger value="time-entries" className="flex items-center space-x-2">
-                            <Clock className="w-4 h-4" />
-                            <span>Time Entries</span>
-                        </TabsTrigger>
-                        <TabsTrigger value="pending" className="flex items-center space-x-2">
-                            <Clock className="w-4 h-4" />
-                            <span>Pending ({pendingSubmissions.length})</span>
-                        </TabsTrigger>
-                        <TabsTrigger value="individual" className="flex items-center space-x-2">
-                            <Eye className="w-4 h-4" />
-                            <span>Individual View</span>
-                        </TabsTrigger>
-                    </TabsList>
-
-                    {/* Time Entries Tab */}
-                    <TabsContent value="time-entries" className="space-y-4">
-                        {/* Currently Active Section */}
-                        {currentlyActive.length > 0 && (
-                            <Card className="border-l-4 border-l-green-500">
-                                <CardHeader className="pb-2">
-                                    <div className="flex items-center justify-between">
-                                        <CardTitle className="text-lg flex items-center">
-                                            <div className="w-3 h-3 bg-green-500 rounded-full mr-2 animate-pulse"></div>
-                                            Currently Clocked In ({currentlyActive.length})
-                                        </CardTitle>
-                                        <Button
-                                            variant="ghost"
-                                            size="sm"
-                                            onClick={fetchCurrentlyActive}
-                                        >
-                                            <RotateCcw className="w-4 h-4" />
-                                        </Button>
+                    {/* Timesheet Data */}
+                    <div className="space-y-4">
+                        {weeklyData.map((userData) => (
+                            <Card key={userData.user.id}>
+                                <CardHeader>
+                                    <div className="flex flex-col sm:flex-row items-start justify-between gap-2">
+                                        <div>
+                                            <CardTitle className="text-lg">{userData.user.name}</CardTitle>
+                                            <CardDescription className="flex items-center gap-4 mt-1">
+                                                <span>{userData.user.email}</span>
+                                                {userData.user.position && <Badge variant="secondary">{userData.user.position}</Badge>}
+                                            </CardDescription>
+                                        </div>
+                                        <div className="text-right"><div className="flex items-center gap-2"><Clock className="h-4 w-4 text-gray-500" /><span className="font-semibold">{formatHours(userData.weekly_totals?.total_hours || 0, 2)}h</span></div></div>
                                     </div>
                                 </CardHeader>
                                 <CardContent>
-                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                                        {currentlyActive.map((entry) => (
-                                            <div key={entry.id} className="flex items-center justify-between p-3 bg-green-50 dark:bg-green-900/20 rounded-lg border">
-                                                <div>
-                                                    <div className="font-medium text-sm">{entry.user.name}</div>
-                                                    <div className="text-xs text-muted-foreground">
-                                                        Since {formatTime(entry.clock_in_time)}
-                                                    </div>
-                                                    <div className="text-xs text-green-600 font-medium">
-                                                        {(() => {
-                                                            const now = new Date();
-                                                            const clockIn = new Date(entry.clock_in_time);
-                                                            const diffMs = now.getTime() - clockIn.getTime();
-                                                            const hours = Math.floor(diffMs / (1000 * 60 * 60));
-                                                            const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
-                                                            return `${hours}:${minutes.toString().padStart(2, '0')} elapsed`;
-                                                        })()}
-                                                    </div>
-                                                </div>
-                                                <div className="flex flex-col items-end">
-                                                    <Badge variant="default" className="bg-green-100 text-green-800 text-xs">
-                                                        Active
-                                                    </Badge>
-                                                    {entry.is_on_break && (
-                                                        <div className="flex items-center text-xs text-amber-600 mt-1 font-medium">
-                                                            <Coffee className="w-3 h-3 mr-1" />
-                                                            On {entry.current_break_type} break
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            </div>
-                                        ))}
+                                    <div className="overflow-x-auto">
+                                        <Table>
+                                            <TableHeader>
+                                                <TableRow>
+                                                    {userData.daily_data.map((day) => (<TableHead key={day.date} className="text-center"><div className="font-medium">{getDayAbbrev(day.day_name)}</div><div className="text-xs text-gray-500">{format(parseISO(day.date), 'd')}</div></TableHead>))}
+                                                </TableRow>
+                                            </TableHeader>
+                                            <TableBody>
+                                                <TableRow>
+                                                    {userData.daily_data.map((day) => (
+                                                        <TableCell key={day.date} className="text-center p-2 align-top">
+                                                            {day.entries.length === 0 ? (<div className="text-gray-400 text-sm mt-2">{day.is_weekend ? 'Weekend' : 'No punches'}</div>) : (
+                                                                <div className="space-y-2">
+                                                                    {day.entries.map((entry) => (
+                                                                        <div key={entry.id} className="flex text-xs bg-gray-50 p-1 rounded-md">
+                                                                            <div className="flex-1 items-center justify-center gap-1"><span className="text-green-600">{formatTime(entry.clock_in_time)}</span>-<span className="text-red-600">{formatTime(entry.clock_out_time)}</span>{entry.is_edited && <span className="text-amber-500 font-bold" title="Edited">*</span>}</div>
+                                                                            {entry.total_hours !== undefined && <div className="font-semibold text-blue-700">{formatHours(entry.total_hours)}h</div>}
+                                                                            <div className="flex-1 items-center justify-center gap-1 mt-1">
+                                                                                <Button variant="ghost" size="icon" className="h-5 w-5" onClick={() => handleEditEntry(entry, userData)}><Edit3 className="h-3 w-3" /></Button>
+                                                                                <Button variant="ghost" size="icon" className="h-5 w-5" onClick={() => handleViewHistory(entry, userData)}><Eye className="h-3 w-3 text-blue-500" /></Button>
+                                                                                <Button variant="ghost" size="icon" className="h-5 w-5" onClick={() => handleDeleteEntry(entry, userData)}><Trash2 className="h-3 w-3 text-red-500" /></Button>
+                                                                            </div>
+                                                                        </div>
+                                                                    ))}
+                                                                </div>
+                                                            )}
+                                                        </TableCell>
+                                                    ))}
+                                                </TableRow>
+                                            </TableBody>
+                                        </Table>
                                     </div>
+                                    <div className="mt-4 flex justify-end"><Button variant="outline" size="sm" className="text-xs" onClick={() => handleAddEntry(userData)}><Plus className="h-3 w-3 mr-1" /> Add Time Entry</Button></div>
                                 </CardContent>
                             </Card>
-                        )}
+                        ))}
+                    </div>
 
-                        {/* Filters */}
-                        <Card>
-                            <CardContent className="p-4">
-                                <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
-                                    <div>
-                                        <Label>Start Date</Label>
-                                        <Input
-                                            type="date"
-                                            value={filters.start_date}
-                                            onChange={(e) => setFilters({...filters, start_date: e.target.value})}
-                                        />
-                                    </div>
-                                    <div>
-                                        <Label>End Date</Label>
-                                        <Input
-                                            type="date"
-                                            value={filters.end_date}
-                                            onChange={(e) => setFilters({...filters, end_date: e.target.value})}
-                                        />
-                                    </div>
-                                    <div>
-                                        <Label>Employee</Label>
-                                        <Select
-                                            value={filters.user_id || "all"}
-                                            onValueChange={(value) => setFilters({...filters, user_id: value === "all" ? "" : value})}
-                                        >
-                                            <SelectTrigger>
-                                                <SelectValue placeholder="All employees" />
-                                            </SelectTrigger>
+                    {/* DIALOGS */}
+                    <Dialog open={showAddDialog} onOpenChange={(open) => !open && setShowAddDialog(false)}>
+                        <DialogContent className="sm:max-w-lg">
+                            <DialogHeader><DialogTitle className="flex items-center gap-2"><Plus className="h-4 w-4" /> Add Time Entry</DialogTitle><DialogDescription>Adding new time entry for {selectedUser?.name}</DialogDescription></DialogHeader>
+                            {selectedUser && (
+                                <form onSubmit={handleSubmitAddEntry} className="space-y-4">
+                                    {addEntryError && <Alert variant="destructive"><AlertTriangle className="h-4 w-4" /><AlertDescription>{addEntryError}</AlertDescription></Alert>}
+
+                                    <div className="space-y-2">
+                                        <Label htmlFor="date">Date</Label>
+                                        <Select value={selectedDate} onValueChange={setSelectedDate}>
+                                            <SelectTrigger><SelectValue placeholder="Select date" /></SelectTrigger>
                                             <SelectContent>
-                                                <SelectItem value="all">All employees</SelectItem>
-                                                {manageableUsers.map((user) => (
-                                                    <SelectItem key={user.id} value={user.id.toString()}>
-                                                        {user.name}
+                                                {weeklyData.find(data => data.user.id === selectedUser.id)?.daily_data.map((day) => (
+                                                    <SelectItem key={day.date} value={day.date} disabled={day.is_weekend}>
+                                                        {format(parseISO(day.date), 'EEE, MMM d, yyyy')} {day.is_weekend ? ' (Weekend)' : ''}
                                                     </SelectItem>
                                                 ))}
                                             </SelectContent>
                                         </Select>
                                     </div>
-                                    <div>
-                                        <Label>Status</Label>
-                                        <Select
-                                            value={filters.status}
-                                            onValueChange={(value) => setFilters({...filters, status: value})}
-                                        >
-                                            <SelectTrigger>
-                                                <SelectValue />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="all">All Status</SelectItem>
-                                                <SelectItem value="currently_active">Currently Clocked In</SelectItem>
-                                                <SelectItem value="active">Active (Incomplete)</SelectItem>
-                                                <SelectItem value="completed">Completed</SelectItem>
-                                                <SelectItem value="adjusted">Adjusted</SelectItem>
-                                            </SelectContent>
-                                        </Select>
-                                    </div>
-                                    <div>
-                                        <Label>View Type</Label>
-                                        <Select
-                                            value={filters.view_type}
-                                            onValueChange={(value) => setFilters({...filters, view_type: value})}
-                                        >
-                                            <SelectTrigger>
-                                                <SelectValue />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="entries">
-                                                    <div className="flex items-center">
-                                                        <List className="w-4 h-4 mr-2" />
-                                                        Time Entries
-                                                    </div>
-                                                </SelectItem>
-                                                <SelectItem value="daily">
-                                                    <div className="flex items-center">
-                                                        <TableIcon className="w-4 h-4 mr-2" />
-                                                        Daily Summary
-                                                    </div>
-                                                </SelectItem>
-                                            </SelectContent>
-                                        </Select>
-                                    </div>
-                                    <div>
-                                        <Label>&nbsp;</Label>
-                                        <div className="flex space-x-2">
-                                            <Button
-                                                variant="outline"
-                                                className="flex-1"
-                                                onClick={resetFilters}
-                                            >
-                                                <RotateCcw className="w-4 h-4 mr-2" />
-                                                Reset
-                                            </Button>
-                                            <Button
-                                                variant="outline"
-                                                onClick={() => {
-                                                    fetchTimeEntries();
-                                                    fetchCurrentlyActive();
-                                                }}
-                                            >
-                                                <RotateCcw className="w-4 h-4" />
-                                            </Button>
-                                        </div>
-                                    </div>
-                                </div>
 
-                                <div className="mt-4">
-                                    <div className="relative">
-                                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-                                        <Input
-                                            type="text"
-                                            placeholder="Search employees..."
-                                            value={filters.search}
-                                            onChange={(e) => setFilters({...filters, search: e.target.value})}
-                                            className="pl-10"
-                                        />
-                                    </div>
-                                </div>
-                            </CardContent>
-                        </Card>
-
-                        {/* Time Entries List */}
-                        <Card>
-                            <CardHeader>
-                                <CardTitle>
-                                    {filters.view_type === 'daily' ? 'Daily Summaries' : 'Time Entries'}
-                                </CardTitle>
-                            </CardHeader>
-                            <CardContent className="p-0">
-                                {loading ? (
-                                    <div className="flex items-center justify-center py-8">
-                                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-                                    </div>
-                                ) : (filters.view_type === 'daily' ? dailySummaries : timeEntries).length === 0 ? (
-                                    <div className="text-center py-8">
-                                        <Clock className="mx-auto h-12 w-12 text-muted-foreground" />
-                                        <h3 className="mt-2 text-sm font-medium">No data found</h3>
-                                        <p className="mt-1 text-sm text-muted-foreground">
-                                            No time entries match your current filters.
-                                        </p>
-                                    </div>
-                                ) : (
-                                    <div className="overflow-x-auto">
-                                        <Table>
-                                            <TableHeader>
-                                                <TableRow>
-                                                    <TableHead>Employee</TableHead>
-                                                    {filters.view_type === 'daily' ? (
-                                                        <>
-                                                            <TableHead>Date</TableHead>
-                                                            <TableHead>Hours</TableHead>
-                                                            <TableHead>Entries</TableHead>
-                                                            <TableHead>Times</TableHead>
-                                                            <TableHead>Status</TableHead>
-                                                        </>
-                                                    ) : (
-                                                        <>
-                                                            <TableHead>Clock In/Out</TableHead>
-                                                            <TableHead>Hours</TableHead>
-                                                            <TableHead>Breaks</TableHead>
-                                                            <TableHead>Status</TableHead>
-                                                            <TableHead>Submission</TableHead>
-                                                        </>
-                                                    )}
-                                                </TableRow>
-                                            </TableHeader>
-                                            <TableBody>
-                                                {filters.view_type === 'daily'
-                                                    ? dailySummaries.map((summary, index) => (
-                                                        <TableRow key={index} className={summary.has_incomplete ? 'bg-amber-50 dark:bg-amber-900/20' : ''}>
-                                                            <TableCell>
-                                                                <div className="flex items-center">
-                                                                    {summary.has_incomplete && (
-                                                                        <div className="w-2 h-2 bg-amber-500 rounded-full mr-2 animate-pulse"></div>
-                                                                    )}
-                                                                    <div>
-                                                                        <div className="font-medium">{summary.user.name}</div>
-                                                                        <div className="text-sm text-muted-foreground">{summary.user.email}</div>
-                                                                    </div>
-                                                                </div>
-                                                            </TableCell>
-                                                            <TableCell>
-                                                                <div>
-                                                                    <div className="font-medium">{formatDate(summary.date)}</div>
-                                                                    <div className="text-sm text-muted-foreground">{summary.day_name}</div>
-                                                                </div>
-                                                            </TableCell>
-                                                            <TableCell>
-                                                                <div>
-                                                                    <div>Total: {formatHours(summary.total_hours)}h</div>
-                                                                    <div className="text-xs text-muted-foreground">
-                                                                        Regular: {formatHours(summary.regular_hours)}h •
-                                                                        OT: {formatHours(summary.overtime_hours)}h
-                                                                    </div>
-                                                                </div>
-                                                            </TableCell>
-                                                            <TableCell>
-                                                                <div className="text-sm">
-                                                                    {summary.entries_count} entries
-                                                                    {summary.has_incomplete && (
-                                                                        <Badge variant="default" className="ml-2 text-xs bg-amber-100 text-amber-800">
-                                                                            <div className="w-2 h-2 bg-amber-500 rounded-full mr-1 animate-pulse"></div>
-                                                                            Incomplete
-                                                                        </Badge>
-                                                                    )}
-                                                                </div>
-                                                            </TableCell>
-                                                            <TableCell>
-                                                                <div className="text-sm">
-                                                                    <div>{formatTime(summary.first_clock_in)}</div>
-                                                                    {summary.last_clock_out && (
-                                                                        <div>- {formatTime(summary.last_clock_out)}</div>
-                                                                    )}
-                                                                </div>
-                                                            </TableCell>
-                                                            <TableCell>
-                                                                {summary.submission_status ? (
-                                                                    getStatusBadge(summary.submission_status)
-                                                                ) : (
-                                                                    <span className="text-sm text-muted-foreground">Not submitted</span>
-                                                                )}
-                                                            </TableCell>
-                                                        </TableRow>
-                                                    ))
-                                                    : timeEntries.map((entry) => (
-                                                        <TableRow key={entry.id} className={entry.status === 'active' ? 'bg-green-50 dark:bg-green-900/20' : ''}>
-                                                            <TableCell>
-                                                                <div className="flex items-center">
-                                                                    {entry.status === 'active' && (
-                                                                        <div className="w-2 h-2 bg-green-500 rounded-full mr-2 animate-pulse"></div>
-                                                                    )}
-                                                                    <div>
-                                                                        <div className="font-medium">{entry.user.name}</div>
-                                                                        <div className="text-sm text-muted-foreground">{entry.user.email}</div>
-                                                                        {entry.user.departments && entry.user.departments.length > 0 && (
-                                                                            <div className="text-xs text-muted-foreground">
-                                                                                {entry.user.departments.join(', ')}
-                                                                            </div>
-                                                                        )}
-                                                                    </div>
-                                                                </div>
-                                                            </TableCell>
-                                                            <TableCell>
-                                                                <div className="text-sm">
-                                                                    <div className="flex items-center">
-                                                                        <Clock className="w-3 h-3 mr-1" />
-                                                                        {formatTime(entry.clock_in_time)}
-                                                                    </div>
-                                                                    <div className="flex items-center">
-                                                                        {entry.status === 'active' ? (
-                                                                            <span className="text-green-600 font-medium">Still Active</span>
-                                                                        ) : (
-                                                                            <>- {formatTime(entry.clock_out_time || '')}</>
-                                                                        )}
-                                                                    </div>
-                                                                    <div className="text-xs text-muted-foreground">
-                                                                        {formatDate(entry.clock_in_time)}
-                                                                        {entry.status === 'active' && (
-                                                                            <span className="ml-2 text-green-600">
-                                                                                ({(() => {
-                                                                                const now = new Date();
-                                                                                const clockIn = new Date(entry.clock_in_time);
-                                                                                const diffMs = now.getTime() - clockIn.getTime();
-                                                                                const hours = Math.floor(diffMs / (1000 * 60 * 60));
-                                                                                const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
-                                                                                return `${hours}:${minutes.toString().padStart(2, '0')} ago`;
-                                                                            })()})
-                                                                            </span>
-                                                                        )}
-                                                                    </div>
-                                                                </div>
-                                                            </TableCell>
-                                                            <TableCell>
-                                                                <div>
-                                                                    <div className="font-medium">{formatHours(entry.total_hours)}h</div>
-                                                                    <div className="text-xs text-muted-foreground">
-                                                                        {formatHours(entry.regular_hours)}h + {formatHours(entry.overtime_hours)}h OT
-                                                                    </div>
-                                                                </div>
-                                                            </TableCell>
-                                                            <TableCell>
-                                                                <div className="text-sm">
-                                                                    {entry.break_count > 0 ? (
-                                                                        <div>
-                                                                            <div className="flex items-center">
-                                                                                <Coffee className="w-3 h-3 mr-1" />
-                                                                                {entry.break_count} ({Math.round(entry.total_break_minutes)}m)
-                                                                            </div>
-                                                                            {entry.is_on_break && (
-                                                                                <div className="text-xs text-amber-600 font-medium">
-                                                                                    Currently on {entry.current_break_type} break
-                                                                                </div>
-                                                                            )}
-                                                                        </div>
-                                                                    ) : (
-                                                                        <span className="text-muted-foreground">None</span>
-                                                                    )}
-                                                                </div>
-                                                            </TableCell>
-                                                            <TableCell>
-                                                                <div className="space-y-1">
-                                                                    {entry.status === 'active' ? (
-                                                                        <Badge variant="default" className="bg-green-100 text-green-800">
-                                                                            <div className="w-2 h-2 bg-green-500 rounded-full mr-1 animate-pulse"></div>
-                                                                            Clocked In
-                                                                        </Badge>
-                                                                    ) : (
-                                                                        getStatusBadge(entry.status)
-                                                                    )}
-                                                                    {entry.adjustment_reason && (
-                                                                        <div className="text-xs text-muted-foreground">
-                                                                            Adjusted
-                                                                        </div>
-                                                                    )}
-                                                                </div>
-                                                            </TableCell>
-                                                            <TableCell>
-                                                                {entry.submission_status ? (
-                                                                    getStatusBadge(entry.submission_status)
-                                                                ) : (
-                                                                    <span className="text-sm text-muted-foreground">Not submitted</span>
-                                                                )}
-                                                            </TableCell>
-                                                        </TableRow>
-                                                    ))
-                                                }
-                                            </TableBody>
-                                        </Table>
-                                    </div>
-                                )}
-                            </CardContent>
-                        </Card>
-
-                        {/* Pagination */}
-                        {pagination && pagination.total > 0 && (
-                            <div className="flex items-center justify-between">
-                                <div className="text-sm text-muted-foreground">
-                                    Showing {pagination.from} to {pagination.to} of {pagination.total} results
-                                </div>
-                                <div className="flex items-center space-x-2">
-                                    <Button
-                                        variant="outline"
-                                        size="sm"
-                                        onClick={() => setFilters({...filters, per_page: pagination.current_page - 1})}
-                                        disabled={pagination.current_page <= 1}
-                                    >
-                                        Previous
-                                    </Button>
-                                    <span className="text-sm">
-                                        Page {pagination.current_page} of {pagination.last_page}
-                                    </span>
-                                    <Button
-                                        variant="outline"
-                                        size="sm"
-                                        onClick={() => setFilters({...filters, per_page: pagination.current_page + 1})}
-                                        disabled={pagination.current_page >= pagination.last_page}
-                                    >
-                                        Next
-                                    </Button>
-                                </div>
-                            </div>
-                        )}
-                    </TabsContent>
-
-                    {/* Pending Submissions Tab (existing functionality) */}
-                    <TabsContent value="pending" className="space-y-4">
-                        <Card>
-                            <CardContent className="p-0">
-                                {loading ? (
-                                    <div className="flex items-center justify-center py-8">
-                                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-                                    </div>
-                                ) : pendingSubmissions.length === 0 ? (
-                                    <div className="text-center py-8">
-                                        <Users className="mx-auto h-12 w-12 text-muted-foreground" />
-                                        <h3 className="mt-2 text-sm font-medium">No pending submissions</h3>
-                                        <p className="mt-1 text-sm text-muted-foreground">
-                                            No pending timesheet submissions found
-                                        </p>
-                                    </div>
-                                ) : (
-                                    <div className="overflow-x-auto">
-                                        <Table>
-                                            <TableHeader>
-                                                <TableRow>
-                                                    <TableHead>Employee</TableHead>
-                                                    <TableHead>Week</TableHead>
-                                                    <TableHead>Total Hours</TableHead>
-                                                    <TableHead>Status</TableHead>
-                                                    <TableHead>Submitted</TableHead>
-                                                    <TableHead>Actions</TableHead>
-                                                </TableRow>
-                                            </TableHeader>
-                                            <TableBody>
-                                                {pendingSubmissions.map((submission) => (
-                                                    <TableRow key={submission.id}>
-                                                        <TableCell>
-                                                            <div>
-                                                                <div className="font-medium">
-                                                                    {submission.user.name}
-                                                                </div>
-                                                                <div className="text-sm text-muted-foreground">
-                                                                    {submission.user.email}
-                                                                </div>
-                                                            </div>
-                                                        </TableCell>
-                                                        <TableCell>
-                                                            {formatDate(submission.week_start_date)} - {formatDate(submission.week_end_date)}
-                                                        </TableCell>
-                                                        <TableCell>
-                                                            <div>
-                                                                <div>Total: {formatHours(submission.total_hours)}h</div>
-                                                                <div className="text-xs text-muted-foreground">
-                                                                    Regular: {formatHours(submission.regular_hours)}h •
-                                                                    OT: {formatHours(submission.overtime_hours)}h
-                                                                </div>
-                                                            </div>
-                                                        </TableCell>
-                                                        <TableCell>
-                                                            <div className="space-y-1">
-                                                                {getStatusBadge(submission.status)}
-                                                                {!submission.self_submitted && (
-                                                                    <div className="flex items-center text-xs text-amber-600">
-                                                                        <AlertTriangle className="w-3 h-3 mr-1" />
-                                                                        Manager submitted
-                                                                    </div>
-                                                                )}
-                                                            </div>
-                                                        </TableCell>
-                                                        <TableCell className="text-muted-foreground">
-                                                            {formatDate(submission.submitted_at)}
-                                                        </TableCell>
-                                                        <TableCell>
-                                                            <div className="flex space-x-2">
-                                                                <Button
-                                                                    variant="ghost"
-                                                                    size="sm"
-                                                                    onClick={() => {
-                                                                        setSelectedUser(submission.user);
-                                                                        setSelectedWeek(submission.week_start_date);
-                                                                        setActiveTab('individual');
-                                                                    }}
-                                                                >
-                                                                    <Eye className="w-4 h-4" />
-                                                                </Button>
-                                                                {submission.status === 'submitted' && (
-                                                                    <>
-                                                                        <Button
-                                                                            variant="ghost"
-                                                                            size="sm"
-                                                                            onClick={() => {
-                                                                                setSelectedSubmission(submission);
-                                                                                setShowApprovalModal(true);
-                                                                            }}
-                                                                            className="text-green-600 hover:text-green-700"
-                                                                        >
-                                                                            <Check className="w-4 h-4" />
-                                                                        </Button>
-                                                                        <Button
-                                                                            variant="ghost"
-                                                                            size="sm"
-                                                                            onClick={() => {
-                                                                                setSelectedSubmission(submission);
-                                                                                setShowRejectionModal(true);
-                                                                            }}
-                                                                            className="text-red-600 hover:text-red-700"
-                                                                        >
-                                                                            <X className="w-4 h-4" />
-                                                                        </Button>
-                                                                    </>
-                                                                )}
-                                                            </div>
-                                                        </TableCell>
-                                                    </TableRow>
-                                                ))}
-                                            </TableBody>
-                                        </Table>
-                                    </div>
-                                )}
-                            </CardContent>
-                        </Card>
-                    </TabsContent>
-
-                    {/* Individual View Tab (existing functionality with minor updates) */}
-                    <TabsContent value="individual" className="space-y-4">
-                        {/* User Selection */}
-                        <Card>
-                            <CardContent className="p-4">
-                                <div className="flex items-end space-x-4">
-                                    <div className="flex-1">
-                                        <Label>Select Employee</Label>
-                                        <Select
-                                            value={selectedUser?.id?.toString() || "none"}
-                                            onValueChange={(value) => {
-                                                if (value && value !== "none") {
-                                                    const user = manageableUsers.find(u => u.id.toString() === value);
-                                                    setSelectedUser(user || null);
-                                                } else {
-                                                    setSelectedUser(null);
-                                                }
-                                            }}
-                                        >
-                                            <SelectTrigger>
-                                                <SelectValue placeholder="Select an employee..." />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="none">Select an employee...</SelectItem>
-                                                {manageableUsers.map((user) => (
-                                                    <SelectItem key={user.id} value={user.id.toString()}>
-                                                        {user.name} ({user.email})
-                                                    </SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
-                                    </div>
-                                    <div className="flex items-center space-x-2">
-                                        <Button
-                                            variant="outline"
-                                            size="sm"
-                                            onClick={() => navigateWeek(-1)}
-                                        >
-                                            <ChevronLeft className="w-4 h-4" />
-                                        </Button>
-                                        <div>
-                                            <Label>Week Starting</Label>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div className="space-y-2">
+                                            <Label htmlFor="new_clock_in_time">Clock In Time *</Label>
                                             <Input
-                                                type="date"
-                                                value={selectedWeek}
-                                                onChange={(e) => setSelectedWeek(e.target.value)}
-                                                className="w-auto"
+                                                id="new_clock_in_time"
+                                                type="time"
+                                                value={newClockInTime}
+                                                onChange={(e) => setNewClockInTime(e.target.value)}
+                                                required
                                             />
                                         </div>
-                                        <Button
-                                            variant="outline"
-                                            size="sm"
-                                            onClick={() => navigateWeek(1)}
-                                        >
-                                            <ChevronRight className="w-4 h-4" />
-                                        </Button>
-                                    </div>
-                                </div>
-                            </CardContent>
-                        </Card>
-
-                        {/* Individual Timesheet Display - Same as before */}
-                        {selectedUser && timesheetData && (
-                            <Card>
-                                <CardHeader>
-                                    <div className="flex items-center justify-between">
-                                        <div>
-                                            <CardTitle>{timesheetData.user.name}'s Timesheet</CardTitle>
-                                            <p className="text-muted-foreground">
-                                                Week of {timesheetData.week_info.display}
-                                            </p>
+                                        <div className="space-y-2">
+                                            <Label htmlFor="new_clock_out_time">Clock Out Time</Label>
+                                            <Input
+                                                id="new_clock_out_time"
+                                                type="time"
+                                                value={newClockOutTime}
+                                                onChange={(e) => setNewClockOutTime(e.target.value)}
+                                            />
                                         </div>
-                                        {timesheetData.submission && timesheetData.submission.status === 'submitted' && (
-                                            <div className="flex space-x-2">
-                                                <Button
-                                                    onClick={() => {
-                                                        setSelectedSubmission({
-                                                            id: timesheetData.submission!.id,
-                                                            user: timesheetData.user,
-                                                            week_start_date: timesheetData.week_info.start_date,
-                                                            week_end_date: timesheetData.week_info.end_date,
-                                                            total_hours: timesheetData.weekly_totals.total_hours,
-                                                            regular_hours: timesheetData.weekly_totals.regular_hours,
-                                                            overtime_hours: timesheetData.weekly_totals.overtime_hours,
-                                                            break_hours: timesheetData.weekly_totals.break_hours,
-                                                            status: timesheetData.submission!.status,
-                                                            submitted_at: new Date().toISOString(),
-                                                            self_submitted: true
-                                                        });
-                                                        setShowApprovalModal(true);
-                                                    }}
-                                                    size="sm"
-                                                    className="bg-green-600 hover:bg-green-700"
-                                                >
-                                                    <Check className="w-4 h-4 mr-1" />
-                                                    Approve
-                                                </Button>
-                                                <Button
-                                                    onClick={() => {
-                                                        setSelectedSubmission({
-                                                            id: timesheetData.submission!.id,
-                                                            user: timesheetData.user,
-                                                            week_start_date: timesheetData.week_info.start_date,
-                                                            week_end_date: timesheetData.week_info.end_date,
-                                                            total_hours: timesheetData.weekly_totals.total_hours,
-                                                            regular_hours: timesheetData.weekly_totals.regular_hours,
-                                                            overtime_hours: timesheetData.weekly_totals.overtime_hours,
-                                                            break_hours: timesheetData.weekly_totals.break_hours,
-                                                            status: timesheetData.submission!.status,
-                                                            submitted_at: new Date().toISOString(),
-                                                            self_submitted: true
-                                                        });
-                                                        setShowRejectionModal(true);
-                                                    }}
-                                                    size="sm"
-                                                    variant="destructive"
-                                                >
-                                                    <X className="w-4 h-4 mr-1" />
-                                                    Reject
-                                                </Button>
-                                            </div>
-                                        )}
                                     </div>
-                                </CardHeader>
-                                {/* Rest of individual timesheet display - same as existing code */}
-                            </Card>
-                        )}
-                    </TabsContent>
-                </Tabs>
 
-                {/* Approval Modal */}
-                <Dialog open={showApprovalModal} onOpenChange={setShowApprovalModal}>
-                    <DialogContent>
-                        <DialogHeader>
-                            <DialogTitle>Approve Timesheet</DialogTitle>
-                        </DialogHeader>
+                                    {newClockInTime && newClockOutTime && selectedDate && (
+                                        <div className="bg-blue-50 p-3 rounded-md text-sm text-blue-700">
+                                            <strong>Calculated Hours: </strong>
+                                            {calculateHoursFromTimes(newClockInTime, newClockOutTime).toFixed(2)} hours
+                                        </div>
+                                    )}
 
-                        <div className="space-y-4">
-                            <p className="text-sm text-muted-foreground">
-                                You are about to approve the timesheet for <strong>{selectedSubmission?.user?.name}</strong>.
-                            </p>
+                                    <div className="space-y-2">
+                                        <Label htmlFor="new_reason">Reason for Manual Entry *</Label>
+                                        <Textarea
+                                            id="new_reason"
+                                            value={newEntryReason}
+                                            onChange={(e) => setNewEntryReason(e.target.value)}
+                                            placeholder="Explain why this manual entry is needed..."
+                                            required
+                                        />
+                                    </div>
 
-                            <div>
-                                <Label htmlFor="approval-notes">Approval Notes (Optional)</Label>
-                                <Textarea
-                                    id="approval-notes"
-                                    value={approvalForm.approval_notes}
-                                    onChange={(e) => setApprovalForm({...approvalForm, approval_notes: e.target.value})}
-                                    rows={3}
-                                    placeholder="Any notes about the approval..."
-                                />
-                            </div>
-                        </div>
+                                    <div className="space-y-2">
+                                        <Label htmlFor="new_notes">Additional Notes</Label>
+                                        <Textarea
+                                            id="new_notes"
+                                            value={newEntryNotes}
+                                            onChange={(e) => setNewEntryNotes(e.target.value)}
+                                            placeholder="Any additional context..."
+                                        />
+                                    </div>
 
-                        <DialogFooter>
-                            <Button variant="outline" onClick={() => setShowApprovalModal(false)}>
-                                Cancel
-                            </Button>
-                            <Button onClick={handleApprove} disabled={loading} className="bg-green-600 hover:bg-green-700">
-                                {loading ? 'Approving...' : 'Approve'}
-                            </Button>
-                        </DialogFooter>
-                    </DialogContent>
-                </Dialog>
+                                    <DialogFooter className="gap-2">
+                                        <Button type="button" variant="outline" onClick={() => setShowAddDialog(false)} disabled={addEntryLoading}>
+                                            <X className="h-4 w-4 mr-2" />Cancel
+                                        </Button>
+                                        <Button type="submit" disabled={addEntryLoading}>
+                                            <Save className="h-4 w-4 mr-2" />
+                                            {addEntryLoading ? 'Adding...' : 'Add Entry'}
+                                        </Button>
+                                    </DialogFooter>
+                                </form>
+                            )}
+                        </DialogContent>
+                    </Dialog>
 
-                {/* Rejection Modal */}
-                <Dialog open={showRejectionModal} onOpenChange={setShowRejectionModal}>
-                    <DialogContent>
-                        <DialogHeader>
-                            <DialogTitle>Reject Timesheet</DialogTitle>
-                        </DialogHeader>
+                    <Dialog open={showEditDialog} onOpenChange={(open) => !open && setShowEditDialog(false)}>
+                        <DialogContent className="sm:max-w-lg">
+                            <DialogHeader><DialogTitle className="flex items-center gap-2"><Edit3 className="h-4 w-4" /> Edit Time Entry</DialogTitle><DialogDescription>Editing entry for {editingEntry?.user?.name} on {formatDateTime(editingEntry?.clock_in_time)}</DialogDescription></DialogHeader>
+                            {editingEntry && (<form onSubmit={handleSubmitEdit} className="space-y-4">{submitError && <Alert variant="destructive"><AlertTriangle className="h-4 w-4" /><AlertDescription>{submitError}</AlertDescription></Alert>}<div className="space-y-2"><Label htmlFor="adjustment_type">Adjustment Type</Label><Select value={adjustmentType} onValueChange={(value) => setAdjustmentType(value as AdjustmentType)}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{Object.entries(adjustmentTypes).map(([value, label]) => <SelectItem key={value} value={value}>{label}</SelectItem>)}</SelectContent></Select></div><div className="grid grid-cols-1 md:grid-cols-2 gap-4"><div className="space-y-2"><Label htmlFor="clock_in">Clock In Time *</Label><DateTimePicker value={adjustedClockIn} onChange={setAdjustedClockIn} placeholder="Select clock in time" /></div><div className="space-y-2"><Label htmlFor="clock_out">Clock Out Time</Label><DateTimePicker value={adjustedClockOut} onChange={setAdjustedClockOut} placeholder="Select clock out time" /></div></div>{adjustedClockIn && adjustedClockOut && <div className="bg-blue-50 p-3 rounded-md text-sm text-blue-700"><strong>Calculated Hours: </strong>{calculateHours(adjustedClockIn, adjustedClockOut).toFixed(2)} hours</div>}<div className="space-y-2"><Label htmlFor="reason">Reason for Adjustment *</Label><Textarea id="reason" value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Explain why this adjustment is needed..." required /></div><div className="space-y-2"><Label htmlFor="employee_notes">Additional Notes</Label><Textarea id="employee_notes" value={employeeNotes} onChange={(e) => setEmployeeNotes(e.target.value)} placeholder="Any additional context..." /></div><DialogFooter className="gap-2"><Button type="button" variant="outline" onClick={() => setShowEditDialog(false)} disabled={submitLoading}><X className="h-4 w-4 mr-2" />Cancel</Button><Button type="submit" disabled={submitLoading}><Save className="h-4 w-4 mr-2" />{submitLoading ? 'Saving...' : 'Save Changes'}</Button></DialogFooter></form>)}
+                        </DialogContent>
+                    </Dialog>
 
-                        <div className="space-y-4">
-                            <p className="text-sm text-muted-foreground">
-                                You are about to reject the timesheet for <strong>{selectedSubmission?.user?.name}</strong>.
-                            </p>
+                    <Dialog open={showDeleteDialog} onOpenChange={(open) => !open && setShowDeleteDialog(false)}>
+                        <DialogContent className="sm:max-w-md">
+                            <DialogHeader><DialogTitle className="flex items-center gap-2 text-red-600"><Trash2 className="h-4 w-4" /> Delete Time Entry</DialogTitle><DialogDescription>Are you sure you want to delete the time entry for {editingEntry?.user?.name} on {formatDateTime(editingEntry?.clock_in_time)}?</DialogDescription></DialogHeader>
+                            <form onSubmit={handleSubmitDelete} className="space-y-4">{deleteError && <Alert variant="destructive"><AlertTriangle className="h-4 w-4" /><AlertDescription>{deleteError}</AlertDescription></Alert>}<div className="space-y-2"><Label htmlFor="delete_reason">Reason for Deletion *</Label><Textarea id="delete_reason" value={deleteReason} onChange={(e) => setDeleteReason(e.target.value)} placeholder="Explain why this entry needs to be deleted..." required /></div><DialogFooter className="gap-2"><Button type="button" variant="outline" onClick={() => setShowDeleteDialog(false)} disabled={deleteLoading}>Cancel</Button><Button type="submit" variant="destructive" disabled={deleteLoading}>{deleteLoading ? 'Deleting...' : 'Delete Entry'}</Button></DialogFooter></form>
+                        </DialogContent>
+                    </Dialog>
 
-                            <div>
-                                <Label htmlFor="rejection-reason">
-                                    Rejection Reason <span className="text-destructive">*</span>
-                                </Label>
-                                <Textarea
-                                    id="rejection-reason"
-                                    value={rejectionForm.rejection_reason}
-                                    onChange={(e) => setRejectionForm({...rejectionForm, rejection_reason: e.target.value})}
-                                    rows={3}
-                                    placeholder="Please explain why this timesheet is being rejected..."
-                                    required
-                                />
-                            </div>
-                        </div>
-
-                        <DialogFooter>
-                            <Button variant="outline" onClick={() => setShowRejectionModal(false)}>
-                                Cancel
-                            </Button>
-                            <Button
-                                onClick={handleReject}
-                                disabled={loading || !rejectionForm.rejection_reason.trim()}
-                                variant="destructive"
-                            >
-                                {loading ? 'Rejecting...' : 'Reject'}
-                            </Button>
-                        </DialogFooter>
-                    </DialogContent>
-                </Dialog>
+                    {/* === History View Dialog (IMPROVED) === */}
+                    <Dialog open={showHistoryDialog} onOpenChange={(open) => !open && setShowHistoryDialog(false)}>
+                        <DialogContent className="sm:max-w-2xl">
+                            <DialogHeader>
+                                <DialogTitle className="flex items-center gap-2"><Clock className="h-4 w-4" /> Time Entry History</DialogTitle>
+                                <DialogDescription>Viewing adjustment history for {editingEntry?.user?.name}</DialogDescription>
+                            </DialogHeader>
+                            {historyLoading ? (
+                                <div className="py-8 text-center">Loading history...</div>
+                            ) : historyError ? (
+                                <Alert variant="destructive"><AlertTriangle className="h-4 w-4" /><AlertDescription>{historyError}</AlertDescription></Alert>
+                            ) : (
+                                <div className="space-y-4 max-h-[60vh] overflow-y-auto p-1 pr-3">
+                                    {editingEntry && (
+                                        <div className="bg-gray-50 p-3 rounded-lg mb-4 border">
+                                            <h4 className="text-sm font-semibold mb-2 text-gray-800">Current Entry Details</h4>
+                                            <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
+                                                <div><span className="text-gray-500">Clock In:</span> <span className="font-medium">{formatDateTime(editingEntry.clock_in_time)}</span></div>
+                                                <div><span className="text-gray-500">Clock Out:</span> <span className="font-medium">{editingEntry.clock_out_time ? formatDateTime(editingEntry.clock_out_time) : 'Active'}</span></div>
+                                                <div><span className="text-gray-500">Total Hours:</span> <span className="font-medium">{formatHours(editingEntry.total_hours, 2)}h</span></div>
+                                                <div><span className="text-gray-500">Status:</span> <Badge variant={editingEntry.is_edited ? 'outline' : 'secondary'} className="capitalize">{editingEntry.status}{editingEntry.is_edited ? ' (Edited)' : ''}</Badge></div>
+                                            </div>
+                                        </div>
+                                    )}
+                                    {adjustmentHistory.length === 0 ? (
+                                        <div className="py-6 text-center text-gray-500">No adjustment history found for this time entry.</div>
+                                    ) : (
+                                        <div className="relative pl-6">
+                                            <div className="absolute left-9 top-0 h-full w-0.5 bg-gray-200"></div>
+                                            {adjustmentHistory.map((adj) => (
+                                                <div key={adj.id} className="relative mb-6">
+                                                    <div className="absolute left-9 top-1 w-3 h-3 bg-gray-400 rounded-full transform -translate-x-1/2"></div>
+                                                    <div className="ml-12">
+                                                        <div className="p-4 border rounded-lg bg-white shadow-sm">
+                                                            <div className="flex justify-between items-start mb-2">
+                                                                <div>
+                                                                    <h5 className="font-semibold text-md text-gray-800">{formatAdjustmentType(adj.adjustment_type)}</h5>
+                                                                    <p className="text-xs text-gray-500">Requested by {adj.requestedBy?.name || 'System'} on {format(parseISO(adj.created_at), 'MMM d, yyyy @ HH:mm')}</p>
+                                                                </div>
+                                                                <Badge variant={getStatusBadgeVariant(adj.status)} className="capitalize">{adj.status}</Badge>
+                                                            </div>
+                                                            <div className="space-y-3 text-sm">
+                                                                <div><p className="font-medium text-gray-700">Reason:</p><p className="text-gray-600 pl-2 border-l-2 border-gray-200 ml-1">{adj.reason}</p></div>
+                                                                {adj.employee_notes && <div><p className="font-medium text-gray-700">Notes:</p><p className="text-gray-600 pl-2 border-l-2 border-gray-200 ml-1">{adj.employee_notes}</p></div>}
+                                                                {(adj.original_data || adj.adjusted_clock_in) && (
+                                                                    <div className="mt-3"><p className="font-medium text-gray-700 mb-1">Changes:</p>
+                                                                        <Table className="text-xs"><TableHeader><TableRow><TableHead>Field</TableHead><TableHead>Original</TableHead><TableHead>Adjusted</TableHead></TableRow></TableHeader>
+                                                                            <TableBody>
+                                                                                <TableRow><TableCell>Clock In</TableCell><TableCell>{adj.original_data?.clock_in_time ? formatDateTime(adj.original_data.clock_in_time) : 'N/A'}</TableCell><TableCell className="text-green-600 font-medium">{adj.adjusted_clock_in ? formatDateTime(adj.adjusted_clock_in) : 'No Change'}</TableCell></TableRow>
+                                                                                <TableRow><TableCell>Clock Out</TableCell><TableCell>{adj.original_data?.clock_out_time ? formatDateTime(adj.original_data.clock_out_time) : 'N/A'}</TableCell><TableCell className="text-red-600 font-medium">{adj.adjusted_clock_out ? formatDateTime(adj.adjusted_clock_out) : 'No Change'}</TableCell></TableRow>
+                                                                                <TableRow><TableCell>Total Hours</TableCell><TableCell>{formatHours(adj.original_data?.total_hours, 2)}h</TableCell><TableCell className="font-medium">{formatHours(adj.adjusted_hours, 2)}h</TableCell></TableRow>
+                                                                            </TableBody>
+                                                                        </Table>
+                                                                    </div>
+                                                                )}
+                                                                {adj.status === 'approved' && adj.approvedBy && adj.approved_at && (<div className="mt-3 pt-3 border-t bg-green-50 p-2 rounded-md"><p className="font-medium text-green-800">Approved by {adj.approvedBy.name} on {format(parseISO(adj.approved_at), 'MMM d, yyyy @ HH:mm')}</p>{adj.approval_notes && <p className="text-green-700 mt-1">Notes: {adj.approval_notes}</p>}</div>)}
+                                                                {adj.status === 'rejected' && adj.rejectedBy && adj.rejected_at && (<div className="mt-3 pt-3 border-t bg-red-50 p-2 rounded-md"><p className="font-medium text-red-800">Rejected by {adj.rejectedBy.name} on {format(parseISO(adj.rejected_at), 'MMM d, yyyy @ HH:mm')}</p>{adj.rejection_reason && <p className="text-red-700 mt-1">Reason: {adj.rejection_reason}</p>}</div>)}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+                            <DialogFooter><Button type="button" variant="outline" onClick={() => setShowHistoryDialog(false)}>Close</Button></DialogFooter>
+                        </DialogContent>
+                    </Dialog>
+                </div>
             </div>
         </AppLayout>
     );
-}
+};
+
+export default Manager;

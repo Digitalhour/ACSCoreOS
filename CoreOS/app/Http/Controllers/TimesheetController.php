@@ -33,12 +33,21 @@ class TimesheetController extends Controller
      */
     public function show(Request $request, $userId): JsonResponse
     {
-        $user = User::findOrFail($userId);
+        $currentUser = Auth::user();
+        $targetUser = User::findOrFail($userId);
+
+        // Check if current user can view this user's timesheet
+        if (!$currentUser->canManageTimeEntriesFor($targetUser)) {
+            return response()->json([
+                'error' => 'Access denied. You cannot view this user\'s timesheet.'
+            ], 403);
+        }
+
         $weekStart = $request->filled('week_start')
             ? Carbon::parse($request->week_start)->startOfWeek()
             : Carbon::now()->startOfWeek();
 
-        return $this->getTimesheetForUser($user, $weekStart);
+        return $this->getTimesheetForUser($targetUser, $weekStart);
     }
 
     /**
@@ -213,6 +222,13 @@ class TimesheetController extends Controller
         $targetUser = User::findOrFail($targetUserId);
         $weekStart = Carbon::parse($request->week_start_date)->startOfWeek();
 
+        // Check permissions for submitting on behalf of another user
+        if ($targetUserId !== $currentUser->id && !$currentUser->canManageTimeEntriesFor($targetUser)) {
+            return redirect()->back()->withErrors([
+                'timesheet' => 'You do not have permission to submit timesheet for this user.'
+            ]);
+        }
+
         // Check if submission already exists
         $existingSubmission = TimesheetSubmission::where('user_id', $targetUserId)
             ->where('week_start_date', $weekStart->format('Y-m-d'))
@@ -266,7 +282,15 @@ class TimesheetController extends Controller
             'approval_notes' => 'nullable|string|max:1000',
         ]);
 
-        $submission = TimesheetSubmission::findOrFail($submissionId);
+        $currentUser = Auth::user();
+        $submission = TimesheetSubmission::with('user')->findOrFail($submissionId);
+
+        // Check if current user can approve for this user
+        if (!$currentUser->canApproveTimesheetFor($submission->user)) {
+            return response()->json([
+                'error' => 'You do not have permission to approve this timesheet.',
+            ], 403);
+        }
 
         if ($submission->status !== 'submitted') {
             return response()->json([
@@ -306,7 +330,15 @@ class TimesheetController extends Controller
             'rejection_reason' => 'required|string|max:1000',
         ]);
 
-        $submission = TimesheetSubmission::findOrFail($submissionId);
+        $currentUser = Auth::user();
+        $submission = TimesheetSubmission::with('user')->findOrFail($submissionId);
+
+        // Check if current user can reject for this user
+        if (!$currentUser->canApproveTimesheetFor($submission->user)) {
+            return response()->json([
+                'error' => 'You do not have permission to reject this timesheet.',
+            ], 403);
+        }
 
         if ($submission->status !== 'submitted') {
             return response()->json([
@@ -323,7 +355,6 @@ class TimesheetController extends Controller
             ]);
 
             Log::info("Timesheet rejected: ID {$submission->id}, User: {$submission->user->name}, Rejected by: " . Auth::user()->name);
-
 
             return response()->json([
                 'message' => 'Timesheet rejected successfully',
@@ -346,6 +377,15 @@ class TimesheetController extends Controller
         $request->validate([
             'lock_reason' => 'nullable|string|max:500',
         ]);
+
+        $currentUser = Auth::user();
+
+        // Only payroll and admin roles can lock timesheets
+        if (!$currentUser->hasRole(['admin', 'payroll'])) {
+            return response()->json([
+                'error' => 'Only payroll administrators can lock timesheets.',
+            ], 403);
+        }
 
         $submission = TimesheetSubmission::findOrFail($submissionId);
 
@@ -387,6 +427,15 @@ class TimesheetController extends Controller
             'unlock_reason' => 'required|string|max:500',
         ]);
 
+        $currentUser = Auth::user();
+
+        // Only payroll and admin roles can unlock timesheets
+        if (!$currentUser->hasRole(['admin', 'payroll'])) {
+            return response()->json([
+                'error' => 'Only payroll administrators can unlock timesheets.',
+            ], 403);
+        }
+
         $submission = TimesheetSubmission::findOrFail($submissionId);
 
         if ($submission->status !== 'locked') {
@@ -425,7 +474,7 @@ class TimesheetController extends Controller
     {
         $currentUser = Auth::user();
 
-        // Get users this manager can see (direct reports + department members)
+        // Use the enhanced getVisibleUsers method
         $visibleUserIds = $currentUser->getVisibleUsers()->pluck('id');
 
         $submissions = TimesheetSubmission::with(['user', 'submittedBy'])
@@ -450,7 +499,15 @@ class TimesheetController extends Controller
      */
     public function getSubmissionHistory(Request $request, $userId): JsonResponse
     {
-        $user = User::findOrFail($userId);
+        $currentUser = Auth::user();
+        $targetUser = User::findOrFail($userId);
+
+        // Check if current user can view this user's submission history
+        if (!$currentUser->canManageTimeEntriesFor($targetUser)) {
+            return response()->json([
+                'error' => 'Access denied. You cannot view this user\'s submission history.'
+            ], 403);
+        }
 
         $submissions = TimesheetSubmission::where('user_id', $userId)
             ->with(['submittedBy', 'approvedBy', 'rejectedBy', 'lockedBy'])
@@ -459,9 +516,9 @@ class TimesheetController extends Controller
 
         return response()->json([
             'user' => [
-                'id' => $user->id,
-                'name' => $user->name,
-                'email' => $user->email,
+                'id' => $targetUser->id,
+                'name' => $targetUser->name,
+                'email' => $targetUser->email,
             ],
             'submissions' => $submissions->items(),
             'pagination' => [

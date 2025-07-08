@@ -1,6 +1,5 @@
 <?php
 
-
 namespace App\Http\Controllers;
 
 use App\Models\BreakEntry;
@@ -9,6 +8,7 @@ use App\Models\TimeEntry;
 use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -388,6 +388,207 @@ class TimeAdjustmentController extends Controller
     }
 
     /**
+     * Manager direct time correction (bypasses approval process)
+     */
+    public function managerTimeCorrection(Request $request): RedirectResponse
+    {
+        $request->validate([
+            'time_entry_id' => 'required|exists:time_entries,id',
+            'adjustment_type' => 'required|in:time_correction,missed_punch,break_adjustment,manual_entry',
+            'adjusted_clock_in' => 'required|date',
+            'adjusted_clock_out' => 'nullable|date',
+            'adjusted_hours' => 'nullable|numeric|min:0',
+            'reason' => 'required|string|max:1000',
+            'employee_notes' => 'nullable|string|max:1000',
+            'original_data' => 'required|array',
+        ]);
+
+        $currentUser = Auth::user();
+        $timeEntry = TimeEntry::findOrFail($request->time_entry_id);
+
+        // Check if current user can manage this employee
+        $visibleUserIds = $currentUser->getVisibleUsers()->pluck('id');
+
+        if (!$visibleUserIds->contains($timeEntry->user_id)) {
+            return back()->withErrors(['message' => 'You do not have permission to edit this time entry.']);
+        }
+
+        // Validate times if both are provided
+        if ($request->adjusted_clock_in && $request->adjusted_clock_out) {
+            $clockIn = Carbon::parse($request->adjusted_clock_in);
+            $clockOut = Carbon::parse($request->adjusted_clock_out);
+
+            if ($clockOut <= $clockIn) {
+                return back()->withErrors(['message' => 'Clock out time must be after clock in time.']);
+            }
+        }
+
+        try {
+            DB::transaction(function () use ($request, $timeEntry, $currentUser) {
+                // Store original data for audit trail
+                $originalData = [
+                    'clock_in_time' => $timeEntry->clock_in_time,
+                    'clock_out_time' => $timeEntry->clock_out_time,
+                    'total_hours' => $timeEntry->total_hours,
+                    'regular_hours' => $timeEntry->regular_hours,
+                    'overtime_hours' => $timeEntry->overtime_hours,
+                ];
+
+                // Create adjustment record for audit trail
+                $adjustment = TimeAdjustment::create([
+                    'user_id' => $timeEntry->user_id,
+                    'time_entry_id' => $timeEntry->id,
+                    'adjustment_type' => $request->adjustment_type,
+                    'original_data' => $originalData,
+                    'adjusted_clock_in' => $request->adjusted_clock_in ? Carbon::parse($request->adjusted_clock_in) : null,
+                    'adjusted_clock_out' => $request->adjusted_clock_out ? Carbon::parse($request->adjusted_clock_out) : null,
+                    'adjusted_hours' => $request->adjusted_hours,
+                    'reason' => $request->reason,
+                    'employee_notes' => $request->employee_notes,
+                    'requested_by_user_id' => $currentUser->id,
+                    'approved_by_user_id' => $currentUser->id,
+                    'status' => 'approved',
+                    'approved_at' => now(),
+                    'approval_notes' => 'Direct manager adjustment',
+                ]);
+
+                // Apply the changes to the time entry
+                $updates = [
+                    'status' => 'adjusted',
+                    'adjustment_reason' => "Time adjusted by manager: {$currentUser->name}",
+                    'adjusted_by_user_id' => $currentUser->id,
+                    'adjusted_at' => now(),
+                ];
+
+                if ($request->adjusted_clock_in) {
+                    $updates['clock_in_time'] = Carbon::parse($request->adjusted_clock_in);
+                }
+
+                if ($request->adjusted_clock_out) {
+                    $updates['clock_out_time'] = Carbon::parse($request->adjusted_clock_out);
+                }
+
+                $timeEntry->update($updates);
+
+                // Recalculate hours based on new times
+                $timeEntry->recalculateHours();
+
+                Log::info("Manager time correction applied: Entry ID {$timeEntry->id}, Employee: {$timeEntry->user->name}, Manager: {$currentUser->name}");
+            });
+
+            return back()->with('success', 'Time entry updated successfully');
+
+        } catch (\Exception $e) {
+            Log::error("Failed to apply manager time correction for entry {$timeEntry->id}: " . $e->getMessage());
+
+            return back()->withErrors(['message' => 'Failed to update time entry. Please try again.']);
+        }
+    }
+
+    /**
+     * Create missed punch entry for manager
+     */
+    public function managerCreateMissedPunch(Request $request): RedirectResponse
+    {
+        $request->validate([
+            'user_id' => 'required|exists:users,id',
+            'date' => 'required|date',
+            'clock_in_time' => 'required',
+            'clock_out_time' => 'nullable',
+            'reason' => 'required|string|max:1000',
+            'employee_notes' => 'nullable|string|max:1000',
+        ]);
+
+        $currentUser = Auth::user();
+        $targetUser = User::findOrFail($request->user_id);
+
+        // Check permissions
+        if (!$this->canManageUser($currentUser, $targetUser)) {
+            return back()->withErrors(['message' => 'You do not have permission to create entries for this user.']);
+        }
+
+        $date = Carbon::parse($request->date);
+        $clockInTime = Carbon::parse($request->clock_in_time);
+        $clockOutTime = $request->clock_out_time ? Carbon::parse($request->clock_out_time) : null;
+
+        // Check for existing entries on this date
+        $existingEntry = TimeEntry::where('user_id', $targetUser->id)
+            ->whereDate('clock_in_time', $date->format('Y-m-d'))
+            ->first();
+
+        if ($existingEntry) {
+            return back()->withErrors(['message' => 'There is already a time entry for this date.']);
+        }
+
+        try {
+            DB::transaction(function () use ($request, $targetUser, $currentUser, $clockInTime, $clockOutTime, $date) {
+                // Calculate hours if both times provided
+                $totalHours = 0;
+                if ($clockOutTime) {
+                    $totalMinutes = $clockInTime->diffInMinutes($clockOutTime);
+                    $totalHours = round($totalMinutes / 60, 2);
+                }
+
+                // Create the time entry
+                $timeEntry = TimeEntry::create([
+                    'user_id' => $targetUser->id,
+                    'clock_in_time' => $clockInTime,
+                    'clock_out_time' => $clockOutTime,
+                    'total_hours' => $totalHours,
+                    'status' => 'adjusted',
+                    'adjustment_reason' => "Created by manager: {$currentUser->name}",
+                    'adjusted_by_user_id' => $currentUser->id,
+                    'adjusted_at' => now(),
+                    'clock_in_ip' => request()->ip(),
+                    'clock_out_ip' => $clockOutTime ? request()->ip() : null,
+                    'clock_in_device' => 'Manager Entry',
+                    'clock_out_device' => $clockOutTime ? 'Manager Entry' : null,
+                ]);
+
+                // Create adjustment record for audit
+                TimeAdjustment::create([
+                    'user_id' => $targetUser->id,
+                    'time_entry_id' => $timeEntry->id,
+                    'adjustment_type' => 'manual_entry',
+                    'adjusted_clock_in' => $clockInTime,
+                    'adjusted_clock_out' => $clockOutTime,
+                    'adjusted_hours' => $totalHours,
+                    'reason' => $request->reason,
+                    'employee_notes' => $request->employee_notes,
+                    'requested_by_user_id' => $currentUser->id,
+                    'approved_by_user_id' => $currentUser->id,
+                    'status' => 'approved',
+                    'approved_at' => now(),
+                    'approval_notes' => 'Manager created entry',
+                ]);
+
+                // Recalculate hours
+                $timeEntry->recalculateHours();
+
+                Log::info("Manager created missed punch entry: Entry ID {$timeEntry->id}, Employee: {$targetUser->name}, Manager: {$currentUser->name}");
+            });
+
+            return back()->with('success', 'Time entry created successfully');
+
+        } catch (\Exception $e) {
+            Log::error("Failed to create missed punch entry: " . $e->getMessage());
+
+            return back()->withErrors(['message' => 'Failed to create time entry. Please try again.']);
+        }
+    }
+
+    /**
+     * Check if user can manage another user's time entries
+     */
+    private function canManageUser(User $manager, User $employee): bool
+    {
+        // Get all users the manager can see
+        $visibleUserIds = $manager->getVisibleUsers()->pluck('id');
+
+        return $visibleUserIds->contains($employee->id);
+    }
+
+    /**
      * Apply missed punch adjustment by creating a new time entry
      */
     private function applyMissedPunchAdjustment(TimeAdjustment $adjustment): void
@@ -507,4 +708,27 @@ class TimeAdjustmentController extends Controller
             ],
         ]);
     }
+    /**
+     * Get adjustment history for a specific time entry.
+     */
+    public function getHistoryForEntry(Request $request, TimeEntry $timeEntry): JsonResponse
+    {
+        // Optional: Add a permission check here if needed
+        // ...
+
+        $adjustments = TimeAdjustment::where('time_entry_id', $timeEntry->id)
+            ->with([
+                'requestedBy:id,name',
+                'approvedBy:id,name',
+                'rejectedBy:id,name'
+            ])
+            ->orderBy('created_at', 'desc')
+            ->get();
+
+        return response()->json([
+            'adjustments' => $adjustments,
+        ]);
+    }
+
+
 }
