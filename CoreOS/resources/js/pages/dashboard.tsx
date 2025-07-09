@@ -2,7 +2,6 @@ import AppLayout from '@/layouts/app-layout';
 import {type BreadcrumbItem} from '@/types';
 import {Head} from '@inertiajs/react';
 import {PlaceholderPattern} from "@/components/ui/placeholder-pattern";
-import TimeClock from "@/pages/TimeClock";
 
 
 interface User {
@@ -50,7 +49,7 @@ export default function Dashboard({ articles }: Props) {
 
                         <div className="border-sidebar-border/70 dark:border-sidebar-border relative aspect-video overflow-hidden rounded-xl border">
                             {/*<Feed articles={articles} limit={5} />*/}
-                        <TimeClock />
+                        {/*<TimeClock />*/}
                         </div>
 
                     </div>

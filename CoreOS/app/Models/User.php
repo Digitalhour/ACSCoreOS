@@ -512,32 +512,5 @@ class User extends Authenticatable
         return array_unique($managerIds);
     }
 
-    public function timeEntries(): HasMany
-    {
-        return $this->hasMany(TimeEntry::class);
-    }
 
-    public function timesheetSubmissions(): HasMany
-    {
-        return $this->hasMany(TimesheetSubmission::class);
-    }
-
-    public function timeAdjustments(): HasMany
-    {
-        return $this->hasMany(TimeAdjustment::class);
-    }
-
-// Get current active time entry
-    public function getCurrentTimeEntry(): ?TimeEntry
-    {
-        return $this->timeEntries()
-            ->where('status', 'active')
-            ->whereNull('clock_out_time')
-            ->first();
-    }
-
-    public function currentTimeEntry()
-    {
-        return $this->hasOne(TimeEntry::class)->where('status', 'active')->whereNull('clock_out_time')->latest();
-    }
 }

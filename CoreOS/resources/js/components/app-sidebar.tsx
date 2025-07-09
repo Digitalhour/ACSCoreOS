@@ -50,7 +50,10 @@ const mainNavItems: NavItem[] = [
     // { title: 'Your Training', href: '/training', icon:BookOpenText , description:null },
     // { title: 'Training Dashboard', href: '/admin/reports', icon:BookOpenText , description:null },
     { title: 'Old Training Dashboard', href: route('old-style-training-tracking.index'), icon:BookOpenText , description:null },
-    { title: 'my timesheet', href: route('timesheet.employee'), icon:BookOpenText , description:null },
+    { title: 'my timesheet', href: route('time-clock.employee'), icon:BookOpenText , description:null },
+    { title: 'Timesheet Manager Dash', href: route('time-clock.manager.dashboard'), icon:BookOpenText , description:null },
+    { title: 'Timesheet Payroll Dash', href: route('time-clock.payroll.dashboard'), icon:BookOpenText , description:null },
+
 ];
 
 const footerNavItems: NavItem[] = [

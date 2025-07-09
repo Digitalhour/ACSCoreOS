@@ -16,13 +16,11 @@ use App\Http\Controllers\HumanResources\QuizController;
 use App\Http\Controllers\HumanResources\ReportController;
 use App\Http\Controllers\HumanResources\TestController;
 use App\Http\Controllers\HumanResources\TestQuestionController;
+use App\Http\Controllers\ManagerTimeClockController;
 use App\Http\Controllers\OldStyleTrainingTrackingController;
-use App\Http\Controllers\PayrollController;
+use App\Http\Controllers\PayrollTimeClockController;
 use App\Http\Controllers\TagController;
-use App\Http\Controllers\TimeAdjustmentController;
 use App\Http\Controllers\TimeClockController;
-use App\Http\Controllers\TimesheetController;
-use App\Http\Controllers\TimesheetManagerController;
 use App\Http\Controllers\Training\TrainingController;
 use App\Http\Controllers\UserManagementController;
 use Illuminate\Support\Facades\Route;
@@ -49,58 +47,6 @@ Route::middleware(['auth', ValidateSessionWithWorkOS::class,])->group(function (
 //    Route::get('/timesheet/manage', function () {
 //        return Inertia::render('Timesheet/Manager');
 //    })->name('timesheet.manager');
-    Route::get('/timesheet/manage', [TimesheetManagerController::class, 'index'])
-        ->name('timesheet.manager');
-
-    // Payroll Views
-    Route::get('/payroll/timesheets', function () {
-        return Inertia::render('Payroll/Timesheets');
-    })->name('payroll.timesheets');
-
-    // Time Adjustments
-    Route::get('/time-adjustments', function () {
-        return Inertia::render('TimeAdjustments/Index');
-    })->name('time-adjustments.index');
-
-    Route::get('/time-adjustments/manage', function () {
-        return Inertia::render('TimeAdjustments/Manage');
-    })->name('time-adjustments.manage');
-
-    // Reports
-    Route::get('/reports/time-tracking', function () {
-        return Inertia::render('Reports/TimeTracking');
-    })->name('reports.time-tracking');
-
-
-
-
-
-
-    Route::prefix('api/timeclock')->group(function () {
-        Route::get('/status', [TimeClockController::class, 'getStatus']);
-        Route::post('/clock-in', [TimeClockController::class, 'clockIn']);
-        Route::post('/clock-out', [TimeClockController::class, 'clockOut']);
-        Route::post('/start-break', [TimeClockController::class, 'startBreak']);
-        Route::post('/end-break', [TimeClockController::class, 'endBreak']);
-        Route::get('/today-entries', [TimeClockController::class, 'getTodayEntries']);
-        Route::get('/entries', [TimeClockController::class, 'getEntriesForDateRange']);
-        Route::get('/break-types', [TimeClockController::class, 'getBreakTypes']);
-
-        Route::get('/manageable-users', [TimeClockController::class, 'getManageableUsers']);
-        Route::get('/manager/time-entries', [TimeClockController::class, 'getManagerTimeEntries']);
-        // Manager/Admin routes
-        Route::post('/force-clock-out/{userId}', [TimeClockController::class, 'forceClockOut']);
-
-        //manager dashboard
-        Route::get('/manager/dashboard', [TimeClockController::class, 'getManagerDashboard']);
-
-
-
-
-
-
-        Route::get('/manager/time-entries', [TimeClockController::class, 'getManagerTimeEntries']);
-    });
 
 //// Weekly timesheet data for manager view
 //    Route::get('/timesheet/weekly-data', [TimesheetManagerController::class, 'getWeeklyData']);
@@ -119,115 +65,38 @@ Route::middleware(['auth', ValidateSessionWithWorkOS::class,])->group(function (
 //    Route::get('/api/timesheet/weekly-data', [TimesheetManagerController::class, 'getWeeklyData']);
 //
 
-    Route::prefix('api')->group(function () {
+    Route::prefix('time-clock')->group(function () {
 
-        // Weekly timesheet data for manager view
-        Route::get('/timesheet/weekly-data', [TimesheetManagerController::class, 'getWeeklyData']);
+        // Employee routes (existing)
+        Route::get('/employee', [TimeClockController::class, 'employee'])->name('time-clock.employee');
+        Route::post('/clock-in', [TimeClockController::class, 'clockIn'])->name('time-clock.clock-in');
+        Route::post('/clock-out', [TimeClockController::class, 'clockOut'])->name('time-clock.clock-out');
+        Route::post('/start-break', [TimeClockController::class, 'startBreak'])->name('time-clock.start-break');
+        Route::post('/end-break', [TimeClockController::class, 'endBreak'])->name('time-clock.end-break');
+        Route::get('/status', [TimeClockController::class, 'status'])->name('time-clock.status');
 
-        // Time Entry CRUD (Manager functions)
-        Route::post('/time-entries', [TimesheetManagerController::class, 'store']);
-        Route::delete('/time-entries/{timeEntry}', [TimesheetManagerController::class, 'destroy']);
+        // Timesheet submission routes (existing)
+        Route::post('/submit-timesheet', [TimeClockController::class, 'submitTimesheet'])->name('time-clock.submit-timesheet');
+        Route::post('/withdraw-timesheet', [TimeClockController::class, 'withdrawTimesheet'])->name('time-clock.withdraw-timesheet');
+        Route::get('/week-timesheet', [TimeClockController::class, 'getWeekTimesheet'])->name('time-clock.week-timesheet');
 
-        // Time Adjustment History
-        Route::get('/time-adjustments/history/{timeEntry}', [TimeAdjustmentController::class, 'getHistoryForEntry']);
-
-        // Manager Time Correction (for the edit functionality)
-        Route::post('/time-adjustments/manager/time-correction', [TimeAdjustmentController::class, 'managerTimeCorrection']);
-
-        // Other timesheet API routes
-        Route::prefix('timesheet')->group(function () {
-            // Employee routes
-            Route::get('/', [TimesheetController::class, 'index']);
-            Route::post('/submit', [TimesheetController::class, 'submit']);
-            Route::get('/legal-acknowledgment', [TimesheetController::class, 'getLegalAcknowledgment']);
-
-            // Manager/Admin routes
-            Route::get('/pending-submissions', [TimesheetController::class, 'getPendingSubmissions']);
-            Route::get('/history/{userId}', [TimesheetController::class, 'getSubmissionHistory']);
-            Route::get('/{userId}', [TimesheetController::class, 'show']);
-
-            // Approval routes
-            Route::post('/approve/{submissionId}', [TimesheetController::class, 'approve']);
-            Route::post('/reject/{submissionId}', [TimesheetController::class, 'reject']);
-
-            // Payroll routes
-            Route::post('/lock/{submissionId}', [TimesheetController::class, 'lock']);
-            Route::post('/unlock/{submissionId}', [TimesheetController::class, 'unlock']);
+        // Manager routes (NEW)
+        Route::prefix('manager')->group(function () {
+            Route::get('/dashboard', [ManagerTimeClockController::class, 'dashboard'])->name('time-clock.manager.dashboard');
+            Route::get('/timesheets', [ManagerTimeClockController::class, 'timesheets'])->name('time-clock.manager.timesheets');
+            Route::post('/approve/{timesheet}', [ManagerTimeClockController::class, 'approve'])->name('time-clock.manager.approve');
+            Route::get('/timesheet/{timesheet}', [ManagerTimeClockController::class, 'show'])->name('time-clock.manager.timesheet.show');
         });
-    });
 
-    Route::prefix('api/timesheet')->group(function () {
-        // Employee routes
-        Route::get('/', [TimesheetController::class, 'index']);
-        Route::post('/submit', [TimesheetController::class, 'submit']);
-        Route::get('/legal-acknowledgment', [TimesheetController::class, 'getLegalAcknowledgment']);
-
-        // Manager/Admin routes
-        Route::get('/pending-submissions', [TimesheetController::class, 'getPendingSubmissions']);
-        Route::get('/history/{userId}', [TimesheetController::class, 'getSubmissionHistory']);
-        Route::get('/{userId}', [TimesheetController::class, 'show']);
-
-        // Approval routes
-        Route::post('/approve/{submissionId}', [TimesheetController::class, 'approve']);
-        Route::post('/reject/{submissionId}', [TimesheetController::class, 'reject']);
-
-        // Payroll routes
-        Route::post('/lock/{submissionId}', [TimesheetController::class, 'lock']);
-        Route::post('/unlock/{submissionId}', [TimesheetController::class, 'unlock']);
-
-
-
-
-
-
-
+        Route::prefix('payroll')->group(function () {
+            Route::get('/dashboard', [PayrollTimeClockController::class, 'dashboard'])->name('time-clock.payroll.dashboard');
+            Route::post('/process/{timesheet}', [PayrollTimeClockController::class, 'process'])->name('time-clock.payroll.process');
+            Route::post('/bulk-process', [PayrollTimeClockController::class, 'bulkProcess'])->name('time-clock.payroll.bulk-process');
+            Route::get('/export', [PayrollTimeClockController::class, 'export'])->name('time-clock.payroll.export');
+            Route::get('/reports', [PayrollTimeClockController::class, 'reports'])->name('time-clock.payroll.reports');
+        });
 
     });
-    Route::get('/time-adjustments/history/{timeEntry}', [TimeAdjustmentController::class, 'getHistoryForEntry']);
-// Time Adjustment Routes
-    Route::prefix('api/time-adjustments')->group(function () {
-//        // Employee routes
-//        Route::get('/', [TimeAdjustmentController::class, 'index']);
-//        Route::post('/missed-punch', [TimeAdjustmentController::class, 'requestMissedPunch']);
-//        Route::post('/time-correction', [TimeAdjustmentController::class, 'requestTimeCorrection']);
-//        Route::post('/break-adjustment', [TimeAdjustmentController::class, 'requestBreakAdjustment']);
-//        Route::get('/types', [TimeAdjustmentController::class, 'getAdjustmentTypes']);
-//
-//        // Manager/Admin routes
-//        Route::get('/pending', [TimeAdjustmentController::class, 'getPendingAdjustments']);
-        Route::get('/history/{userId}', [TimeAdjustmentController::class, 'getAdjustmentHistory']);
-//        Route::post('/approve/{adjustmentId}', [TimeAdjustmentController::class, 'approve']);
-//        Route::post('/reject/{adjustmentId}', [TimeAdjustmentController::class, 'reject']);
-        Route::get('/', [TimeAdjustmentController::class, 'index']);
-        Route::get('/pending', [TimeAdjustmentController::class, 'getPendingAdjustments']);
-        Route::get('/types', [TimeAdjustmentController::class, 'getAdjustmentTypes']);
-        Route::get('/history/{userId}', [TimeAdjustmentController::class, 'getAdjustmentHistory']);
-
-        // Employee requests (require approval)
-        Route::post('/missed-punch', [TimeAdjustmentController::class, 'requestMissedPunch']);
-        Route::post('/time-correction', [TimeAdjustmentController::class, 'requestTimeCorrection']);
-        Route::post('/break-adjustment', [TimeAdjustmentController::class, 'requestBreakAdjustment']);
-
-        // Manager actions (direct application)
-        Route::post('/manager/time-correction', [TimeAdjustmentController::class, 'managerTimeCorrection']);
-        Route::post('/manager/missed-punch', [TimeAdjustmentController::class, 'managerCreateMissedPunch']);
-
-        // Approval/rejection
-        Route::patch('/{adjustmentId}/approve', [TimeAdjustmentController::class, 'approve']);
-        Route::patch('/{adjustmentId}/reject', [TimeAdjustmentController::class, 'reject']);
-    });
-
-// Payroll Routes
-    Route::prefix('api/payroll')->group(function () {
-        Route::get('/timesheets', [PayrollController::class, 'getTimesheets']);
-        Route::get('/summary', [PayrollController::class, 'getSummary']);
-        Route::get('/export', [PayrollController::class, 'exportTimesheets']);
-        Route::get('/reports', [PayrollController::class, 'getReports']);
-        Route::post('/bulk-lock', [PayrollController::class, 'bulkLock']);
-        Route::post('/bulk-unlock', [PayrollController::class, 'bulkUnlock']);
-    });
-
-
 
 
 
