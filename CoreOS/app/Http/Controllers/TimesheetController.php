@@ -208,6 +208,9 @@ class TimesheetController extends Controller
     /**
      * Submit timesheet
      */
+    /**
+     * Submit timesheet
+     */
     public function submit(Request $request)
     {
         $request->validate([
@@ -243,8 +246,11 @@ class TimesheetController extends Controller
         try {
             DB::transaction(function () use ($request, $currentUser, $targetUser, $weekStart, $existingSubmission) {
                 if ($existingSubmission) {
+                    // Update existing submission with fresh time entry data
                     $submission = $existingSubmission;
+                    $submission->refreshFromTimeEntries();
                 } else {
+                    // Create new submission
                     $submission = TimesheetSubmission::createForWeek($targetUser, $weekStart);
                 }
 
@@ -257,6 +263,10 @@ class TimesheetController extends Controller
                     'self_submitted' => $selfSubmitted,
                     'submission_notes' => $request->submission_notes,
                     'legal_acknowledgment' => $request->legal_acknowledgment,
+                    // Clear previous rejection data when resubmitting
+                    'rejected_at' => null,
+                    'rejected_by_user_id' => null,
+                    'rejection_reason' => null,
                 ]);
 
                 $submitterName = $selfSubmitted ? 'self' : $currentUser->name;

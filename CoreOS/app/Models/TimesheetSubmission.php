@@ -170,9 +170,11 @@ class TimesheetSubmission extends Model
             $currentDate->addDay();
         }
 
-        return self::create([
+        // Use updateOrCreate to handle existing submissions
+        $submission = self::updateOrCreate([
             'user_id' => $user->id,
             'week_start_date' => $weekStart->startOfWeek(),
+        ], [
             'week_end_date' => $weekEnd->endOfWeek(),
             'total_hours' => $totalHours,
             'regular_hours' => $regularHours,
@@ -182,6 +184,8 @@ class TimesheetSubmission extends Model
             'summary_data' => $summaryData,
             'status' => 'draft',
         ]);
+
+        return $submission;
     }
 
     public function getWeekDisplay(): string
