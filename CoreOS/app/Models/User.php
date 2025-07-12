@@ -130,6 +130,28 @@ class User extends Authenticatable
 
     /*
     |--------------------------------------------------------------------------
+    | Time Clock System Relationships
+    |--------------------------------------------------------------------------
+    */
+
+    /**
+     * Get the timesheets for this user.
+     */
+    public function timesheets(): HasMany
+    {
+        return $this->hasMany(Timesheet::class);
+    }
+
+    /**
+     * Get the time clock entries for this user.
+     */
+    public function timeClocks(): HasMany
+    {
+        return $this->hasMany(TimeClock::class);
+    }
+
+    /*
+    |--------------------------------------------------------------------------
     | PTO System Relationships
     |--------------------------------------------------------------------------
     */

@@ -90,11 +90,21 @@ Route::middleware(['auth', ValidateSessionWithWorkOS::class,])->group(function (
 
         Route::prefix('payroll')->group(function () {
             Route::get('/dashboard', [PayrollTimeClockController::class, 'dashboard'])->name('time-clock.payroll.dashboard');
+            Route::get('/departments', [PayrollTimeClockController::class, 'departments'])->name('time-clock.payroll.departments'); // NEW
             Route::post('/process/{timesheet}', [PayrollTimeClockController::class, 'process'])->name('time-clock.payroll.process');
             Route::post('/bulk-process', [PayrollTimeClockController::class, 'bulkProcess'])->name('time-clock.payroll.bulk-process');
             Route::get('/export', [PayrollTimeClockController::class, 'export'])->name('time-clock.payroll.export');
             Route::get('/reports', [PayrollTimeClockController::class, 'reports'])->name('time-clock.payroll.reports');
+            Route::get('/timesheet/{timesheet}/punches', [PayrollTimeClockController::class, 'timesheetPunches'])->name('time-clock.payroll.timesheet.punches');
+            Route::put('/punch/{timeClock}/edit', [PayrollTimeClockController::class, 'editPunch'])->name('time-clock.payroll.punch.edit');
+            Route::put('/break/{audit}/edit', [PayrollTimeClockController::class, 'editBreak'])->name('time-clock.payroll.break.edit');
+            Route::delete('/punch/{timeClock}/delete', [PayrollTimeClockController::class, 'deletePunch'])
+                ->name('time-clock.payroll.punch.delete');
+
+            Route::delete('/break/{audit}/delete', [PayrollTimeClockController::class, 'deleteBreak'])
+                ->name('time-clock.payroll.break.delete');
         });
+
 
     });
 

@@ -2,7 +2,7 @@ import {useEffect, useState} from 'react';
 import {Head, router} from '@inertiajs/react';
 import AppLayout from '@/layouts/app-layout';
 import {Button} from '@/components/ui/button';
-import {Card, CardAction, CardContent, CardDescription, CardFooter, CardHeader, CardTitle} from '@/components/ui/card';
+import {Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle} from '@/components/ui/card';
 import {Badge} from '@/components/ui/badge';
 import {Table, TableBody, TableCell, TableHead, TableHeader, TableRow} from '@/components/ui/table';
 import {AlertCircle, Calendar, Clock, FileText, Filter, LogOut, Pause, Play, Send} from 'lucide-react';
@@ -15,17 +15,16 @@ import {Checkbox} from "@/components/ui/checkbox";
 interface TimeClock {
     id: number;
     user_id: number;
+    punch_type: 'work' | 'break';
+    break_type_id?: number;
     clock_in_at: string;
     clock_out_at: string | null;
-    break_start_at: string | null;
-    break_end_at: string | null;
-    break_type_id: number | null;
     regular_hours: number;
     overtime_hours: number;
-    break_duration: number;
     notes: string | null;
     status: 'active' | 'completed' | 'pending_approval';
-    break_type?: BreakType;
+    location_data?: any;
+    breakType?: BreakType;
 }
 
 interface BreakType {
@@ -73,8 +72,16 @@ interface WeekOption {
     is_current: boolean;
 }
 
+interface CurrentStatus {
+    is_clocked_in: boolean;
+    is_on_break: boolean;
+    current_work_punch: TimeClock | null;
+    current_break_punch: TimeClock | null;
+    last_punch: TimeClock | null;
+}
+
 interface Props {
-    currentEntry: TimeClock | null;
+    currentStatus: CurrentStatus;
     todayEntries: TimeClock[];
     weekEntries: TimeClock[];
     weeklyStats: WeeklyStats;
@@ -98,24 +105,19 @@ const breadcrumbs = [
 ];
 
 export default function EmployeeTimeClock({
-                                              currentEntry,
-
+                                              currentStatus,
                                               weekEntries,
                                               weeklyStats,
                                               breakTypes,
                                               currentTimesheet,
-
                                           }: Props) {
-    // const [selectedBreakType, setSelectedBreakType] = useState<string>('');
     const [currentTime, setCurrentTime] = useState(new Date());
     const [submissionDialogOpen, setSubmissionDialogOpen] = useState(false);
     const [withdrawalDialogOpen, setWithdrawalDialogOpen] = useState(false);
     const [legalAcknowledgment, setLegalAcknowledgment] = useState(false);
     const [submissionNotes, setSubmissionNotes] = useState('');
     const [withdrawalReason, setWithdrawalReason] = useState('');
-    // NEW: State to hold the live calculated working hours
     const [liveWorkingHours, setLiveWorkingHours] = useState(0);
-
 
     useEffect(() => {
         const timer = setInterval(() => {
@@ -125,43 +127,32 @@ export default function EmployeeTimeClock({
         return () => clearInterval(timer);
     }, []);
 
-    // NEW: useEffect to calculate live working hours
+    // Calculate live working hours
     useEffect(() => {
-        if (!currentEntry) {
+        if (!currentStatus.is_clocked_in || !currentStatus.current_work_punch) {
             setLiveWorkingHours(0);
             return;
         }
 
         const calculateLiveHours = () => {
-            const clockInTime = new Date(currentEntry.clock_in_at).getTime();
+            const workPunch = currentStatus.current_work_punch;
+            if (!workPunch) return;
+
+            const clockInTime = new Date(workPunch.clock_in_at).getTime();
             const now = new Date().getTime();
 
-            // Total time since clock-in in milliseconds
-            let totalElapsedMilliseconds = now - clockInTime;
+            // Calculate elapsed time since clock-in
+            const elapsedMilliseconds = now - clockInTime;
+            const elapsedHours = elapsedMilliseconds / (1000 * 60 * 60);
 
-            // Pre-calculated duration of completed breaks (in milliseconds)
-            let totalBreakMilliseconds = (currentEntry.break_duration || 0) * 3600 * 1000;
-
-            // If user is currently on a break, add the ongoing break duration
-            if (currentEntry.break_start_at && !currentEntry.break_end_at) {
-                const breakStartTime = new Date(currentEntry.break_start_at).getTime();
-                const ongoingBreakMilliseconds = now - breakStartTime;
-                totalBreakMilliseconds += ongoingBreakMilliseconds;
-            }
-
-            // Calculate net working time and convert from milliseconds to hours
-            const netWorkingMilliseconds = Math.max(0, totalElapsedMilliseconds - totalBreakMilliseconds);
-            const netWorkingHours = netWorkingMilliseconds / (1000 * 60 * 60);
-
-            setLiveWorkingHours(netWorkingHours);
+            setLiveWorkingHours(elapsedHours);
         };
 
-        calculateLiveHours(); // Calculate immediately on render
-        const interval = setInterval(calculateLiveHours, 1000); // And recalculate every second
+        calculateLiveHours();
+        const interval = setInterval(calculateLiveHours, 1000);
 
-        return () => clearInterval(interval); // Cleanup on unmount or when currentEntry changes
-    }, [currentEntry]);
-
+        return () => clearInterval(interval);
+    }, [currentStatus]);
 
     const formatTime = (date: Date): string => {
         return date.toLocaleTimeString('en-US', {
@@ -180,6 +171,9 @@ export default function EmployeeTimeClock({
     };
 
     const formatHours = (hours: number): string => {
+        if (isNaN(hours) || hours < 0) {
+            return '0:00';
+        }
         const h = Math.floor(hours);
         const m = Math.round((hours - h) * 60);
         return `${h}:${m.toString().padStart(2, '0')}`;
@@ -192,9 +186,50 @@ export default function EmployeeTimeClock({
         return h > 0 ? `${h}:${m.toString().padStart(2, '0')} hrs` : `${m} mins`;
     };
 
+    // Get current break duration
+    const getCurrentBreakDuration = (): number => {
+        if (!currentStatus.current_break_punch) return 0;
+
+        const breakStart = new Date(currentStatus.current_break_punch.clock_in_at).getTime();
+        const now = new Date().getTime();
+        return (now - breakStart) / (1000 * 60 * 60); // Convert to hours
+    };
+
+    // Get total break hours for current work session
+    const getTotalBreakHours = (): number => {
+        if (!currentStatus.current_work_punch) return 0;
+
+        // Get today's break entries for current work session
+        const today = new Date().toDateString();
+        const workPunchDate = new Date(currentStatus.current_work_punch.clock_in_at).toDateString();
+
+        if (today !== workPunchDate) return 0;
+
+        const breakEntries = weekEntries.filter(entry =>
+            entry.punch_type === 'break' &&
+            new Date(entry.clock_in_at).toDateString() === today
+        );
+
+        let totalBreakHours = 0;
+
+        breakEntries.forEach(breakEntry => {
+            if (breakEntry.status === 'completed' && breakEntry.clock_out_at) {
+                const breakStart = new Date(breakEntry.clock_in_at).getTime();
+                const breakEnd = new Date(breakEntry.clock_out_at).getTime();
+                totalBreakHours += (breakEnd - breakStart) / (1000 * 60 * 60);
+            } else if (breakEntry.status === 'active') {
+                // This is the current break
+                totalBreakHours += getCurrentBreakDuration();
+            }
+        });
+
+        return totalBreakHours;
+    };
+
     const getCurrentMonth = (): string => {
         return currentTime.toLocaleDateString('en-US', { month: 'short' });
     };
+
     const getCurrentMonthLong = (): string => {
         return currentTime.toLocaleDateString('en-US', { month: 'long' });
     };
@@ -203,6 +238,7 @@ export default function EmployeeTimeClock({
         const day = currentTime.getDate();
         return day.toString().padStart(2, '0');
     };
+
     const getCurrentYearLong = (): string => {
         return currentTime.toLocaleDateString('en-US', { year: 'numeric' });
     };
@@ -220,7 +256,6 @@ export default function EmployeeTimeClock({
     };
 
     const handleStartBreak = () => {
-        // Find the "Lunch Break" by its label, or fall back to the first available break type.
         const lunchBreak = breakTypes.find(bt => bt.label.toLowerCase() === 'lunch break') || (breakTypes.length > 0 ? breakTypes[0] : null);
 
         if (!lunchBreak) {
@@ -293,9 +328,109 @@ export default function EmployeeTimeClock({
         );
     };
 
-    const isOnBreak = currentEntry?.break_start_at && !currentEntry?.break_end_at;
-    const canStartBreak = currentEntry && !isOnBreak;
-    const canEndBreak = currentEntry && isOnBreak;
+    // Group entries into work sessions
+    const getWorkSessions = () => {
+        const workEntries = weekEntries
+            .filter(entry => entry.punch_type === 'work')
+            .sort((a, b) => new Date(a.clock_in_at).getTime() - new Date(b.clock_in_at).getTime());
+
+        const sessions: Array<{
+            date: string;
+            sessionStart: string;
+            sessionEnd: string | null;
+            workPunches: TimeClock[];
+            breaks: TimeClock[];
+            totalWorkHours: number;
+            totalOvertimeHours: number;
+            totalBreakHours: number;
+            isActive: boolean;
+        }> = [];
+
+        workEntries.forEach(workEntry => {
+            const workDate = new Date(workEntry.clock_in_at).toDateString();
+
+            // Check if we already have a session for this date
+            let session = sessions.find(s => s.date === workDate);
+
+            if (!session) {
+                // Create new session
+                session = {
+                    date: workDate,
+                    sessionStart: workEntry.clock_in_at,
+                    sessionEnd: workEntry.clock_out_at,
+                    workPunches: [workEntry],
+                    breaks: [],
+                    totalWorkHours: workEntry.regular_hours || 0,
+                    totalOvertimeHours: workEntry.overtime_hours || 0,
+                    totalBreakHours: 0,
+                    isActive: workEntry.status === 'active',
+                };
+                sessions.push(session);
+            } else {
+                // Add to existing session
+                session.workPunches.push(workEntry);
+                session.totalWorkHours += (workEntry.regular_hours || 0);
+                session.totalOvertimeHours += (workEntry.overtime_hours || 0);
+
+                // Update session end time if this punch ended later
+                if (workEntry.clock_out_at && (!session.sessionEnd || new Date(workEntry.clock_out_at) > new Date(session.sessionEnd))) {
+                    session.sessionEnd = workEntry.clock_out_at;
+                }
+
+                if (workEntry.status === 'active') {
+                    session.isActive = true;
+                    session.sessionEnd = null;
+                }
+            }
+        });
+
+        // Add breaks to sessions and calculate actual working hours
+        const breakEntries = weekEntries.filter(entry => entry.punch_type === 'break');
+        sessions.forEach(session => {
+            // Add breaks to this session
+            const sessionBreaks = breakEntries.filter(breakEntry =>
+                new Date(breakEntry.clock_in_at).toDateString() === session.date
+            );
+            session.breaks = sessionBreaks;
+
+            // Calculate break duration
+            sessionBreaks.forEach(breakEntry => {
+                if (breakEntry.status === 'completed' && breakEntry.clock_out_at) {
+                    const breakStart = new Date(breakEntry.clock_in_at).getTime();
+                    const breakEnd = new Date(breakEntry.clock_out_at).getTime();
+                    session.totalBreakHours += (breakEnd - breakStart) / (1000 * 60 * 60);
+                }
+            });
+
+            // Recalculate working hours properly
+            session.totalWorkHours = 0;
+            session.totalOvertimeHours = 0;
+
+            session.workPunches.forEach(workPunch => {
+                if (workPunch.clock_out_at) {
+                    // Calculate hours manually for all punches (completed or not)
+                    const clockInTime = new Date(workPunch.clock_in_at).getTime();
+                    const clockOutTime = new Date(workPunch.clock_out_at).getTime();
+                    const totalHours = (clockOutTime - clockInTime) / (1000 * 60 * 60);
+                    session.totalWorkHours += totalHours;
+                } else if (workPunch.status === 'active') {
+                    // Calculate live hours for active punches
+                    const clockInTime = new Date(workPunch.clock_in_at).getTime();
+                    const now = new Date().getTime();
+                    const elapsedHours = (now - clockInTime) / (1000 * 60 * 60);
+                    session.totalWorkHours += elapsedHours;
+                }
+            });
+
+            // Subtract total break time from working hours
+            session.totalWorkHours = Math.max(0, session.totalWorkHours - session.totalBreakHours);
+        });
+
+        return sessions.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    };
+
+    const canStartBreak = currentStatus.is_clocked_in && !currentStatus.is_on_break;
+    const canEndBreak = currentStatus.is_on_break;
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
@@ -311,9 +446,9 @@ export default function EmployeeTimeClock({
                         </p>
                     </div>
                     <div className="text-right">
-                        <p className="text-2xl "> {getCurrentMonthLong()} {getCurrentDay()}, {getCurrentYearLong()}</p>
+                        <p className="text-2xl">{getCurrentMonthLong()} {getCurrentDay()}, {getCurrentYearLong()}</p>
                         <div className="flex justify-end gap-2">
-                            <p className="text-2xl  font-mono">{formatTime(currentTime)}</p>
+                            <p className="text-2xl font-mono">{formatTime(currentTime)}</p>
                         </div>
                     </div>
                 </div>
@@ -323,22 +458,22 @@ export default function EmployeeTimeClock({
                     {/* Clock Controls */}
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                         {/* Date Display */}
-                        <Card className={"col-span-2"}>
+                        <Card className="col-span-2">
                             <CardHeader>
-                                <CardTitle className={"my-6"}>
+                                <CardTitle className="my-6">
                                     <div className="flex h-5 items-center space-x-4 text-sm">
-                                        <div className={"flex flex-col"}>
-                                            <div className={"font-semibold text-lg"}>
+                                        <div className="flex flex-col">
+                                            <div className="font-semibold text-lg">
                                                 {getCurrentMonth().toUpperCase()}
                                             </div>
                                             <Separator/>
-                                            <div className={"font-bold text-2xl"}>
+                                            <div className="font-bold text-2xl">
                                                 {getCurrentDay()}
                                             </div>
                                         </div>
                                         <Separator orientation="vertical" />
                                         <div>
-                                            {!currentEntry ? (
+                                            {!currentStatus.is_clocked_in && !currentStatus.is_on_break ? (
                                                 <Button
                                                     onClick={handleClockIn}
                                                     size="lg"
@@ -358,37 +493,19 @@ export default function EmployeeTimeClock({
                                                     Clock Out
                                                 </Button>
                                             )}
-
                                         </div>
-                                        <Separator orientation={"vertical"}/>
+                                        <Separator orientation="vertical"/>
                                         <div>
                                             {canStartBreak && (
-                                                <div className="space-y-3">
-                                                    {/*
-                                                        <Select value={selectedBreakType} onValueChange={setSelectedBreakType}>
-                                                            <SelectTrigger>
-                                                                <SelectValue placeholder="Select break type" />
-                                                            </SelectTrigger>
-                                                            <SelectContent>
-                                                                {breakTypes.map((breakType) => (
-                                                                    <SelectItem key={breakType.id} value={breakType.id.toString()}>
-                                                                        {breakType.label}
-                                                                    </SelectItem>
-                                                                ))}
-                                                            </SelectContent>
-                                                        </Select>
-                                                        */}
-                                                    <Button
-                                                        onClick={handleStartBreak}
-                                                        // disabled={!selectedBreakType}
-                                                        size="lg"
-                                                        variant="outline"
-                                                        className="w-full"
-                                                    >
-                                                        <Play className="w-5 h-5 mr-2" />
-                                                        Start Lunch Break
-                                                    </Button>
-                                                </div>
+                                                <Button
+                                                    onClick={handleStartBreak}
+                                                    size="lg"
+                                                    variant="outline"
+                                                    className="w-full"
+                                                >
+                                                    <Play className="w-5 h-5 mr-2" />
+                                                    Start Lunch Break
+                                                </Button>
                                             )}
 
                                             {canEndBreak && (
@@ -402,91 +519,58 @@ export default function EmployeeTimeClock({
                                                 </Button>
                                             )}
 
-                                            {!currentEntry && (
-                                                <p className="text-sm text-muted-foreground text-center">
-                                                    Clock in to start a break
-                                                </p>
-                                            )}
+                                            {/*{currentStatus.is_clocked_in && (*/}
+                                            {/*    <p className="text-sm text-muted-foreground text-center">*/}
+                                            {/*        Clock in to start a break*/}
+                                            {/*    </p>*/}
+                                            {/*)}*/}
                                         </div>
-
                                     </div>
-
                                 </CardTitle>
                                 <CardAction>
-
-                                    <Badge variant={isOnBreak ? "destructive" : "default"}>
-                                        {isOnBreak ? "On Break" : "Working"}
+                                    <Badge variant={currentStatus.is_on_break ? "destructive" : "default"}>
+                                        {currentStatus.is_on_break ? "On Break" : currentStatus.is_clocked_in ? "Working" : "Clocked Out"}
                                     </Badge>
-
                                 </CardAction>
                             </CardHeader>
                             <CardContent className="p-6">
                                 <Separator className="my-2.5" />
                                 {/* Current Status */}
-                                {currentEntry && (
-                                    <div className="flex justify-between gap-4  ">
-                                        <div >
+                                {currentStatus.is_clocked_in && currentStatus.current_work_punch && (
+                                    <div className="flex justify-between gap-4">
+                                        <div>
                                             <p className="text-xs text-muted-foreground">Clock In</p>
                                             <p className="text-xl font-bold">
-                                                {formatTime(new Date(currentEntry.clock_in_at))}
+                                                {formatTime(new Date(currentStatus.current_work_punch.clock_in_at))}
                                             </p>
                                         </div>
-                                        <Separator orientation={"vertical"}/>
-                                        <div >
+                                        <Separator orientation="vertical"/>
+                                        <div>
                                             <p className="text-xs text-muted-foreground">Breaks</p>
                                             <p className="text-xl font-bold">
-                                                {formatBreakDuration(currentEntry.break_duration)}
+                                                {formatBreakDuration(currentStatus.is_on_break ? getCurrentBreakDuration() : getTotalBreakHours())}
                                             </p>
                                         </div>
-                                        <Separator orientation={"vertical"}/>
+                                        <Separator orientation="vertical"/>
                                         <div>
                                             <p className="text-xs text-muted-foreground">Working Hours</p>
-                                           <p className="text-xl font-bold">
+                                            <p className="text-xl font-bold">
                                                 {formatHours(liveWorkingHours)}
                                             </p>
                                         </div>
-
-
                                     </div>
-
                                 )}
 
-                                {!currentEntry && (
-
-
+                                {!currentStatus.is_clocked_in && (
                                     <p className="text-sm text-muted-foreground text-center">
-                                        Welcome clock in
+                                        Welcome! Clock in to start tracking time
                                     </p>
-
                                 )}
-
-
                             </CardContent>
-
-                            <CardFooter className="flex flex-row justify-between gap-4">
-
-                                    {/*<div >*/}
-                                    {/*    <p className="text-sm text-muted-foreground">Total Hours</p>*/}
-                                    {/*    <p className="text-2xl font-bold">{formatHours(weeklyStats.total_hours)}</p>*/}
-                                    {/*</div>*/}
-                                    {/*<div >*/}
-                                    {/*    <p className="text-sm text-muted-foreground">Regular Hours</p>*/}
-                                    {/*    <p className="text-2xl font-bold">{formatHours(weeklyStats.regular_hours)}</p>*/}
-                                    {/*</div>*/}
-                                    {/*<div >*/}
-                                    {/*    <p className="text-sm text-muted-foreground">Overtime Hours</p>*/}
-                                    {/*    <p className="text-2xl font-bold">{formatHours(weeklyStats.overtime_hours)}</p>*/}
-                                    {/*</div>*/}
-                                    {/*<div >*/}
-                                    {/*    <p className="text-sm text-muted-foreground">Break Hours</p>*/}
-                                    {/*    <p className="text-2xl font-bold">{formatHours(weeklyStats.break_hours)}</p>*/}
-                                    {/*</div>*/}
-
-                            </CardFooter>
                         </Card>
 
                         {/* Timesheet Submission */}
-                        <Card className={"col-span-2"}>
+                        <Card className="col-span-2">
                             <CardHeader>
                                 <CardTitle className="flex items-center gap-2">
                                     <FileText className="w-5 h-5" />
@@ -496,7 +580,7 @@ export default function EmployeeTimeClock({
                                     {currentTimesheet.status === 'draft' && (
                                         <Dialog open={submissionDialogOpen} onOpenChange={setSubmissionDialogOpen}>
                                             <DialogTrigger asChild>
-                                                <Button variant={"secondary"}>
+                                                <Button variant="secondary">
                                                     <Send className="w-4 h-4 mr-2" />
                                                     Submit Timesheet
                                                 </Button>
@@ -643,9 +727,6 @@ export default function EmployeeTimeClock({
                                                 Status: {getStatusBadge(currentTimesheet.status)}
                                             </p>
                                         </div>
-                                        <div className="flex gap-2">
-
-                                        </div>
                                     </div>
 
                                     {currentTimesheet.status === 'submitted' && (
@@ -695,68 +776,54 @@ export default function EmployeeTimeClock({
                             </CardContent>
                         </Card>
 
-
+                        {/* Stats Cards */}
+                        <Card>
+                            <CardHeader>
+                                <CardDescription>Total Hours</CardDescription>
+                                <CardTitle className="text-2xl font-semibold tabular-nums">
+                                    {formatHours(weeklyStats.total_hours)}
+                                </CardTitle>
+                                <CardAction>
+                                    <Badge variant="outline">
+                                        {formatHours(liveWorkingHours)}
+                                    </Badge>
+                                </CardAction>
+                            </CardHeader>
+                        </Card>
 
                         <Card>
-                                <CardHeader>
-                                    <CardDescription>Total Hours</CardDescription>
-                                    <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
-                                        {formatHours(weeklyStats.total_hours)}
-                                    </CardTitle>
-                                    <CardAction>
-                                        <Badge variant="outline">
+                            <CardHeader>
+                                <CardDescription>Regular Hours</CardDescription>
+                                <CardTitle className="text-2xl font-semibold tabular-nums">
+                                    {formatHours(weeklyStats.regular_hours)}
+                                </CardTitle>
+                            </CardHeader>
+                        </Card>
 
-                                            {formatHours(liveWorkingHours)}
-                                        </Badge>
-                                    </CardAction>
-                                </CardHeader>
-
-                            </Card>
-
-                            <Card className="@container/card">
-                                <CardHeader>
-                                    <CardDescription>Regular Hours</CardDescription>
-                                    <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
-                                        {formatHours(weeklyStats.total_hours)}
-                                    </CardTitle>
-                                    <CardAction>
-                                        <Badge variant="outline">
-
-                                            {formatHours(liveWorkingHours)}
-                                        </Badge>
-                                    </CardAction>
-                                </CardHeader>
-
-                            </Card>
-                        <Card className="@container/card">
+                        <Card>
                             <CardHeader>
                                 <CardDescription>Overtime Hours</CardDescription>
-                                <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
-                                    {formatHours(weeklyStats.total_hours)}
+                                <CardTitle className="text-2xl font-semibold tabular-nums">
+                                    {formatHours(weeklyStats.overtime_hours)}
                                 </CardTitle>
                             </CardHeader>
-
                         </Card>
-                        <Card className="@container/card">
+
+                        <Card>
                             <CardHeader>
                                 <CardDescription>Total Breaks</CardDescription>
-                                <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
-                                    {formatHours(weeklyStats.total_hours)}
+                                <CardTitle className="text-2xl font-semibold tabular-nums">
+                                    {formatHours(weeklyStats.break_hours)}
                                 </CardTitle>
-
                             </CardHeader>
-
                         </Card>
-                        </div>
-
-
-
+                    </div>
 
                     {/* Time Entries Table */}
                     <Card>
                         <CardHeader>
                             <div className="flex items-center justify-between">
-                                <CardTitle>Time Entries</CardTitle>
+                                <CardTitle>Work Sessions</CardTitle>
                                 <div className="flex items-center gap-2">
                                     <Button variant="outline" size="sm">
                                         <Filter className="w-4 h-4 mr-2" />
@@ -770,51 +837,67 @@ export default function EmployeeTimeClock({
                                 <TableHeader>
                                     <TableRow>
                                         <TableHead>Date</TableHead>
-                                        <TableHead>Check In</TableHead>
-                                        <TableHead>Check Out</TableHead>
-                                        <TableHead>Meal Break</TableHead>
+                                        <TableHead>Session Start</TableHead>
+                                        <TableHead>Session End</TableHead>
+                                        <TableHead>Breaks</TableHead>
                                         <TableHead>Working Hours</TableHead>
                                         <TableHead>Overtime</TableHead>
+                                        <TableHead>Status</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                    {weekEntries.map((entry) => (
-                                        <TableRow key={entry.id}>
+                                    {getWorkSessions().map((session, index) => (
+                                        <TableRow key={`${session.date}-${index}`}>
                                             <TableCell>
-                                                {formatDate(entry.clock_in_at)}
+                                                {formatDate(session.sessionStart)}
                                             </TableCell>
                                             <TableCell>
-                                                {formatTime(new Date(entry.clock_in_at))}
+                                                {formatTime(new Date(session.sessionStart))}
                                             </TableCell>
                                             <TableCell>
-                                                {entry.clock_out_at
-                                                    ? formatTime(new Date(entry.clock_out_at))
-                                                    : '--'
-                                                }
+                                                {session.sessionEnd ? formatTime(new Date(session.sessionEnd)) : '--'}
                                             </TableCell>
                                             <TableCell>
-                                                {entry.break_duration > 0
-                                                    ? formatBreakDuration(entry.break_duration)
-                                                    : '--'
-                                                }
+                                                <div className="space-y-1">
+                                                    {session.breaks.length > 0 ? (
+                                                        session.breaks.map((breakEntry, breakIndex) => (
+                                                            <div key={breakEntry.id} className="text-xs">
+                                                                <Badge variant="outline" className="text-xs">
+                                                                    {breakEntry.breakType?.label || 'Break'}: {' '}
+                                                                    {formatTime(new Date(breakEntry.clock_in_at))}
+                                                                    {breakEntry.clock_out_at && (
+                                                                        ` - ${formatTime(new Date(breakEntry.clock_out_at))}`
+                                                                    )}
+                                                                    {breakEntry.status === 'active' && (
+                                                                        <span className="text-orange-600 ml-1">(Active)</span>
+                                                                    )}
+                                                                </Badge>
+                                                            </div>
+                                                        ))
+                                                    ) : (
+                                                        <span className="text-muted-foreground text-xs">No breaks</span>
+                                                    )}
+                                                </div>
                                             </TableCell>
                                             <TableCell>
-                                                {formatHours(entry.regular_hours)}
+                                                {formatHours(session.totalWorkHours)}
                                             </TableCell>
                                             <TableCell>
-                                                {entry.overtime_hours > 0
-                                                    ? formatHours(entry.overtime_hours)
-                                                    : '--'
-                                                }
+                                                {session.totalOvertimeHours > 0 ? formatHours(session.totalOvertimeHours) : '--'}
+                                            </TableCell>
+                                            <TableCell>
+                                                <Badge variant={session.isActive ? "default" : "secondary"}>
+                                                    {session.isActive ? "Active" : "Completed"}
+                                                </Badge>
                                             </TableCell>
                                         </TableRow>
                                     ))}
-                                    {weekEntries.length === 0 && (
+                                    {getWorkSessions().length === 0 && (
                                         <TableRow>
-                                            <TableCell colSpan={6} className="text-center py-8">
+                                            <TableCell colSpan={7} className="text-center py-8">
                                                 <div className="text-muted-foreground">
                                                     <Calendar className="w-8 h-8 mx-auto mb-2" />
-                                                    No time entries found for this week
+                                                    No work sessions found for this week
                                                 </div>
                                             </TableCell>
                                         </TableRow>
