@@ -86,11 +86,19 @@ Route::middleware(['auth', ValidateSessionWithWorkOS::class,])->group(function (
             Route::get('/timesheets', [ManagerTimeClockController::class, 'timesheets'])->name('time-clock.manager.timesheets');
             Route::post('/approve/{timesheet}', [ManagerTimeClockController::class, 'approve'])->name('time-clock.manager.approve');
             Route::get('/timesheet/{timesheet}', [ManagerTimeClockController::class, 'show'])->name('time-clock.manager.timesheet.show');
+
+
+            Route::get('/day-entries', [ManagerTimeClockController::class, 'getDayEntries'])->name('time-clock.manager.day-entries');
+            Route::post('/clock-out/{timeClock}', [ManagerTimeClockController::class, 'clockOutEntry'])->name('time-clock.manager.clock-out');
+            Route::post('/add-entry', [ManagerTimeClockController::class, 'addEntry'])->name('time-clock.manager.add-entry');
+            Route::post('/update-entry/{timeClock}', [ManagerTimeClockController::class, 'updateEntry'])->name('time-clock.manager.update-entry');
+            Route::delete('/delete-entry/{timeClock}', [ManagerTimeClockController::class, 'deleteEntry'])->name('time-clock.manager.delete-entry');
+            Route::get('/day-entries-modal', [ManagerTimeClockController::class, 'getDayEntriesModal'])->name('time-clock.manager.day-entries-modal');
         });
 
         Route::prefix('payroll')->group(function () {
-            Route::get('/dashboard', [PayrollTimeClockController::class, 'dashboard'])->name('time-clock.payroll.dashboard');
-            Route::get('/departments', [PayrollTimeClockController::class, 'departments'])->name('time-clock.payroll.departments'); // NEW
+            Route::match(['get', 'post'], '/dashboard', [PayrollTimeClockController::class, 'dashboard'])->name('time-clock.payroll.dashboard');
+
             Route::post('/process/{timesheet}', [PayrollTimeClockController::class, 'process'])->name('time-clock.payroll.process');
             Route::post('/bulk-process', [PayrollTimeClockController::class, 'bulkProcess'])->name('time-clock.payroll.bulk-process');
             Route::get('/export', [PayrollTimeClockController::class, 'export'])->name('time-clock.payroll.export');
@@ -103,6 +111,11 @@ Route::middleware(['auth', ValidateSessionWithWorkOS::class,])->group(function (
 
             Route::delete('/break/{audit}/delete', [PayrollTimeClockController::class, 'deleteBreak'])
                 ->name('time-clock.payroll.break.delete');
+            Route::post('/punch/create', [PayrollTimeClockController::class, 'addEntry'])
+                ->name('time-clock.payroll.punch.create');
+            Route::post('/punch/{timeClock}/clock-out', [PayrollTimeClockController::class, 'clockOut'])
+                ->name('time-clock.payroll.punch.clock-out');
+
         });
 
 

@@ -5,7 +5,19 @@ import {Button} from '@/components/ui/button';
 import {Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle} from '@/components/ui/card';
 import {Badge} from '@/components/ui/badge';
 import {Table, TableBody, TableCell, TableHead, TableHeader, TableRow} from '@/components/ui/table';
-import {AlertCircle, Calendar, Clock, FileText, Filter, LogOut, Pause, Play, Send} from 'lucide-react';
+import {
+    AlertCircle,
+    Calendar,
+    ChevronLeft,
+    ChevronRight,
+    Clock,
+    FileText,
+    Filter,
+    LogOut,
+    Pause,
+    Play,
+    Send
+} from 'lucide-react';
 import {Separator} from "@/components/ui/separator";
 import {Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger} from "@/components/ui/dialog";
 import {Label} from "@/components/ui/label";
@@ -106,10 +118,13 @@ const breadcrumbs = [
 
 export default function EmployeeTimeClock({
                                               currentStatus,
-                                              weekEntries,
-                                              weeklyStats,
+                                              weekEntries: initialWeekEntries,
+                                              weeklyStats: initialWeeklyStats,
                                               breakTypes,
-                                              currentTimesheet,
+                                              currentTimesheet: initialCurrentTimesheet,
+                                              availableWeeks,
+                                              weekStart: initialWeekStart,
+                                              weekEnd: initialWeekEnd,
                                           }: Props) {
     const [currentTime, setCurrentTime] = useState(new Date());
     const [submissionDialogOpen, setSubmissionDialogOpen] = useState(false);
@@ -118,6 +133,14 @@ export default function EmployeeTimeClock({
     const [submissionNotes, setSubmissionNotes] = useState('');
     const [withdrawalReason, setWithdrawalReason] = useState('');
     const [liveWorkingHours, setLiveWorkingHours] = useState(0);
+
+    // Week navigation state
+    const [currentWeekStart, setCurrentWeekStart] = useState(initialWeekStart);
+    const [currentWeekEnd, setCurrentWeekEnd] = useState(initialWeekEnd);
+    const [weekEntries, setWeekEntries] = useState(initialWeekEntries);
+    const [weeklyStats, setWeeklyStats] = useState(initialWeeklyStats);
+    const [currentTimesheet, setCurrentTimesheet] = useState(initialCurrentTimesheet);
+    const [isLoadingWeek, setIsLoadingWeek] = useState(false);
 
     useEffect(() => {
         const timer = setInterval(() => {
@@ -310,6 +333,61 @@ export default function EmployeeTimeClock({
                 setWithdrawalReason('');
             },
         });
+    };
+
+    // Week navigation functions
+    const handleWeekChange = async (weekStart: string) => {
+        setIsLoadingWeek(true);
+
+        try {
+            const response = await fetch(`/time-clock/week-timesheet?week_start=${weekStart}`, {
+                method: 'GET',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Accept': 'application/json',
+                },
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                setWeekEntries(data.weekEntries || []);
+                setWeeklyStats(data.weeklyStats || initialWeeklyStats);
+                setCurrentTimesheet(data.timesheet || initialCurrentTimesheet);
+                setCurrentWeekStart(weekStart);
+
+                // Calculate week end date
+                const startDate = new Date(weekStart);
+                const endDate = new Date(startDate);
+                endDate.setDate(startDate.getDate() + 6);
+                setCurrentWeekEnd(endDate.toISOString().split('T')[0]);
+            }
+        } catch (error) {
+            console.error('Failed to load week data:', error);
+        } finally {
+            setIsLoadingWeek(false);
+        }
+    };
+
+    const getPreviousWeek = (): string => {
+        const currentStart = new Date(currentWeekStart);
+        currentStart.setDate(currentStart.getDate() - 7);
+        return currentStart.toISOString().split('T')[0];
+    };
+
+    const getNextWeek = (): string => {
+        const currentStart = new Date(currentWeekStart);
+        currentStart.setDate(currentStart.getDate() + 7);
+        return currentStart.toISOString().split('T')[0];
+    };
+
+    const isCurrentWeek = (): boolean => {
+        return currentWeekStart === initialWeekStart;
+    };
+
+    const canGoToNextWeek = (): boolean => {
+        const nextWeek = getNextWeek();
+        const today = new Date().toISOString().split('T')[0];
+        return nextWeek <= today;
     };
 
     const getStatusBadge = (status: string) => {
@@ -519,11 +597,11 @@ export default function EmployeeTimeClock({
                                                 </Button>
                                             )}
 
-                                            {/*{currentStatus.is_clocked_in && (*/}
-                                            {/*    <p className="text-sm text-muted-foreground text-center">*/}
-                                            {/*        Clock in to start a break*/}
-                                            {/*    </p>*/}
-                                            {/*)}*/}
+                                            {!currentStatus.is_clocked_in && (
+                                                <p className="text-sm text-muted-foreground text-center">
+                                                    Clock in to start a break
+                                                </p>
+                                            )}
                                         </div>
                                     </div>
                                 </CardTitle>
@@ -575,6 +653,7 @@ export default function EmployeeTimeClock({
                                 <CardTitle className="flex items-center gap-2">
                                     <FileText className="w-5 h-5" />
                                     Timesheet Submission
+
                                 </CardTitle>
                                 <CardAction>
                                     {currentTimesheet.status === 'draft' && (
@@ -584,8 +663,10 @@ export default function EmployeeTimeClock({
                                                     <Send className="w-4 h-4 mr-2" />
                                                     Submit Timesheet
                                                 </Button>
+
                                             </DialogTrigger>
                                             <DialogContent className="sm:max-w-md">
+
                                                 <DialogHeader>
                                                     <DialogTitle>Submit Timesheet</DialogTitle>
                                                 </DialogHeader>
@@ -715,13 +796,59 @@ export default function EmployeeTimeClock({
                                         </Dialog>
                                     )}
                                 </CardAction>
+                                <div className="flex items-center gap-2">
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => handleWeekChange(getPreviousWeek())}
+                                        disabled={isLoadingWeek}
+                                    >
+                                        <ChevronLeft className="w-4 h-4" />
+                                        Previous Week
+                                    </Button>
+
+                                    <div className="px-3 py-1 bg-muted rounded text-sm">
+                                        {new Date(currentWeekStart).toLocaleDateString('en-US', {
+                                            month: 'short',
+                                            day: 'numeric'
+                                        })} - {new Date(currentWeekEnd).toLocaleDateString('en-US', {
+                                        month: 'short',
+                                        day: 'numeric',
+                                        year: 'numeric'
+                                    })}
+                                        {isCurrentWeek() && (
+                                            <Badge className="ml-2" variant="outline">Current</Badge>
+                                        )}
+                                    </div>
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => handleWeekChange(getNextWeek())}
+                                        hidden={isLoadingWeek || !canGoToNextWeek()}
+                                    >
+                                        Next Week
+                                        <ChevronRight className="w-4 h-4" />
+                                    </Button>
+
+                                    {!isCurrentWeek() && (
+                                        <Button
+                                            variant="secondary"
+                                            size="sm"
+                                            onClick={() => handleWeekChange(initialWeekStart)}
+                                            disabled={isLoadingWeek}
+                                        >
+                                            Current Week
+                                        </Button>
+                                    )}
+                                </div>
                             </CardHeader>
                             <CardContent>
                                 <div className="space-y-4">
                                     <div className="flex items-center justify-between">
+
                                         <div>
                                             <p className="font-medium">
-                                                Week: {new Date(currentTimesheet.week_start_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - {new Date(currentTimesheet.week_end_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                                                Week: {new Date(currentWeekStart).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - {new Date(currentWeekEnd).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                                             </p>
                                             <p className="text-sm text-muted-foreground">
                                                 Status: {getStatusBadge(currentTimesheet.status)}
@@ -773,6 +900,7 @@ export default function EmployeeTimeClock({
                                         </div>
                                     )}
                                 </div>
+
                             </CardContent>
                         </Card>
 
@@ -823,7 +951,12 @@ export default function EmployeeTimeClock({
                     <Card>
                         <CardHeader>
                             <div className="flex items-center justify-between">
-                                <CardTitle>Work Sessions</CardTitle>
+                                <div>
+                                    <CardTitle>Work Sessions</CardTitle>
+                                    <div className="flex items-center gap-4 mt-2">
+
+                                    </div>
+                                </div>
                                 <div className="flex items-center gap-2">
                                     <Button variant="outline" size="sm">
                                         <Filter className="w-4 h-4 mr-2" />
@@ -833,77 +966,83 @@ export default function EmployeeTimeClock({
                             </div>
                         </CardHeader>
                         <CardContent>
-                            <Table>
-                                <TableHeader>
-                                    <TableRow>
-                                        <TableHead>Date</TableHead>
-                                        <TableHead>Session Start</TableHead>
-                                        <TableHead>Session End</TableHead>
-                                        <TableHead>Breaks</TableHead>
-                                        <TableHead>Working Hours</TableHead>
-                                        <TableHead>Overtime</TableHead>
-                                        <TableHead>Status</TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {getWorkSessions().map((session, index) => (
-                                        <TableRow key={`${session.date}-${index}`}>
-                                            <TableCell>
-                                                {formatDate(session.sessionStart)}
-                                            </TableCell>
-                                            <TableCell>
-                                                {formatTime(new Date(session.sessionStart))}
-                                            </TableCell>
-                                            <TableCell>
-                                                {session.sessionEnd ? formatTime(new Date(session.sessionEnd)) : '--'}
-                                            </TableCell>
-                                            <TableCell>
-                                                <div className="space-y-1">
-                                                    {session.breaks.length > 0 ? (
-                                                        session.breaks.map((breakEntry, breakIndex) => (
-                                                            <div key={breakEntry.id} className="text-xs">
-                                                                <Badge variant="outline" className="text-xs">
-                                                                    {breakEntry.breakType?.label || 'Break'}: {' '}
-                                                                    {formatTime(new Date(breakEntry.clock_in_at))}
-                                                                    {breakEntry.clock_out_at && (
-                                                                        ` - ${formatTime(new Date(breakEntry.clock_out_at))}`
-                                                                    )}
-                                                                    {breakEntry.status === 'active' && (
-                                                                        <span className="text-orange-600 ml-1">(Active)</span>
-                                                                    )}
-                                                                </Badge>
-                                                            </div>
-                                                        ))
-                                                    ) : (
-                                                        <span className="text-muted-foreground text-xs">No breaks</span>
-                                                    )}
-                                                </div>
-                                            </TableCell>
-                                            <TableCell>
-                                                {formatHours(session.totalWorkHours)}
-                                            </TableCell>
-                                            <TableCell>
-                                                {session.totalOvertimeHours > 0 ? formatHours(session.totalOvertimeHours) : '--'}
-                                            </TableCell>
-                                            <TableCell>
-                                                <Badge variant={session.isActive ? "default" : "secondary"}>
-                                                    {session.isActive ? "Active" : "Completed"}
-                                                </Badge>
-                                            </TableCell>
-                                        </TableRow>
-                                    ))}
-                                    {getWorkSessions().length === 0 && (
+                            {isLoadingWeek ? (
+                                <div className="flex items-center justify-center py-8">
+                                    <div className="text-muted-foreground">Loading week data...</div>
+                                </div>
+                            ) : (
+                                <Table>
+                                    <TableHeader>
                                         <TableRow>
-                                            <TableCell colSpan={7} className="text-center py-8">
-                                                <div className="text-muted-foreground">
-                                                    <Calendar className="w-8 h-8 mx-auto mb-2" />
-                                                    No work sessions found for this week
-                                                </div>
-                                            </TableCell>
+                                            <TableHead>Date</TableHead>
+                                            <TableHead>Session Start</TableHead>
+                                            <TableHead>Session End</TableHead>
+                                            <TableHead>Breaks</TableHead>
+                                            <TableHead>Working Hours</TableHead>
+                                            <TableHead>Overtime</TableHead>
+                                            <TableHead>Status</TableHead>
                                         </TableRow>
-                                    )}
-                                </TableBody>
-                            </Table>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {getWorkSessions().map((session, index) => (
+                                            <TableRow key={`${session.date}-${index}`}>
+                                                <TableCell>
+                                                    {formatDate(session.sessionStart)}
+                                                </TableCell>
+                                                <TableCell>
+                                                    {formatTime(new Date(session.sessionStart))}
+                                                </TableCell>
+                                                <TableCell>
+                                                    {session.sessionEnd ? formatTime(new Date(session.sessionEnd)) : '--'}
+                                                </TableCell>
+                                                <TableCell>
+                                                    <div className="space-y-1">
+                                                        {session.breaks.length > 0 ? (
+                                                            session.breaks.map((breakEntry, breakIndex) => (
+                                                                <div key={breakEntry.id} className="text-xs">
+                                                                    <Badge variant="outline" className="text-xs">
+                                                                        {breakEntry.breakType?.label || 'Break'}: {' '}
+                                                                        {formatTime(new Date(breakEntry.clock_in_at))}
+                                                                        {breakEntry.clock_out_at && (
+                                                                            ` - ${formatTime(new Date(breakEntry.clock_out_at))}`
+                                                                        )}
+                                                                        {breakEntry.status === 'active' && (
+                                                                            <span className="text-orange-600 ml-1">(Active)</span>
+                                                                        )}
+                                                                    </Badge>
+                                                                </div>
+                                                            ))
+                                                        ) : (
+                                                            <span className="text-muted-foreground text-xs">No breaks</span>
+                                                        )}
+                                                    </div>
+                                                </TableCell>
+                                                <TableCell>
+                                                    {formatHours(session.totalWorkHours)}
+                                                </TableCell>
+                                                <TableCell>
+                                                    {session.totalOvertimeHours > 0 ? formatHours(session.totalOvertimeHours) : '--'}
+                                                </TableCell>
+                                                <TableCell>
+                                                    <Badge variant={session.isActive ? "default" : "secondary"}>
+                                                        {session.isActive ? "Active" : "Completed"}
+                                                    </Badge>
+                                                </TableCell>
+                                            </TableRow>
+                                        ))}
+                                        {getWorkSessions().length === 0 && (
+                                            <TableRow>
+                                                <TableCell colSpan={7} className="text-center py-8">
+                                                    <div className="text-muted-foreground">
+                                                        <Calendar className="w-8 h-8 mx-auto mb-2" />
+                                                        No work sessions found for this week
+                                                    </div>
+                                                </TableCell>
+                                            </TableRow>
+                                        )}
+                                    </TableBody>
+                                </Table>
+                            )}
                         </CardContent>
                     </Card>
                 </div>

@@ -19,10 +19,10 @@ class ManagerTimeClockController extends Controller
     {
         $manager = Auth::user();
 
-        // Get all subordinates in hierarchy (direct reports + their reports)
-        $subordinateIds = $this->getAllSubordinateIds($manager);
+        // Get all subordinates in hierarchy (direct reports + their reports) + manager themselves
+        $managedUserIds = $this->getAllManagedUserIds($manager);
 
-        if (empty($subordinateIds)) {
+        if (empty($managedUserIds)) {
             return Inertia::render('TimeManagement/Manager/Dashboard', [
                 'pendingTimesheets' => [],
                 'allTimesheets' => ['data' => [], 'links' => [], 'meta' => []],
@@ -38,15 +38,15 @@ class ManagerTimeClockController extends Controller
             ]);
         }
 
-        // Get pending timesheets for approval
-        $pendingTimesheets = Timesheet::whereIn('user_id', $subordinateIds)
+        // Get pending timesheets for approval (include manager's own + all subordinates, any week)
+        $pendingTimesheets = Timesheet::whereIn('user_id', $managedUserIds)
             ->where('status', 'submitted')
             ->with(['user', 'submittedBy'])
             ->orderBy('submitted_at', 'asc')
             ->get();
 
-        // Build query for all timesheets with filters
-        $query = Timesheet::whereIn('user_id', $subordinateIds)
+        // Build query for all timesheets with filters (include manager's own)
+        $query = Timesheet::whereIn('user_id', $managedUserIds)
             ->with(['user', 'submittedBy', 'approvedBy']);
 
         // Apply filters
@@ -68,24 +68,24 @@ class ManagerTimeClockController extends Controller
             ->paginate(20)
             ->withQueryString();
 
-        // Get subordinate users with their current week status
-        $subordinates = User::whereIn('id', $subordinateIds)
+        // Get managed users (subordinates + manager) for filter dropdown
+        $subordinates = User::whereIn('id', $managedUserIds)
             ->with(['currentPosition', 'departments'])
             ->orderBy('name')
             ->get();
 
-        // Generate team hours data for current week
-        $teamHoursData = $this->generateTeamHoursData($subordinateIds);
+        // Generate team hours data for current week (include manager)
+        $teamHoursData = $this->generateTeamHoursData($managedUserIds);
 
         // Calculate dashboard stats
         $dashboardStats = [
-            'pending_count' => $pendingTimesheets->count(),
-            'total_employees' => $subordinates->count(),
-            'this_week_submissions' => Timesheet::whereIn('user_id', $subordinateIds)
+            'pending_count' => $pendingTimesheets->count(), // Now includes manager's own
+            'total_employees' => count($managedUserIds), // Include manager in count
+            'this_week_submissions' => Timesheet::whereIn('user_id', $managedUserIds)
                 ->where('submitted_at', '>=', Carbon::now()->startOfWeek())
                 ->count(),
-            'approved_this_week' => Timesheet::whereIn('user_id', $subordinateIds)
-                ->where('status', 'approved')
+            'approved_this_week' => Timesheet::whereIn('user_id', $this->getAllSubordinateIds($manager)) // Only subordinates can be "approved"
+            ->where('status', 'approved')
                 ->where('approved_at', '>=', Carbon::now()->startOfWeek())
                 ->count(),
         ];
@@ -97,6 +97,7 @@ class ManagerTimeClockController extends Controller
             'dashboardStats' => $dashboardStats,
             'filters' => $request->only(['status', 'employee_id', 'week_start']),
             'teamHoursData' => $teamHoursData,
+            'currentManagerId' => $manager->id, // Add manager ID for frontend logic
         ]);
     }
 
@@ -106,9 +107,9 @@ class ManagerTimeClockController extends Controller
     public function timesheets(Request $request)
     {
         $manager = Auth::user();
-        $subordinateIds = $this->getAllSubordinateIds($manager);
+        $managedUserIds = $this->getAllManagedUserIds($manager);
 
-        if (empty($subordinateIds)) {
+        if (empty($managedUserIds)) {
             return Inertia::render('TimeManagement/Manager/Timesheets', [
                 'timesheets' => [],
                 'filters' => [],
@@ -117,7 +118,7 @@ class ManagerTimeClockController extends Controller
         }
 
         // Build query for timesheets
-        $query = Timesheet::whereIn('user_id', $subordinateIds)
+        $query = Timesheet::whereIn('user_id', $managedUserIds)
             ->with(['user', 'submittedBy', 'approvedBy']);
 
         // Apply filters
@@ -143,8 +144,8 @@ class ManagerTimeClockController extends Controller
             ->paginate(20)
             ->withQueryString();
 
-        // Get subordinates for filter dropdown
-        $subordinates = User::whereIn('id', $subordinateIds)
+        // Get managed users for filter dropdown
+        $subordinates = User::whereIn('id', $managedUserIds)
             ->select('id', 'name', 'email')
             ->orderBy('name')
             ->get();
@@ -169,9 +170,9 @@ class ManagerTimeClockController extends Controller
         $manager = Auth::user();
 
         // Verify manager has authority over this timesheet
-        $subordinateIds = $this->getAllSubordinateIds($manager);
+        $managedUserIds = $this->getAllManagedUserIds($manager);
 
-        if (!in_array($timesheet->user_id, $subordinateIds)) {
+        if (!in_array($timesheet->user_id, $managedUserIds)) {
             return back()->withErrors(['message' => 'Unauthorized: You cannot manage this employee\'s timesheet.']);
         }
 
@@ -203,15 +204,19 @@ class ManagerTimeClockController extends Controller
     public function show(Timesheet $timesheet)
     {
         $manager = Auth::user();
-        $subordinateIds = $this->getAllSubordinateIds($manager);
+        $managedUserIds = $this->getAllManagedUserIds($manager);
 
-        // Verify access
-        if (!in_array($timesheet->user_id, $subordinateIds)) {
+        // Verify access (can view own timesheets and subordinates')
+        if (!in_array($timesheet->user_id, $managedUserIds)) {
             return back()->withErrors(['message' => 'Unauthorized access.']);
         }
 
-        // Get time entries for this timesheet
-        $timeEntries = TimeClock::where('timesheet_id', $timesheet->id)
+        // Get ALL time entries for this user for the timesheet week (not just linked ones)
+        $weekStart = Carbon::parse($timesheet->week_start_date)->startOfDay();
+        $weekEnd = Carbon::parse($timesheet->week_end_date)->endOfDay();
+
+        $timeEntries = TimeClock::where('user_id', $timesheet->user_id)
+            ->whereBetween('clock_in_at', [$weekStart, $weekEnd])
             ->with(['breakType', 'audits'])
             ->orderBy('clock_in_at', 'asc')
             ->get();
@@ -219,29 +224,34 @@ class ManagerTimeClockController extends Controller
         return Inertia::render('TimeManagement/Manager/TimesheetDetail', [
             'timesheet' => $timesheet->load(['user', 'submittedBy', 'approvedBy', 'processedBy']),
             'timeEntries' => $timeEntries,
+            'currentManagerId' => $manager->id,
         ]);
     }
-
     /**
-     * Generate team hours data for the current week
+     * Generate team hours data for the specified week (default: current week)
      */
-    private function generateTeamHoursData(array $subordinateIds): array
+    private function generateTeamHoursData(array $userIds, Carbon $weekStart = null): array
     {
-        $currentWeek = Carbon::now()->startOfWeek(Carbon::SUNDAY);
-        $weekEnd = $currentWeek->copy()->endOfWeek(Carbon::SATURDAY);
+        if (!$weekStart) {
+            $weekStart = Carbon::now()->startOfWeek(Carbon::SUNDAY);
+        }
+
+        $weekEnd = $weekStart->copy()->endOfWeek(Carbon::SATURDAY);
+        $today = Carbon::today();
 
         $teamData = [];
 
-        // Get all subordinates with their positions
-        $subordinates = User::whereIn('id', $subordinateIds)
+        // Get all users with their positions
+        $users = User::whereIn('id', $userIds)
             ->with('currentPosition')
             ->orderBy('name')
             ->get();
 
-        foreach ($subordinates as $employee) {
-            // Get time clock entries for this employee for the current week
+        foreach ($users as $employee) {
+            // Get time clock entries for this employee for the specified week
             $timeEntries = TimeClock::where('user_id', $employee->id)
-                ->whereBetween('clock_in_at', [$currentWeek, $weekEnd->endOfDay()])
+                ->where('punch_type', 'work') // Only work punches, not breaks
+                ->whereBetween('clock_in_at', [$weekStart, $weekEnd->endOfDay()])
                 ->where('status', 'completed')
                 ->get();
 
@@ -262,33 +272,337 @@ class ManagerTimeClockController extends Controller
             // Calculate hours for each day
             foreach ($timeEntries as $entry) {
                 $dayOfWeek = strtolower($entry->clock_in_at->format('l')); // 'monday', 'tuesday', etc.
-                $dailyHours = $entry->regular_hours + $entry->overtime_hours;
+
+                // Use calculated hours if available, otherwise calculate from timestamps
+                $regularHours = is_numeric($entry->regular_hours) ? $entry->regular_hours : 0;
+                $overtimeHours = is_numeric($entry->overtime_hours) ? $entry->overtime_hours : 0;
+
+                // If no calculated hours, use total time
+                if ($regularHours === 0 && $overtimeHours === 0 && $entry->clock_out_at) {
+                    $totalMinutes = $entry->clock_in_at->diffInMinutes($entry->clock_out_at);
+                    $regularHours = round($totalMinutes / 60, 2);
+                }
+
+                $dailyHours = $regularHours + $overtimeHours;
 
                 $days[$dayOfWeek] += $dailyHours;
-                $totalRegularHours += $entry->regular_hours;
-                $totalOvertimeHours += $entry->overtime_hours;
+                $totalRegularHours += $regularHours;
+                $totalOvertimeHours += $overtimeHours;
             }
 
             $weekTotal = $totalRegularHours + $totalOvertimeHours;
+
+            // Get current status for this employee
+            $currentStatus = TimeClock::getUserCurrentStatus($employee->id);
+
+            // Get today's hours worked so far
+            $todayHours = 0;
+            $todayEntries = TimeClock::where('user_id', $employee->id)
+                ->where('punch_type', 'work')
+                ->whereBetween('clock_in_at', [$today->startOfDay(), $today->endOfDay()])
+                ->get();
+
+            foreach ($todayEntries as $entry) {
+                if ($entry->clock_out_at) {
+                    $todayHours += $entry->clock_in_at->diffInMinutes($entry->clock_out_at) / 60;
+                } elseif ($entry->status === 'active') {
+                    // Currently active entry - calculate time so far
+                    $todayHours += $entry->clock_in_at->diffInMinutes(now()) / 60;
+                }
+            }
+
+            // Prepare current status data
+            $statusData = [
+                'is_clocked_in' => $currentStatus['is_clocked_in'] ?? false,
+                'is_on_break' => $currentStatus['is_on_break'] ?? false,
+                'current_hours_today' => round($todayHours, 2),
+            ];
+
+            // Add clock-in time if available
+            if ($currentStatus['is_clocked_in'] && isset($currentStatus['current_work_punch'])) {
+                $statusData['clock_in_time'] = $currentStatus['current_work_punch']->clock_in_at->toISOString();
+            }
+
+            // Add break information if on break
+            if ($currentStatus['is_on_break'] && isset($currentStatus['current_break_punch'])) {
+                $breakPunch = $currentStatus['current_break_punch'];
+                $statusData['break_start_time'] = $breakPunch->clock_in_at->toISOString();
+
+                if ($breakPunch->breakType) {
+                    $statusData['break_type'] = $breakPunch->breakType->label;
+                }
+            }
 
             $teamData[] = [
                 'employee' => [
                     'id' => $employee->id,
                     'name' => $employee->name,
                     'position' => $employee->currentPosition->name ?? 'N/A',
+                    'avatar' => $employee->avatar,
                 ],
                 'days' => $days,
                 'weekTotal' => round($weekTotal, 2),
                 'regularHours' => round($totalRegularHours, 2),
                 'overtimeHours' => round($totalOvertimeHours, 2),
+                'currentStatus' => $statusData,
             ];
         }
 
         return $teamData;
     }
+    /**
+     * Get day entries for a specific user and date
+     */
+    public function getDayEntries(Request $request)
+    {
+        $request->validate([
+            'user_id' => 'required|exists:users,id',
+            'date' => 'required|date',
+        ]);
+
+        $manager = Auth::user();
+        $managedUserIds = $this->getAllManagedUserIds($manager);
+
+        if (!in_array($request->user_id, $managedUserIds)) {
+            return back()->withErrors(['message' => 'Unauthorized access.']);
+        }
+
+        $date = Carbon::parse($request->date);
+
+        $dayEntries = TimeClock::where('user_id', $request->user_id)
+            ->whereBetween('clock_in_at', [$date->startOfDay(), $date->endOfDay()])
+            ->with(['breakType'])
+            ->orderBy('clock_in_at', 'asc')
+            ->get();
+
+        return Inertia::render('TimeManagement/Manager/Dashboard', [
+            'dayEntries' => $dayEntries
+        ]);
+    }
+    public function getDayEntriesModal(Request $request)
+    {
+        $request->validate([
+            'user_id' => 'required|exists:users,id',
+            'date' => 'required|date',
+        ]);
+
+        $manager = Auth::user();
+        $managedUserIds = $this->getAllManagedUserIds($manager);
+
+        if (!in_array($request->user_id, $managedUserIds)) {
+            return back()->withErrors(['message' => 'Unauthorized access.']);
+        }
+
+        $date = Carbon::parse($request->date);
+        $isToday = $date->isToday();
+
+        $startOfDay = $date->copy()->startOfDay();
+        $endOfDay = $date->copy()->endOfDay();
+
+        // Get entries for the specific date
+        $dayEntries = TimeClock::where('user_id', $request->user_id)
+            ->whereBetween('clock_in_at', [$startOfDay, $endOfDay])
+            ->with(['breakType'])
+            ->orderBy('clock_in_at', 'asc')
+            ->get();
+
+        // If it's today and no entries found, also check for active entries that might span multiple days
+        if ($isToday && $dayEntries->isEmpty()) {
+            $activeEntries = TimeClock::where('user_id', $request->user_id)
+                ->where('status', 'active')
+                ->with(['breakType'])
+                ->orderBy('clock_in_at', 'asc')
+                ->get();
+
+            // Filter active entries that started today or are still active from yesterday
+            $todayActiveEntries = $activeEntries->filter(function ($entry) use ($date) {
+                return $entry->clock_in_at->isToday() ||
+                    ($entry->clock_in_at->isYesterday() && $entry->status === 'active');
+            });
+
+            $dayEntries = $dayEntries->merge($todayActiveEntries);
+        }
+
+        // Log for debugging
+        \Log::info('Day entries query', [
+            'user_id' => $request->user_id,
+            'date' => $request->date,
+            'is_today' => $isToday,
+            'start' => $startOfDay->toISOString(),
+            'end' => $endOfDay->toISOString(),
+            'found_entries' => $dayEntries->count(),
+            'entries' => $dayEntries->toArray()
+        ]);
+
+        return response()->json($dayEntries->values());
+    }
+    /**
+     * Clock out an active entry
+     */
+    public function clockOutEntry(TimeClock $timeClock)
+    {
+        $manager = Auth::user();
+        $managedUserIds = $this->getAllManagedUserIds($manager);
+
+        if (!in_array($timeClock->user_id, $managedUserIds)) {
+            return back()->withErrors(['message' => 'Unauthorized access.']);
+        }
+
+        if ($timeClock->status !== 'active' || $timeClock->clock_out_at) {
+            return back()->withErrors(['message' => 'Entry is not active.']);
+        }
+
+        $timeClock->update([
+            'clock_out_at' => now(),
+            'status' => 'completed',
+        ]);
+
+        $timeClock->calculateOvertime();
+
+        // Use manual_edit with manager-specific data
+        $timeClock->createAudit('manual_edit', [
+            'edited_by' => $manager->id,
+            'edit_reason' => 'Manager clocked out employee',
+            'manager_action' => 'clock_out',
+            'manager_id' => $manager->id
+        ]);
+
+        return back()->with('success', 'Employee clocked out successfully.');
+    }
 
     /**
-     * Get all subordinate IDs recursively
+     * Add a new time entry
+     */
+    public function addEntry(Request $request)
+    {
+        $request->validate([
+            'user_id' => 'required|exists:users,id',
+            'date' => 'required|date',
+            'clock_in_at' => 'required|date',
+            'clock_out_at' => 'nullable|date|after:clock_in_at',
+            'punch_type' => 'required|in:work,break',
+            'break_type_id' => 'nullable|exists:break_types,id',
+            'notes' => 'nullable|string|max:500',
+        ]);
+
+        $manager = Auth::user();
+        $managedUserIds = $this->getAllManagedUserIds($manager);
+
+        if (!in_array($request->user_id, $managedUserIds)) {
+            return back()->withErrors(['message' => 'Unauthorized access.']);
+        }
+
+        $clockInTime = Carbon::parse($request->clock_in_at);
+        $clockOutTime = $request->clock_out_at ? Carbon::parse($request->clock_out_at) : null;
+
+        $timeClock = TimeClock::create([
+            'user_id' => $request->user_id,
+            'punch_type' => $request->punch_type,
+            'break_type_id' => $request->break_type_id,
+            'clock_in_at' => $clockInTime,
+            'clock_out_at' => $clockOutTime,
+            'status' => $clockOutTime ? 'completed' : 'active',
+            'notes' => $request->notes,
+        ]);
+
+        if ($clockOutTime) {
+            $timeClock->calculateOvertime();
+        }
+
+        // Use manual_edit with manager-specific data
+        $timeClock->createAudit('manual_edit', [
+            'edited_by' => $manager->id,
+            'edit_reason' => 'Manager added new time entry',
+            'manager_action' => 'add_entry',
+            'manager_id' => $manager->id
+        ]);
+
+        return back()->with('success', 'Time entry added successfully.');
+    }
+
+    /**
+     * Update an existing time entry
+     */
+    public function updateEntry(Request $request, TimeClock $timeClock)
+    {
+        $request->validate([
+            'clock_in_at' => 'required|date',
+            'clock_out_at' => 'nullable|date|after:clock_in_at',
+            'punch_type' => 'required|in:work,break',
+            'break_type_id' => 'nullable|exists:break_types,id',
+            'notes' => 'nullable|string|max:500',
+        ]);
+
+        $manager = Auth::user();
+        $managedUserIds = $this->getAllManagedUserIds($manager);
+
+        if (!in_array($timeClock->user_id, $managedUserIds)) {
+            return back()->withErrors(['message' => 'Unauthorized access.']);
+        }
+
+        // Store previous data for audit
+        $previousData = $timeClock->only([
+            'punch_type', 'break_type_id', 'clock_in_at', 'clock_out_at', 'notes', 'status'
+        ]);
+
+        $clockInTime = Carbon::parse($request->clock_in_at);
+        $clockOutTime = $request->clock_out_at ? Carbon::parse($request->clock_out_at) : null;
+
+        $timeClock->update([
+            'punch_type' => $request->punch_type,
+            'break_type_id' => $request->break_type_id,
+            'clock_in_at' => $clockInTime,
+            'clock_out_at' => $clockOutTime,
+            'status' => $clockOutTime ? 'completed' : 'active',
+            'notes' => $request->notes,
+        ]);
+
+        if ($clockOutTime) {
+            $timeClock->calculateOvertime();
+        }
+
+        // Use manual_edit with manager-specific data and change tracking
+        $timeClock->createAudit('manual_edit', [
+            'edited_by' => $manager->id,
+            'edit_reason' => 'Manager updated time entry',
+            'manager_action' => 'edit_entry',
+            'manager_id' => $manager->id,
+            'previous_data' => $previousData,
+            'new_data' => $timeClock->only([
+                'punch_type', 'break_type_id', 'clock_in_at', 'clock_out_at', 'notes', 'status'
+            ])
+        ]);
+
+        return back()->with('success', 'Time entry updated successfully.');
+    }
+
+    /**
+     * Delete a time entry
+     */
+    public function deleteEntry(TimeClock $timeClock)
+    {
+        $manager = Auth::user();
+        $managedUserIds = $this->getAllManagedUserIds($manager);
+
+        if (!in_array($timeClock->user_id, $managedUserIds)) {
+            return back()->withErrors(['message' => 'Unauthorized access.']);
+        }
+
+        // Create audit record before deletion
+        $timeClock->createAudit('manual_edit', [
+            'edited_by' => $manager->id,
+            'edit_reason' => 'Manager deleted time entry',
+            'manager_action' => 'delete_entry',
+            'manager_id' => $manager->id,
+            'previous_data' => $timeClock->toArray()
+        ]);
+
+        $timeClock->delete();
+
+        return back()->with('success', 'Time entry deleted successfully.');
+    }
+    /**
+     * Get all subordinate IDs recursively (does NOT include manager)
      */
     private function getAllSubordinateIds(User $manager): array
     {
@@ -308,6 +622,19 @@ class ManagerTimeClockController extends Controller
         }
 
         return array_unique($subordinateIds);
+    }
+
+    /**
+     * Get all managed user IDs (subordinates + manager themselves)
+     */
+    private function getAllManagedUserIds(User $manager): array
+    {
+        $subordinateIds = $this->getAllSubordinateIds($manager);
+
+        // Add manager's own ID to the list
+        $managedUserIds = array_merge([$manager->id], $subordinateIds);
+
+        return array_unique($managedUserIds);
     }
 
     /**

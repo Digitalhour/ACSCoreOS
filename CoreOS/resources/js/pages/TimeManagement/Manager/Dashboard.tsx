@@ -1,4 +1,4 @@
-import {useState} from 'react';
+import {JSX, useState} from 'react';
 import {Head, router} from '@inertiajs/react';
 import AppLayout from '@/layouts/app-layout';
 import {Button} from '@/components/ui/button';
@@ -9,27 +9,79 @@ import {Label} from '@/components/ui/label';
 import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from '@/components/ui/select';
 import {Dialog, DialogContent, DialogHeader, DialogTitle} from '@/components/ui/dialog';
 import {Textarea} from '@/components/ui/textarea';
-import {Tabs, TabsContent, TabsList, TabsTrigger} from '@/components/ui/tabs';
 import {
     AlertCircle,
     CheckCircle,
     Clock,
     Download,
+    Edit3,
     Eye,
-    FileText,
     Filter,
+    MoreHorizontal,
+    Plus,
+    Save,
+    Search,
+    ThumbsDown,
+    ThumbsUp,
+    Trash2,
     TrendingUp,
-    Users,
-    XCircle
+    User,
+    Users
 } from 'lucide-react';
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+
+interface BreakType {
+    id: number;
+    name: string;
+    label: string;
+    is_paid: boolean;
+}
+
+interface TimeEntry {
+    id: number | string;
+    user_id: number;
+    punch_type: 'work' | 'break';
+    break_type_id?: number | null;
+    clock_in_at: string;
+    clock_out_at: string | null;
+    regular_hours: number;
+    overtime_hours: number;
+    notes: string | null;
+    status: 'active' | 'completed' | 'draft';
+    break_type?: BreakType | null;
+}
+
+interface Position {
+    title: string;
+}
 
 interface User {
     id: number;
     name: string;
     email: string;
-    current_position?: {
-        title: string;
-    };
+    avatar: string;
+    current_position?: Position;
+}
+
+interface PaginationLink {
+    url: string | null;
+    label: string;
+    active: boolean;
+}
+
+interface PaginationMeta {
+    current_page: number;
+    from: number;
+    last_page: number;
+    per_page: number;
+    to: number;
+    total: number;
 }
 
 interface Timesheet {
@@ -55,75 +107,113 @@ interface DashboardStats {
     approved_this_week: number;
 }
 
+interface CurrentStatus {
+    is_clocked_in?: boolean;
+    is_on_break?: boolean;
+    clock_in_time?: string;
+    break_start_time?: string;
+    current_hours_today?: number;
+    break_type?: string;
+}
+
+interface Employee {
+    avatar: string | undefined;
+    id: number;
+    name: string;
+    position: string;
+}
+
+interface WeeklyDays {
+    sunday: number;
+    monday: number;
+    tuesday: number;
+    wednesday: number;
+    thursday: number;
+    friday: number;
+    saturday: number;
+}
+
+interface TeamHoursData {
+    employee: Employee;
+    days: WeeklyDays;
+    weekTotal: number;
+    regularHours: number;
+    overtimeHours: number;
+    currentStatus?: CurrentStatus;
+}
+
+interface Filters {
+    status?: string;
+    employee_id?: string;
+    week_start?: string;
+}
+
 interface Props {
     pendingTimesheets: Timesheet[];
     allTimesheets: {
         data: Timesheet[];
-        links: any[];
-        meta: any;
+        links: PaginationLink[];
+        meta: PaginationMeta;
     };
     subordinates: User[];
     dashboardStats: DashboardStats;
-    filters: {
-        status?: string;
-        employee_id?: string;
-        week_start?: string;
-    };
-    teamHoursData: Array<{
-        employee: {
-            id: number;
-            name: string;
-            position: string;
-        };
-        days: {
-            sunday: number;
-            monday: number;
-            tuesday: number;
-            wednesday: number;
-            thursday: number;
-            friday: number;
-            saturday: number;
-        };
-        weekTotal: number;
-        regularHours: number;
-        overtimeHours: number;
-    }>;
+    filters: Filters;
+    teamHoursData: TeamHoursData[];
+    currentManagerId: number;
 }
 
-const breadcrumbs = [
+interface BreadcrumbItem {
+    title: string;
+    href: string;
+}
+
+interface NewEntryForm {
+    clock_in_at: string;
+    clock_out_at: string;
+    notes: string;
+    punch_type: 'work' | 'break';
+}
+
+const breadcrumbs: BreadcrumbItem[] = [
     {
         title: 'Dashboard',
         href: '/dashboard',
     },
     {
-        title: 'Manager Dashboard',
+        title: 'Team Management',
         href: '/time-clock/manager/dashboard',
     },
 ];
 
 export default function ManagerDashboard({
                                              pendingTimesheets,
-                                             allTimesheets,
-                                             subordinates,
+                                             // allTimesheets, // Commented out as it's not used in current implementation
+                                             // subordinates, // Commented out as it's not used in current implementation
                                              dashboardStats,
-                                             filters,
-                                             teamHoursData
-                                         }: Props) {
+                                             // filters, // Commented out as it's not used in current implementation
+                                             teamHoursData,
+                                             currentManagerId
+                                         }: Props): JSX.Element {
     const [selectedTimesheet, setSelectedTimesheet] = useState<Timesheet | null>(null);
     const [approvalAction, setApprovalAction] = useState<'approve' | 'reject' | null>(null);
-    const [managerNotes, setManagerNotes] = useState('');
-    const [dialogOpen, setDialogOpen] = useState(false);
+    const [managerNotes, setManagerNotes] = useState<string>('');
+    const [dialogOpen, setDialogOpen] = useState<boolean>(false);
+    const [searchTerm, setSearchTerm] = useState<string>('');
+    const [loading, setLoading] = useState<boolean>(false);
 
-    // Filter states
-    const [filterStatus, setFilterStatus] = useState(filters.status || 'all');
-    const [filterEmployee, setFilterEmployee] = useState(filters.employee_id || 'all');
-    const [filterWeekStart, setFilterWeekStart] = useState(filters.week_start || '');
+    // Time editing modal state
+    const [timeEditDialogOpen, setTimeEditDialogOpen] = useState<boolean>(false);
+    const [selectedEmployee, setSelectedEmployee] = useState<TeamHoursData | null>(null);
+    const [selectedDay, setSelectedDay] = useState<string>('');
+    const [selectedDate, setSelectedDate] = useState<string>('');
+    const [dayEntries, setDayEntries] = useState<TimeEntry[]>([]);
+    const [editingEntry, setEditingEntry] = useState<TimeEntry | null>(null);
+
 
     const formatDate = (dateString: string): string => {
         return new Date(dateString).toLocaleDateString('en-US', {
             month: 'short',
             day: 'numeric',
-            year: 'numeric',
         });
     };
 
@@ -133,36 +223,293 @@ export default function ManagerDashboard({
         return `${h}:${m.toString().padStart(2, '0')}`;
     };
 
-    const getWeekLabel = (startDate: string, endDate: string): string => {
-        const start = new Date(startDate);
-        const end = new Date(endDate);
-        return `${start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${end.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`;
+    const formatTime = (dateString: string): string => {
+        return new Date(dateString).toLocaleTimeString('en-US', {
+            hour: 'numeric',
+            minute: '2-digit',
+            hour12: true,
+        });
     };
 
-    const getStatusBadge = (status: string) => {
-        const statusConfig: Record<string, { label: string; className: string }> = {
-            draft: { label: 'Draft', className: 'bg-slate-100 text-slate-700 border-slate-200' },
-            submitted: { label: 'Pending', className: 'bg-amber-100 text-amber-700 border-amber-200' },
-            approved: { label: 'Approved', className: 'bg-emerald-100 text-emerald-700 border-emerald-200' },
-            processed: { label: 'Processed', className: 'bg-blue-100 text-blue-700 border-blue-200' },
+    const formatDateTimeForInput = (dateString: string): string => {
+        const date = new Date(dateString);
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        const hours = String(date.getHours()).padStart(2, '0');
+        const minutes = String(date.getMinutes()).padStart(2, '0');
+        return `${year}-${month}-${day}T${hours}:${minutes}`;
+    };
+
+    const getCurrentDayColumn = (): string => {
+        const today = new Date();
+        const dayName = today.toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
+        return dayName;
+    };
+
+    const getDateForDay = (dayName: string): string => {
+        const days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+        const dayIndex = days.indexOf(dayName);
+        const today = new Date();
+        const currentDay = today.getDay();
+        const diff = dayIndex - currentDay;
+        const targetDate = new Date(today);
+        targetDate.setDate(today.getDate() + diff);
+        return targetDate.toISOString().split('T')[0];
+    };
+
+    const handleDayClick = async (emp: TeamHoursData, dayName: string): Promise<void> => {
+        setLoading(true);
+        setSelectedEmployee(emp);
+        setSelectedDay(dayName);
+        const targetDate = getDateForDay(dayName);
+        setSelectedDate(targetDate);
+
+        try {
+            const response = await fetch(`/time-clock/manager/day-entries-modal?user_id=${emp.employee.id}&date=${targetDate}`, {
+                method: 'GET',
+                headers: {
+                    'Accept': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
+            });
+
+            if (response.ok) {
+                const entries: TimeEntry[] = await response.json();
+                setDayEntries(Array.isArray(entries) ? entries : []);
+            } else {
+                console.error('Failed to fetch day entries:', response.status);
+                setDayEntries([]);
+            }
+        } catch (error) {
+            console.error('Error fetching day entries:', error);
+            setDayEntries([]);
+        } finally {
+            setLoading(false);
+            setTimeEditDialogOpen(true);
+        }
+    };
+
+    const handleClockOut = (entryId: number | string): void => {
+        router.post(`/time-clock/manager/clock-out/${entryId}`, {}, {
+            preserveScroll: true,
+            onSuccess: () => {
+                // Refresh the day entries
+                if (selectedEmployee) {
+                    handleDayClick(selectedEmployee, selectedDay);
+                }
+                // Also refresh the page data to update status indicators
+                router.reload({ only: ['teamHoursData'] });
+            }
+        });
+    };
+
+    const handleSaveEntry = (entry: TimeEntry): void => {
+        if (!editingEntry) return;
+
+        const isNewEntry = entry.id.toString().startsWith('new-');
+
+        if (isNewEntry) {
+            // Creating new entry
+            const entryData = {
+                user_id: selectedEmployee?.employee.id,
+                date: selectedDate,
+                clock_in_at: editingEntry.clock_in_at,
+                clock_out_at: editingEntry.clock_out_at || null,
+                notes: editingEntry.notes || '',
+                punch_type: editingEntry.punch_type,
+            };
+
+            router.post('/time-clock/manager/add-entry', entryData, {
+                preserveScroll: true,
+                onSuccess: () => {
+                    setEditingEntry(null);
+                    if (selectedEmployee) {
+                        handleDayClick(selectedEmployee, selectedDay);
+                    }
+                    router.reload({ only: ['teamHoursData'] });
+                }
+            });
+        } else {
+            // Updating existing entry
+            const entryData = {
+                clock_in_at: editingEntry.clock_in_at,
+                clock_out_at: editingEntry.clock_out_at || null,
+                notes: editingEntry.notes || '',
+                punch_type: editingEntry.punch_type,
+            };
+
+            router.post(`/time-clock/manager/update-entry/${editingEntry.id}`, entryData, {
+                preserveScroll: true,
+                onSuccess: () => {
+                    setEditingEntry(null);
+                    if (selectedEmployee) {
+                        handleDayClick(selectedEmployee, selectedDay);
+                    }
+                    router.reload({ only: ['teamHoursData'] });
+                }
+            });
+        }
+    };
+
+    const handleClockInNow = (): void => {
+        if (!selectedEmployee) return;
+
+        // Send minimal data - let the server handle the timestamp
+        const clockInData = {
+            user_id: selectedEmployee.employee.id,
+            punch_type: 'work',
+            notes: 'Clocked in by manager',
+            is_clock_in_now: true, // Flag to indicate this is a "clock in now" action
         };
 
-        const config = statusConfig[status] || statusConfig.draft;
+        setLoading(true);
+        router.post('/time-clock/manager/add-entry', clockInData, {
+            preserveScroll: true,
+            onSuccess: () => {
+                // Refresh the day entries to show the new active entry
+                if (selectedEmployee) {
+                    handleDayClick(selectedEmployee, selectedDay);
+                }
+                // Also refresh the page data to update status indicators
+                router.reload({ only: ['teamHoursData'] });
+            },
+            onFinish: () => {
+                setLoading(false);
+            }
+        });
+    };
+
+    const createNewManualEntry = (): TimeEntry => {
+        const now = new Date();
+
+        // For manual entries, set a reasonable default time (like 9 AM today)
+        // but let the user edit it - don't try to guess the timezone
+        const startOfWorkDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 9, 0, 0);
+
+        return {
+            id: `new-${Date.now()}`,
+            user_id: selectedEmployee?.employee.id ?? 0,
+            punch_type: 'work',
+            break_type_id: null,
+            clock_in_at: formatDateTimeForInput(startOfWorkDay.toISOString()),
+            clock_out_at: null,
+            regular_hours: 0,
+            overtime_hours: 0,
+            notes: '',
+            status: 'draft',
+            break_type: null
+        };
+    };
+
+    const handleAddManualEntry = (): void => {
+        const newEntry = createNewManualEntry();
+        setDayEntries([...dayEntries, newEntry]);
+        startEditingEntry(newEntry);
+    };
+
+    const handleDeleteEntry = (entryId: number | string): void => {
+        if (!confirm('Are you sure you want to delete this time entry?')) return;
+
+        router.delete(`/time-clock/manager/delete-entry/${entryId}`, {
+            preserveScroll: true,
+            onSuccess: () => {
+                if (selectedEmployee) {
+                    handleDayClick(selectedEmployee, selectedDay);
+                }
+                router.reload({ only: ['teamHoursData'] });
+            }
+        });
+    };
+
+    const startEditingEntry = (entry: TimeEntry): void => {
+        setEditingEntry({
+            ...entry,
+            clock_in_at: formatDateTimeForInput(entry.clock_in_at),
+            clock_out_at: entry.clock_out_at ? formatDateTimeForInput(entry.clock_out_at) : null,
+        });
+    };
+
+    const cancelEditing = (): void => {
+        setEditingEntry(null);
+    };
+
+    const renderDayCell = (hours: number, dayName: string, emp: TeamHoursData): JSX.Element => {
+        const isToday = getCurrentDayColumn() === dayName;
+        const status = emp.currentStatus ?? {
+            is_clocked_in: false,
+            is_on_break: false,
+            current_hours_today: 0
+        };
+
         return (
-            <Badge variant="outline" className={config.className}>
-                {config.label}
-            </Badge>
+            <td
+                className={`text-center p-3 font-mono text-sm cursor-pointer hover:bg-blue-100 transition-colors ${isToday ? 'bg-blue-50 border-l-2 border-l-blue-400' : ''}`}
+                onClick={() => handleDayClick(emp, dayName)}
+                title={`Click to edit ${dayName} hours for ${emp.employee.name}`}
+            >
+                <div>
+                    {hours > 0 ? formatHours(hours) : '—'}
+                </div>
+                {isToday && status.is_clocked_in && (
+                    <div className="mt-1 space-y-1">
+                        <div className="flex items-center justify-center gap-1">
+                            <div className={`w-1.5 h-1.5 rounded-full animate-pulse ${status.is_on_break ? 'bg-orange-500' : 'bg-green-500'}`}></div>
+                            <span className={`text-xs font-medium ${status.is_on_break ? 'text-orange-600' : 'text-green-600'}`}>
+                                {status.is_on_break ? 'Break' : 'Active'}
+                            </span>
+                        </div>
+                        {status.clock_in_time && (
+                            <div className="text-xs text-slate-600">
+                                In: {formatTime(status.clock_in_time)}
+                            </div>
+                        )}
+                        {status.is_on_break && status.break_start_time && (
+                            <div className="text-xs text-orange-600">
+                                {status.break_type || 'Break'}: {formatTime(status.break_start_time)}
+                            </div>
+                        )}
+                        <div className="text-xs font-medium text-blue-600">
+                            Today: {formatHours(status.current_hours_today ?? 0)}
+                        </div>
+                    </div>
+                )}
+            </td>
         );
     };
 
-    const handleApprovalAction = (timesheet: Timesheet, action: 'approve' | 'reject') => {
-        setSelectedTimesheet(timesheet);
-        setApprovalAction(action);
-        setManagerNotes('');
-        setDialogOpen(true);
+    const getWeekLabel = (startDate: string, endDate: string): string => {
+        const start = new Date(startDate);
+        const end = new Date(endDate);
+        return `${start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${end.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
     };
 
-    const submitApproval = () => {
+    const getStatusBadge = (status: string): JSX.Element => {
+        const config = {
+            draft: { label: 'Draft', className: 'bg-slate-100 text-slate-700' },
+            submitted: { label: 'Pending', className: 'bg-amber-100 text-amber-700' },
+            approved: { label: 'Approved', className: 'bg-emerald-100 text-emerald-700' },
+            processed: { label: 'Processed', className: 'bg-blue-100 text-blue-700' },
+        }[status] || { label: 'Draft', className: 'bg-slate-100 text-slate-700' };
+
+        return <Badge className={config.className}>{config.label}</Badge>;
+    };
+
+    const handleQuickApproval = (timesheet: Timesheet, action: 'approve' | 'reject'): void => {
+        if (action === 'approve') {
+            router.post(`/time-clock/manager/approve/${timesheet.id}`, {
+                action: 'approve',
+                manager_notes: '',
+            }, { preserveScroll: true });
+        } else {
+            setSelectedTimesheet(timesheet);
+            setApprovalAction(action);
+            setManagerNotes('');
+            setDialogOpen(true);
+        }
+    };
+
+    const submitApproval = (): void => {
         if (!selectedTimesheet || !approvalAction) return;
 
         router.post(`/time-clock/manager/approve/${selectedTimesheet.id}`, {
@@ -179,55 +526,46 @@ export default function ManagerDashboard({
         });
     };
 
-    const handleFilter = () => {
-        const params = new URLSearchParams();
-        if (filterStatus && filterStatus !== 'all') params.set('status', filterStatus);
-        if (filterEmployee && filterEmployee !== 'all') params.set('employee_id', filterEmployee);
-        if (filterWeekStart) params.set('week_start', filterWeekStart);
-
-        router.get('/time-clock/manager/dashboard', Object.fromEntries(params), {
-            preserveState: true,
-            preserveScroll: true,
-        });
+    const isOwnTimesheet = (timesheet: Timesheet): boolean => {
+        return timesheet.user_id === currentManagerId;
     };
 
-    const clearFilters = () => {
-        setFilterStatus('all');
-        setFilterEmployee('all');
-        setFilterWeekStart('');
-        router.get('/time-clock/manager/dashboard', {}, {
-            preserveState: true,
-            preserveScroll: true,
-        });
-    };
+    const safeTeamHoursData = (teamHoursData || []).filter((emp: TeamHoursData) => {
+        if (!emp || !emp.employee) {
+            console.error('Invalid employee data:', emp);
+            return false;
+        }
+        // Ensure currentStatus exists with defaults
+        if (!emp.currentStatus) {
+            emp.currentStatus = {
+                is_clocked_in: false,
+                is_on_break: false,
+                current_hours_today: 0
+            };
+        }
+        return true;
+    });
 
-    // Calculate totals from real data (with safety check)
-    const safeTeamHoursData = teamHoursData || [];
+    const grandTotal = safeTeamHoursData.reduce((sum: number, emp: TeamHoursData) => sum + emp.weekTotal, 0);
+    const totalOvertime = safeTeamHoursData.reduce((sum: number, emp: TeamHoursData) => sum + emp.overtimeHours, 0);
 
-    const dayTotals = {
-        sunday: safeTeamHoursData.reduce((sum, emp) => sum + emp.days.sunday, 0),
-        monday: safeTeamHoursData.reduce((sum, emp) => sum + emp.days.monday, 0),
-        tuesday: safeTeamHoursData.reduce((sum, emp) => sum + emp.days.tuesday, 0),
-        wednesday: safeTeamHoursData.reduce((sum, emp) => sum + emp.days.wednesday, 0),
-        thursday: safeTeamHoursData.reduce((sum, emp) => sum + emp.days.thursday, 0),
-        friday: safeTeamHoursData.reduce((sum, emp) => sum + emp.days.friday, 0),
-        saturday: safeTeamHoursData.reduce((sum, emp) => sum + emp.days.saturday, 0),
-    };
-
-    const grandTotal = safeTeamHoursData.reduce((sum, emp) => sum + emp.weekTotal, 0);
-    const totalOvertime = safeTeamHoursData.reduce((sum, emp) => sum + emp.overtimeHours, 0);
+    // Filter pending timesheets by search
+    const filteredPendingTimesheets = pendingTimesheets.filter((timesheet: Timesheet) =>
+        timesheet.user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        timesheet.user.email.toLowerCase().includes(searchTerm.toLowerCase())
+    );
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
-            <Head title="Manager Dashboard" />
+            <Head title="Team Management" />
 
             <div className="space-y-6 p-6">
                 {/* Header */}
                 <div className="flex items-center justify-between">
                     <div>
-                        <h1 className="text-2xl font-semibold text-slate-900">Team Management</h1>
+                        <h1 className="text-3xl font-bold text-slate-900">Team Management</h1>
                         <p className="text-slate-600 mt-1">
-                            Monitor team performance and approve timesheets
+                            Monitor, approve, and manage your team's time
                         </p>
                     </div>
                     <div className="flex items-center gap-3">
@@ -235,108 +573,212 @@ export default function ManagerDashboard({
                             <Download className="w-4 h-4 mr-2" />
                             Export
                         </Button>
-                        {pendingTimesheets.length > 0 && (
-                            <Badge variant="destructive" className="px-3 py-1">
-                                {pendingTimesheets.length} Pending
-                            </Badge>
-                        )}
+                        <Button size="sm">
+                            <Plus className="w-4 h-4 mr-2" />
+                            Add Entry
+                        </Button>
                     </div>
                 </div>
 
                 {/* Key Metrics */}
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                    <Card className="border-slate-200">
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                    <Card className="border-l-4 border-l-red-500">
                         <CardContent className="p-6">
                             <div className="flex items-center justify-between">
                                 <div>
                                     <p className="text-sm font-medium text-slate-600">Pending Approvals</p>
-                                    <p className="text-2xl font-bold text-slate-900">{dashboardStats.pending_count}</p>
+                                    <p className="text-3xl font-bold text-slate-900">{dashboardStats.pending_count}</p>
+                                    <p className="text-xs text-red-600 mt-1">Requires attention</p>
                                 </div>
-                                <div className="h-12 w-12 bg-red-100 rounded-lg flex items-center justify-center">
-                                    <AlertCircle className="h-6 w-6 text-red-600" />
-                                </div>
+                                <AlertCircle className="h-8 w-8 text-red-500" />
                             </div>
                         </CardContent>
                     </Card>
 
-                    <Card className="border-slate-200">
+                    <Card className="border-l-4 border-l-blue-500">
                         <CardContent className="p-6">
                             <div className="flex items-center justify-between">
                                 <div>
-                                    <p className="text-sm font-medium text-slate-600">Team Size</p>
-                                    <p className="text-2xl font-bold text-slate-900">{dashboardStats.total_employees}</p>
+                                    <p className="text-sm font-medium text-slate-600">Team Members</p>
+                                    <p className="text-3xl font-bold text-slate-900">{dashboardStats.total_employees}</p>
+                                    <p className="text-xs text-slate-500 mt-1">Active employees</p>
                                 </div>
-                                <div className="h-12 w-12 bg-blue-100 rounded-lg flex items-center justify-center">
-                                    <Users className="h-6 w-6 text-blue-600" />
-                                </div>
+                                <Users className="h-8 w-8 text-blue-500" />
                             </div>
                         </CardContent>
                     </Card>
 
-                    <Card className="border-slate-200">
+                    <Card className="border-l-4 border-l-green-500">
                         <CardContent className="p-6">
                             <div className="flex items-center justify-between">
                                 <div>
                                     <p className="text-sm font-medium text-slate-600">This Week</p>
-                                    <p className="text-2xl font-bold text-slate-900">{formatHours(grandTotal)}</p>
+                                    <p className="text-3xl font-bold text-slate-900">{formatHours(grandTotal)}</p>
+                                    <p className="text-xs text-green-600 mt-1">Total hours logged</p>
                                 </div>
-                                <div className="h-12 w-12 bg-green-100 rounded-lg flex items-center justify-center">
-                                    <Clock className="h-6 w-6 text-green-600" />
-                                </div>
+                                <Clock className="h-8 w-8 text-green-500" />
                             </div>
                         </CardContent>
                     </Card>
 
-                    <Card className="border-slate-200">
+                    <Card className="border-l-4 border-l-orange-500">
                         <CardContent className="p-6">
                             <div className="flex items-center justify-between">
                                 <div>
                                     <p className="text-sm font-medium text-slate-600">Overtime</p>
-                                    <p className="text-2xl font-bold text-slate-900">{formatHours(totalOvertime)}</p>
+                                    <p className="text-3xl font-bold text-slate-900">{formatHours(totalOvertime)}</p>
+                                    <p className="text-xs text-orange-600 mt-1">This week</p>
                                 </div>
-                                <div className="h-12 w-12 bg-orange-100 rounded-lg flex items-center justify-center">
-                                    <TrendingUp className="h-6 w-6 text-orange-600" />
-                                </div>
+                                <TrendingUp className="h-8 w-8 text-orange-500" />
                             </div>
                         </CardContent>
                     </Card>
                 </div>
 
-                <Tabs defaultValue="team-hours" className="space-y-6">
-                    <TabsList className="grid w-full grid-cols-3">
-                        <TabsTrigger value="team-hours">Team Hours</TabsTrigger>
-                        <TabsTrigger value="pending">
-                            Pending ({pendingTimesheets.length})
-                        </TabsTrigger>
-                        <TabsTrigger value="all-timesheets">All Timesheets</TabsTrigger>
-                    </TabsList>
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    {/* Pending Approvals - Left Column */}
+                    <div className="lg:col-span-1">
+                        <Card className="h-fit">
+                            <CardHeader className="pb-4">
+                                <div className="flex items-center justify-between">
+                                    <CardTitle className="text-lg font-semibold flex items-center gap-2">
+                                        <AlertCircle className="w-5 h-5 text-red-500" />
+                                        Pending Approvals
+                                        {pendingTimesheets.length > 0 && (
+                                            <Badge variant="destructive" className="ml-2">
+                                                {pendingTimesheets.length}
+                                            </Badge>
+                                        )}
+                                    </CardTitle>
+                                </div>
+                                {pendingTimesheets.length > 0 && (
+                                    <div className="relative">
+                                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
+                                        <Input
+                                            placeholder="Search employees..."
+                                            value={searchTerm}
+                                            onChange={(e) => setSearchTerm(e.target.value)}
+                                            className="pl-9"
+                                        />
+                                    </div>
+                                )}
+                            </CardHeader>
+                            <CardContent>
+                                {filteredPendingTimesheets.length === 0 ? (
+                                    <div className="text-center py-8">
+                                        <CheckCircle className="w-12 h-12 mx-auto text-green-500 mb-3" />
+                                        <h3 className="font-medium text-slate-900 mb-1">All caught up!</h3>
+                                        <p className="text-sm text-slate-600">No pending approvals</p>
+                                    </div>
+                                ) : (
+                                    <div className="space-y-3 max-h-96 overflow-y-auto">
+                                        {filteredPendingTimesheets.map((timesheet: Timesheet) => (
+                                            <div
+                                                key={timesheet.id}
+                                                className={`border rounded-lg p-4 hover:bg-slate-50 transition-colors ${
+                                                    isOwnTimesheet(timesheet) ? 'border-blue-200 bg-blue-50' : 'border-slate-200'
+                                                }`}
+                                            >
+                                                <div className="flex items-start justify-between">
+                                                    <div className="flex items-center gap-3 flex-1">
+                                                        <img
+                                                            src={timesheet.user.avatar}
+                                                            alt={timesheet.user.name}
+                                                            className="w-10 h-10 rounded-full border-2 border-white shadow-sm"
+                                                        />
+                                                        <div className="flex-1 min-w-0">
+                                                            <div className="flex items-center gap-2">
+                                                                <p className="font-medium text-slate-900 truncate">
+                                                                    {timesheet.user.name}
+                                                                </p>
+                                                                {isOwnTimesheet(timesheet) && (
+                                                                    <User className="w-4 h-4 text-blue-600" />
+                                                                )}
+                                                            </div>
+                                                            <p className="text-xs text-slate-500">
+                                                                {getWeekLabel(timesheet.week_start_date, timesheet.week_end_date)}
+                                                            </p>
+                                                            <p className="text-sm font-medium text-slate-700">
+                                                                {formatHours(timesheet.total_hours)}
+                                                                {timesheet.overtime_hours > 0 && (
+                                                                    <span className="text-orange-600 ml-1">
+                                                                        (+{formatHours(timesheet.overtime_hours)} OT)
+                                                                    </span>
+                                                                )}
+                                                            </p>
+                                                        </div>
+                                                    </div>
+                                                    <DropdownMenu>
+                                                        <DropdownMenuTrigger asChild>
+                                                            <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                                                                <MoreHorizontal className="h-4 w-4" />
+                                                            </Button>
+                                                        </DropdownMenuTrigger>
+                                                        <DropdownMenuContent align="end">
+                                                            <DropdownMenuItem
+                                                                onClick={() => router.get(`/time-clock/manager/timesheet/${timesheet.id}`)}
+                                                            >
+                                                                <Eye className="w-4 h-4 mr-2" />
+                                                                View Details
+                                                            </DropdownMenuItem>
+                                                            {!isOwnTimesheet(timesheet) && (
+                                                                <>
+                                                                    <DropdownMenuSeparator />
+                                                                    <DropdownMenuItem
+                                                                        onClick={() => handleQuickApproval(timesheet, 'approve')}
+                                                                        className="text-green-600"
+                                                                    >
+                                                                        <ThumbsUp className="w-4 h-4 mr-2" />
+                                                                        Quick Approve
+                                                                    </DropdownMenuItem>
+                                                                    <DropdownMenuItem
+                                                                        onClick={() => handleQuickApproval(timesheet, 'reject')}
+                                                                        className="text-red-600"
+                                                                    >
+                                                                        <ThumbsDown className="w-4 h-4 mr-2" />
+                                                                        Reject
+                                                                    </DropdownMenuItem>
+                                                                </>
+                                                            )}
+                                                        </DropdownMenuContent>
+                                                    </DropdownMenu>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </CardContent>
+                        </Card>
+                    </div>
 
-                    {/* Team Hours Table */}
-                    <TabsContent value="team-hours" className="space-y-6">
-                        <Card className="border-slate-200">
-                            <CardHeader className="border-b border-slate-200 bg-slate-50">
-                                <CardTitle className="text-lg font-semibold text-slate-900">
-                                    Weekly Hours Summary
+                    {/* Team Hours - Right Column */}
+                    <div className="lg:col-span-2">
+                        <Card>
+                            <CardHeader>
+                                <CardTitle className="text-lg font-semibold flex items-center justify-between">
+                                    <span>Weekly Team Hours</span>
+                                    <Button variant="outline" size="sm">
+                                        <Filter className="w-4 h-4 mr-2" />
+                                        Filters
+                                    </Button>
                                 </CardTitle>
                             </CardHeader>
-                            <CardContent className="p-0">
+                            <CardContent>
                                 <div className="overflow-x-auto">
                                     <table className="w-full text-sm">
-                                        <thead className="bg-slate-50 border-b border-slate-200">
-
-                                        <tr>
-                                            <th className="text-left p-4 font-medium text-slate-700">Employee</th>
-                                            <th className="text-center p-4 font-medium text-slate-700">Sun</th>
-                                            <th className="text-center p-4 font-medium text-slate-700">Mon</th>
-                                            <th className="text-center p-4 font-medium text-slate-700">Tue</th>
-                                            <th className="text-center p-4 font-medium text-slate-700">Wed</th>
-                                            <th className="text-center p-4 font-medium text-slate-700">Thu</th>
-                                            <th className="text-center p-4 font-medium text-slate-700">Fri</th>
-                                            <th className="text-center p-4 font-medium text-slate-700">Sat</th>
-                                            <th className="text-center p-4 font-medium text-slate-700 bg-slate-100">Total</th>
-                                            <th className="text-center p-4 font-medium text-slate-700 bg-orange-50">OT</th>
+                                        <thead>
+                                        <tr className="border-b border-slate-200">
+                                            <th className="text-left p-3 font-medium text-slate-700">Employee</th>
+                                            <th className="text-center p-3 font-medium text-slate-700">Sun</th>
+                                            <th className="text-center p-3 font-medium text-slate-700">Mon</th>
+                                            <th className="text-center p-3 font-medium text-slate-700">Tue</th>
+                                            <th className="text-center p-3 font-medium text-slate-700">Wed</th>
+                                            <th className="text-center p-3 font-medium text-slate-700">Thu</th>
+                                            <th className="text-center p-3 font-medium text-slate-700">Fri</th>
+                                            <th className="text-center p-3 font-medium text-slate-700">Sat</th>
+                                            <th className="text-center p-3 font-medium text-slate-700 bg-slate-50">Total</th>
+                                            <th className="text-center p-3 font-medium text-slate-700">Actions</th>
                                         </tr>
-                                        
                                         </thead>
                                         <tbody>
                                         {safeTeamHoursData.length === 0 ? (
@@ -346,287 +788,342 @@ export default function ManagerDashboard({
                                                 </td>
                                             </tr>
                                         ) : (
-                                            safeTeamHoursData.map((emp, index) => (
+                                            safeTeamHoursData.map((emp: TeamHoursData, index: number) => (
                                                 <tr key={emp.employee.id} className={index % 2 === 0 ? 'bg-white' : 'bg-slate-50'}>
-                                                    <td className="p-4 border-r border-slate-200">
-                                                        <div>
-                                                            <p className="font-medium text-slate-900">{emp.employee.name}</p>
-                                                            <p className="text-xs text-slate-500">{emp.employee.position}</p>
+                                                    <td className="p-3">
+                                                        <div className="flex items-center gap-3">
+                                                            <img
+                                                                src={emp.employee.avatar}
+                                                                alt={emp.employee.name}
+                                                                className="w-8 h-8 rounded-full border border-slate-200"
+                                                            />
+                                                            <div>
+                                                                <div className="flex items-center gap-2">
+                                                                    <p className="font-medium text-slate-900">{emp.employee.name}</p>
+                                                                    {emp.employee.id === currentManagerId && (
+                                                                        <User className="w-3 h-3 text-blue-600" />
+                                                                    )}
+                                                                </div>
+                                                                <p className="text-xs text-slate-500">{emp.employee.position}</p>
+                                                            </div>
                                                         </div>
                                                     </td>
-                                                    <td className="text-center p-4 font-mono">{emp.days.sunday > 0 ? formatHours(emp.days.sunday) : '—'}</td>
-                                                    <td className="text-center p-4 font-mono">{emp.days.monday > 0 ? formatHours(emp.days.monday) : '—'}</td>
-                                                    <td className="text-center p-4 font-mono">{emp.days.tuesday > 0 ? formatHours(emp.days.tuesday) : '—'}</td>
-                                                    <td className="text-center p-4 font-mono">{emp.days.wednesday > 0 ? formatHours(emp.days.wednesday) : '—'}</td>
-                                                    <td className="text-center p-4 font-mono">{emp.days.thursday > 0 ? formatHours(emp.days.thursday) : '—'}</td>
-                                                    <td className="text-center p-4 font-mono">{emp.days.friday > 0 ? formatHours(emp.days.friday) : '—'}</td>
-                                                    <td className="text-center p-4 font-mono">{emp.days.saturday > 0 ? formatHours(emp.days.saturday) : '—'}</td>
-                                                    <td className="text-center p-4 font-mono font-semibold bg-slate-100 border-l border-slate-200">
+                                                    {renderDayCell(emp.days.sunday, 'sunday', emp)}
+                                                    {renderDayCell(emp.days.monday, 'monday', emp)}
+                                                    {renderDayCell(emp.days.tuesday, 'tuesday', emp)}
+                                                    {renderDayCell(emp.days.wednesday, 'wednesday', emp)}
+                                                    {renderDayCell(emp.days.thursday, 'thursday', emp)}
+                                                    {renderDayCell(emp.days.friday, 'friday', emp)}
+                                                    {renderDayCell(emp.days.saturday, 'saturday', emp)}
+                                                    <td className="text-center p-3 font-mono font-semibold bg-slate-50">
                                                         {formatHours(emp.weekTotal)}
+                                                        {emp.overtimeHours > 0 && (
+                                                            <div className="text-xs text-orange-600">
+                                                                +{formatHours(emp.overtimeHours)} OT
+                                                            </div>
+                                                        )}
                                                     </td>
-                                                    <td className="text-center p-4 font-mono font-semibold bg-orange-50 border-l border-slate-200">
-                                                        {emp.overtimeHours > 0 ? formatHours(emp.overtimeHours) : '—'}
+                                                    <td className="text-center p-3">
+                                                        <DropdownMenu>
+                                                            <DropdownMenuTrigger asChild>
+                                                                <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                                                                    <MoreHorizontal className="h-4 w-4" />
+                                                                </Button>
+                                                            </DropdownMenuTrigger>
+                                                            <DropdownMenuContent align="end">
+                                                                <DropdownMenuItem>
+                                                                    <Eye className="w-4 h-4 mr-2" />
+                                                                    View Timesheet
+                                                                </DropdownMenuItem>
+                                                                <DropdownMenuItem>
+                                                                    <Edit3 className="w-4 h-4 mr-2" />
+                                                                    Edit Hours
+                                                                </DropdownMenuItem>
+                                                                <DropdownMenuItem>
+                                                                    <Plus className="w-4 h-4 mr-2" />
+                                                                    Add Entry
+                                                                </DropdownMenuItem>
+                                                            </DropdownMenuContent>
+                                                        </DropdownMenu>
                                                     </td>
                                                 </tr>
                                             ))
                                         )}
                                         </tbody>
-                                        {safeTeamHoursData.length > 0 && (
-                                            <tfoot className="bg-slate-100 border-t-2 border-slate-300">
-                                            <tr>
-                                                <td className="p-4 font-semibold text-slate-900 border-r border-slate-200">Daily Totals</td>
-                                                <td className="text-center p-4 font-mono font-semibold">{formatHours(dayTotals.sunday)}</td>
-                                                <td className="text-center p-4 font-mono font-semibold">{formatHours(dayTotals.monday)}</td>
-                                                <td className="text-center p-4 font-mono font-semibold">{formatHours(dayTotals.tuesday)}</td>
-                                                <td className="text-center p-4 font-mono font-semibold">{formatHours(dayTotals.wednesday)}</td>
-                                                <td className="text-center p-4 font-mono font-semibold">{formatHours(dayTotals.thursday)}</td>
-                                                <td className="text-center p-4 font-mono font-semibold">{formatHours(dayTotals.friday)}</td>
-                                                <td className="text-center p-4 font-mono font-semibold">{formatHours(dayTotals.saturday)}</td>
-                                                <td className="text-center p-4 font-mono font-bold text-lg bg-slate-200 border-l border-slate-300">
-                                                    {formatHours(grandTotal)}
-                                                </td>
-                                                <td className="text-center p-4 font-mono font-bold text-lg bg-orange-100 border-l border-slate-300">
-                                                    {formatHours(totalOvertime)}
-                                                </td>
-                                            </tr>
-                                            </tfoot>
-                                        )}
                                     </table>
                                 </div>
                             </CardContent>
                         </Card>
-                    </TabsContent>
+                    </div>
+                </div>
 
-                    {/* Pending Approvals */}
-                    <TabsContent value="pending" className="space-y-6">
-                        <Card className="border-slate-200">
-                            <CardHeader className="border-b border-slate-200 bg-slate-50">
-                                <CardTitle className="text-lg font-semibold text-slate-900 flex items-center gap-2">
-                                    <AlertCircle className="w-5 h-5 text-red-500" />
-                                    Pending Approvals
-                                </CardTitle>
-                            </CardHeader>
-                            <CardContent className="p-6">
-                                {pendingTimesheets.length === 0 ? (
-                                    <div className="text-center py-12">
-                                        <CheckCircle className="w-16 h-16 mx-auto text-green-500 mb-4" />
-                                        <h3 className="text-lg font-medium text-slate-900 mb-2">All Caught Up!</h3>
-                                        <p className="text-slate-600">
-                                            No timesheets are currently pending your approval.
-                                        </p>
-                                    </div>
-                                ) : (
-                                    <div className="space-y-4">
-                                        {pendingTimesheets.map((timesheet) => (
-                                            <div key={timesheet.id} className="border border-amber-200 bg-amber-50 rounded-lg p-6">
-                                                <div className="flex items-center justify-between">
-                                                    <div className="flex-1">
-                                                        <div className="flex items-center gap-4 mb-3">
-                                                            <div>
-                                                                <h4 className="font-semibold text-slate-900">{timesheet.user.name}</h4>
-                                                                <p className="text-sm text-slate-600">{timesheet.user.email}</p>
-                                                            </div>
-                                                            {getStatusBadge(timesheet.status)}
-                                                        </div>
-                                                        <div className="grid grid-cols-3 gap-4 text-sm">
-                                                            <div>
-                                                                <span className="font-medium">Period:</span><br />
-                                                                {getWeekLabel(timesheet.week_start_date, timesheet.week_end_date)}
-                                                            </div>
-                                                            <div>
-                                                                <span className="font-medium">Hours:</span><br />
-                                                                {formatHours(timesheet.total_hours)}
-                                                                {timesheet.overtime_hours > 0 && (
-                                                                    <span className="text-orange-600"> (+{formatHours(timesheet.overtime_hours)} OT)</span>
-                                                                )}
-                                                            </div>
-                                                            <div>
-                                                                <span className="font-medium">Submitted:</span><br />
-                                                                {timesheet.submitted_at && formatDate(timesheet.submitted_at)}
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                    <div className="flex flex-col gap-2 ml-6">
-                                                        <Button
-                                                            size="sm"
-                                                            variant="outline"
-                                                            onClick={() => router.get(`/time-clock/manager/timesheet/${timesheet.id}`)}
-                                                        >
-                                                            <Eye className="w-4 h-4 mr-2" />
-                                                            Review
-                                                        </Button>
-                                                        <div className="flex gap-2">
-                                                            <Button
-                                                                size="sm"
-                                                                onClick={() => handleApprovalAction(timesheet, 'approve')}
-                                                                className="bg-emerald-600 hover:bg-emerald-700"
-                                                            >
-                                                                <CheckCircle className="w-4 h-4 mr-1" />
-                                                                Approve
-                                                            </Button>
-                                                            <Button
-                                                                size="sm"
-                                                                variant="destructive"
-                                                                onClick={() => handleApprovalAction(timesheet, 'reject')}
-                                                            >
-                                                                <XCircle className="w-4 h-4 mr-1" />
-                                                                Reject
-                                                            </Button>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        ))}
+                {/* Time Editing Dialog */}
+                <Dialog open={timeEditDialogOpen} onOpenChange={setTimeEditDialogOpen}>
+                    <DialogContent className="min-w-1/2 w-9/12 max-h-[95vh] overflow-y-auto">
+                        <DialogHeader>
+                            <DialogTitle>
+                                Edit Time - {selectedEmployee?.employee.name} - {selectedDay} ({selectedDate})
+                                {getCurrentDayColumn() === selectedDay && selectedEmployee?.currentStatus?.is_clocked_in && (
+                                    <div className="text-sm font-normal text-green-600 mt-1">
+                                        Currently Active - Clocked in at {selectedEmployee?.currentStatus?.clock_in_time ? formatTime(selectedEmployee.currentStatus.clock_in_time) : ''}
+                                        {selectedEmployee.currentStatus.is_on_break && (
+                                            <span className="text-orange-600"> • On Break</span>
+                                        )}
                                     </div>
                                 )}
-                            </CardContent>
-                        </Card>
-                    </TabsContent>
+                            </DialogTitle>
+                        </DialogHeader>
 
-                    {/* All Timesheets */}
-                    <TabsContent value="all-timesheets" className="space-y-6">
-                        {/* Filters */}
-                        <Card className="border-slate-200">
-                            <CardHeader className="border-b border-slate-200 bg-slate-50">
-                                <CardTitle className="text-lg font-semibold text-slate-900 flex items-center gap-2">
-                                    <Filter className="w-5 h-5" />
-                                    Filters
-                                </CardTitle>
-                            </CardHeader>
-                            <CardContent className="p-6">
-                                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                                    <div>
-                                        <Label htmlFor="status-filter" className="text-sm font-medium text-slate-700">Status</Label>
-                                        <Select value={filterStatus} onValueChange={setFilterStatus}>
-                                            <SelectTrigger className="mt-1">
-                                                <SelectValue placeholder="All statuses" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="all">All statuses</SelectItem>
-                                                <SelectItem value="draft">Draft</SelectItem>
-                                                <SelectItem value="submitted">Pending Approval</SelectItem>
-                                                <SelectItem value="approved">Approved</SelectItem>
-                                                <SelectItem value="processed">Processed</SelectItem>
-                                            </SelectContent>
-                                        </Select>
-                                    </div>
-
-                                    <div>
-                                        <Label htmlFor="employee-filter" className="text-sm font-medium text-slate-700">Employee</Label>
-                                        <Select value={filterEmployee} onValueChange={setFilterEmployee}>
-                                            <SelectTrigger className="mt-1">
-                                                <SelectValue placeholder="All employees" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="all">All employees</SelectItem>
-                                                {subordinates.map((employee) => (
-                                                    <SelectItem key={employee.id} value={employee.id.toString()}>
-                                                        {employee.name}
-                                                    </SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
-                                    </div>
-
-                                    <div>
-                                        <Label htmlFor="week-filter" className="text-sm font-medium text-slate-700">Week Start</Label>
-                                        <Input
-                                            id="week-filter"
-                                            type="date"
-                                            value={filterWeekStart}
-                                            onChange={(e) => setFilterWeekStart(e.target.value)}
-                                            className="mt-1"
-                                        />
-                                    </div>
-
-                                    <div className="flex items-end gap-2">
-                                        <Button onClick={handleFilter} className="flex-1">
-                                            Apply Filters
+                        {loading ? (
+                            <div className="flex justify-center py-8">
+                                <div className="text-slate-500">Loading entries...</div>
+                            </div>
+                        ) : (
+                            <div className="space-y-6">
+                                {/* Quick Actions Section */}
+                                <div className="flex gap-2 flex-wrap justify-end">
+                                    {/* Clock In Now Button - Show if no active entries or not clocked in today */}
+                                    {(!selectedEmployee?.currentStatus?.is_clocked_in || getCurrentDayColumn() !== selectedDay) && (
+                                        <Button
+                                            onClick={handleClockInNow}
+                                            disabled={loading}
+                                            className="bg-green-600 hover:bg-green-700 text-white"
+                                            size="sm"
+                                        >
+                                            <Clock className="w-4 h-4 mr-2" />
+                                            Clock In Now
                                         </Button>
-                                        <Button onClick={clearFilters} variant="outline">
-                                            Clear
-                                        </Button>
-                                    </div>
+                                    )}
+
+                                    {/* Add Manual Entry Button */}
+                                    <Button
+                                        size="sm"
+                                        variant="outline"
+                                        onClick={() => {
+                                            const newEntry: TimeEntry = {
+                                                id: `new-${Date.now()}`,
+                                                user_id: selectedEmployee?.employee.id ?? 0,
+                                                punch_type: 'work',
+                                                break_type_id: null,
+                                                clock_in_at: new Date().toISOString(),
+                                                clock_out_at: null,
+                                                regular_hours: 0,
+                                                overtime_hours: 0,
+                                                notes: '',
+                                                status: 'draft',
+                                                break_type: null
+                                            };
+                                            setDayEntries([...dayEntries, newEntry]);
+                                            startEditingEntry(newEntry);
+                                        }}
+                                    >
+                                        <Plus className="w-4 h-4 mr-2" />
+                                        Add Manual Entry
+                                    </Button>
                                 </div>
-                            </CardContent>
-                        </Card>
 
-                        {/* Timesheets Table */}
-                        <Card className="border-slate-200">
-                            <CardHeader className="border-b border-slate-200 bg-slate-50">
-                                <CardTitle className="text-lg font-semibold text-slate-900">
-                                    All Timesheets ({allTimesheets.meta?.total || allTimesheets.data?.length || 0})
-                                </CardTitle>
-                            </CardHeader>
-                            <CardContent className="p-6">
-                                {allTimesheets.data.length === 0 ? (
-                                    <div className="text-center py-12">
-                                        <FileText className="w-16 h-16 mx-auto text-slate-400 mb-4" />
-                                        <h3 className="text-lg font-medium text-slate-900 mb-2">No Timesheets Found</h3>
-                                        <p className="text-slate-600">
-                                            No timesheets match your current filters.
+                                {/* No Entries State - Updated */}
+                                {dayEntries.length === 0 ? (
+                                    <div className="text-center py-8 bg-slate-50 rounded-lg border-2 border-dashed border-slate-300">
+                                        <Clock className="w-12 h-12 mx-auto text-slate-400 mb-4" />
+                                        <h3 className="text-lg font-medium text-slate-900 mb-2">No Time Entries</h3>
+                                        <p className="text-slate-600 mb-4">
+                                            {selectedEmployee?.employee.name} has no time entries for {selectedDay}
                                         </p>
+
+                                        {getCurrentDayColumn() === selectedDay && selectedEmployee?.currentStatus?.is_clocked_in ? (
+                                            <div className="bg-orange-100 border border-orange-200 rounded-lg p-4 mx-4 mb-4">
+                                                <p className="text-sm text-orange-800">
+                                                    <strong>Note:</strong> Employee appears to be currently clocked in but no entries were found.
+                                                    This may indicate a data sync issue.
+                                                </p>
+                                            </div>
+                                        ) : (
+                                            <div className="flex justify-center gap-3">
+                                                <Button
+                                                    onClick={handleClockInNow}
+                                                    disabled={loading}
+                                                    className="bg-green-600 hover:bg-green-700 text-white"
+                                                >
+                                                    <Clock className="w-4 h-4 mr-2" />
+                                                    Clock In Now
+                                                </Button>
+                                                <Button
+                                                    variant="outline"
+                                                    onClick={handleAddManualEntry}
+                                                >
+                                                    <Edit3 className="w-4 h-4 mr-2" />
+                                                    Add Manual Entry
+                                                </Button>
+                                            </div>
+                                        )}
                                     </div>
                                 ) : (
-                                    <div className="space-y-4">
-                                        {allTimesheets.data.map((timesheet) => (
-                                            <div key={timesheet.id} className="border border-slate-200 rounded-lg p-6 hover:bg-slate-50 transition-colors">
-                                                <div className="flex items-center justify-between">
-                                                    <div className="flex-1">
-                                                        <div className="flex items-center gap-4 mb-3">
-                                                            <div>
-                                                                <h4 className="font-semibold text-slate-900">{timesheet.user.name}</h4>
-                                                                <p className="text-sm text-slate-600">{timesheet.user.email}</p>
-                                                            </div>
-                                                            {getStatusBadge(timesheet.status)}
-                                                        </div>
-                                                        <div className="grid grid-cols-3 gap-4 text-sm">
-                                                            <div>
-                                                                <span className="font-medium">Period:</span><br />
-                                                                {getWeekLabel(timesheet.week_start_date, timesheet.week_end_date)}
-                                                            </div>
-                                                            <div>
-                                                                <span className="font-medium">Hours:</span><br />
-                                                                {formatHours(timesheet.total_hours)}
-                                                                {timesheet.overtime_hours > 0 && (
-                                                                    <span className="text-orange-600"> (+{formatHours(timesheet.overtime_hours)} OT)</span>
+                                    /* Existing Entries Datatable - Keep existing implementation */
+                                    <div>
+                                        <h3 className="text-lg font-medium mb-3">Existing Entries ({dayEntries.length})</h3>
+                                        <div className="border rounded-lg overflow-hidden">
+                                            <table className="w-full text-sm">
+                                                <thead className="bg-slate-50 border-b">
+                                                <tr>
+                                                    <th className="text-left p-3 font-medium">Type</th>
+                                                    <th className="text-left p-3 font-medium">Clock In</th>
+                                                    <th className="text-left p-3 font-medium">Clock Out</th>
+                                                    <th className="text-left p-3 font-medium">Duration</th>
+                                                    <th className="text-left p-3 font-medium">Notes</th>
+                                                    <th className="text-center p-3 font-medium">Actions</th>
+                                                </tr>
+                                                </thead>
+                                                <tbody>
+                                                {dayEntries.map((entry: TimeEntry, index: number) => {
+                                                    const isEditing = editingEntry?.id === entry.id;
+                                                    const duration = entry.clock_out_at
+                                                        ? (new Date(entry.clock_out_at).getTime() - new Date(entry.clock_in_at).getTime()) / (1000 * 60 * 60)
+                                                        : 0;
+
+                                                    return (
+                                                        <tr key={entry.id} className={index % 2 === 0 ? 'bg-white' : 'bg-slate-25'}>
+                                                            <td className="p-3">
+                                                                {isEditing ? (
+                                                                    <Select
+                                                                        value={editingEntry.punch_type}
+                                                                        onValueChange={(value: 'work' | 'break') => setEditingEntry({...editingEntry, punch_type: value})}
+                                                                    >
+                                                                        <SelectTrigger className="w-24 h-7 text-xs">
+                                                                            <SelectValue />
+                                                                        </SelectTrigger>
+                                                                        <SelectContent>
+                                                                            <SelectItem value="work">Work</SelectItem>
+                                                                            <SelectItem value="break">Break</SelectItem>
+                                                                        </SelectContent>
+                                                                    </Select>
+                                                                ) : (
+                                                                    <Badge variant={entry.punch_type === 'work' ? 'default' : 'secondary'}>
+                                                                        {entry.punch_type === 'work' ? 'Work' : entry.break_type?.label || 'Break'}
+                                                                    </Badge>
                                                                 )}
-                                                            </div>
-                                                            <div>
-                                                                {timesheet.submitted_at && (
-                                                                    <>
-                                                                        <span className="font-medium">Submitted:</span><br />
-                                                                        {formatDate(timesheet.submitted_at)}
-                                                                    </>
+                                                            </td>
+                                                            <td className="p-3">
+                                                                {isEditing ? (
+                                                                    <Input
+                                                                        type="datetime-local"
+                                                                        value={editingEntry.clock_in_at}
+                                                                        onChange={(e) => setEditingEntry({...editingEntry, clock_in_at: e.target.value})}
+                                                                        className="w-40 text-xs"
+                                                                    />
+                                                                ) : (
+                                                                    <span className="font-mono">{formatTime(entry.clock_in_at)}</span>
                                                                 )}
-                                                                {timesheet.approved_at && (
-                                                                    <>
-                                                                        <span className="font-medium">Approved:</span><br />
-                                                                        {formatDate(timesheet.approved_at)}
-                                                                    </>
+                                                            </td>
+                                                            <td className="p-3">
+                                                                {isEditing ? (
+                                                                    <Input
+                                                                        type="datetime-local"
+                                                                        value={editingEntry.clock_out_at || ''}
+                                                                        onChange={(e) => setEditingEntry({...editingEntry, clock_out_at: e.target.value || null})}
+                                                                        className="w-40 text-xs"
+                                                                    />
+                                                                ) : entry.clock_out_at ? (
+                                                                    <span className="font-mono">{formatTime(entry.clock_out_at)}</span>
+                                                                ) : (
+                                                                    <Badge className="bg-green-100 text-green-800">Active</Badge>
                                                                 )}
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                    <div className="flex items-center gap-2 ml-6">
-                                                        <Button
-                                                            size="sm"
-                                                            variant="outline"
-                                                            onClick={() => router.get(`/time-clock/manager/timesheet/${timesheet.id}`)}
-                                                        >
-                                                            <Eye className="w-4 h-4 mr-2" />
-                                                            View
-                                                        </Button>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        ))}
+                                                            </td>
+                                                            <td className="p-3">
+                                                                <span className="font-mono">
+                                                                    {entry.clock_out_at ? formatHours(duration) : '—'}
+                                                                </span>
+                                                            </td>
+                                                            <td className="p-3">
+                                                                {isEditing ? (
+                                                                    <Input
+                                                                        value={editingEntry.notes || ''}
+                                                                        onChange={(e) => setEditingEntry({...editingEntry, notes: e.target.value})}
+                                                                        placeholder="Notes..."
+                                                                        className="w-32 text-xs"
+                                                                    />
+                                                                ) : (
+                                                                    <span className="text-slate-600 text-xs">
+                                                                        {entry.notes || '—'}
+                                                                    </span>
+                                                                )}
+                                                            </td>
+                                                            <td className="p-3">
+                                                                <div className="flex items-center gap-1 justify-center">
+                                                                    {isEditing ? (
+                                                                        <>
+                                                                            <Button
+                                                                                size="sm"
+                                                                                onClick={() => handleSaveEntry(entry)}
+                                                                                className="px-2 py-1 h-7"
+                                                                                disabled={!editingEntry.clock_in_at}
+                                                                            >
+                                                                                <Save className="w-3 h-3" />
+                                                                            </Button>
+                                                                            <Button
+                                                                                size="sm"
+                                                                                variant="outline"
+                                                                                onClick={() => {
+                                                                                    if (entry.id.toString().startsWith('new-')) {
+                                                                                        // Remove new entry from list
+                                                                                        setDayEntries(dayEntries.filter((e: TimeEntry) => e.id !== entry.id));
+                                                                                    }
+                                                                                    cancelEditing();
+                                                                                }}
+                                                                                className="px-2 py-1 h-7"
+                                                                            >
+                                                                                ✕
+                                                                            </Button>
+                                                                        </>
+                                                                    ) : (
+                                                                        <>
+                                                                            {!entry.clock_out_at && entry.status === 'active' && (
+                                                                                <Button
+                                                                                    size="sm"
+                                                                                    onClick={() => handleClockOut(entry.id)}
+                                                                                    className="bg-green-600 hover:bg-green-700 px-2 py-1 h-7 text-xs mr-1"
+                                                                                >
+                                                                                    Clock Out
+                                                                                </Button>
+                                                                            )}
+                                                                            <Button
+                                                                                size="sm"
+                                                                                variant="outline"
+                                                                                onClick={() => startEditingEntry(entry)}
+                                                                                className="px-2 py-1 h-7"
+                                                                            >
+                                                                                <Edit3 className="w-3 h-3" />
+                                                                            </Button>
+                                                                            <Button
+                                                                                size="sm"
+                                                                                variant="destructive"
+                                                                                onClick={() => {
+                                                                                    if (entry.id.toString().startsWith('new-')) {
+                                                                                        setDayEntries(dayEntries.filter((e: TimeEntry) => e.id !== entry.id));
+                                                                                    } else {
+                                                                                        handleDeleteEntry(entry.id);
+                                                                                    }
+                                                                                }}
+                                                                                className="px-2 py-1 h-7"
+                                                                            >
+                                                                                <Trash2 className="w-3 h-3" />
+                                                                            </Button>
+                                                                        </>
+                                                                    )}
+                                                                </div>
+                                                            </td>
+                                                        </tr>
+                                                    );
+                                                })}
+                                                </tbody>
+                                            </table>
+                                        </div>
                                     </div>
                                 )}
-                            </CardContent>
-                        </Card>
-                    </TabsContent>
-                </Tabs>
+                            </div>
+                        )}
+                    </DialogContent>
+                </Dialog>
 
                 {/* Approval Dialog */}
                 <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
@@ -667,10 +1164,7 @@ export default function ManagerDashboard({
                                 </div>
 
                                 <div className="flex justify-end gap-2">
-                                    <Button
-                                        variant="outline"
-                                        onClick={() => setDialogOpen(false)}
-                                    >
+                                    <Button variant="outline" onClick={() => setDialogOpen(false)}>
                                         Cancel
                                     </Button>
                                     <Button

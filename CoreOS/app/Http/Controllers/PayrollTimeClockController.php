@@ -6,7 +6,6 @@ use App\Models\Department;
 use App\Models\TimeClock;
 use App\Models\TimeClockBreak;
 use App\Models\Timesheet;
-use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -17,48 +16,25 @@ class PayrollTimeClockController extends Controller
 {
     public function dashboard(Request $request)
     {
-        $approvedQuery = Timesheet::where('status', 'approved')
-            ->with(['user.currentPosition', 'user.departments', 'approvedBy']);
+        // Set default week if not provided
+        if (!$request->has('week_start') || !$request->has('week_end')) {
+            $today = Carbon::now();
+            $weekStart = $today->copy()->startOfWeek();
+            $weekEnd = $today->copy()->endOfWeek();
 
-        $this->applyFilters($approvedQuery, $request);
+            $request->merge([
+                'week_start' => $weekStart->format('Y-m-d'),
+                'week_end' => $weekEnd->format('Y-m-d')
+            ]);
+        }
 
-        $approvedTimesheets = $approvedQuery->orderBy('week_start_date', 'desc')
-            ->paginate(20)
-            ->withQueryString();
-
-        $processedTimesheets = Timesheet::where('status', 'processed')
-            ->with(['user.currentPosition', 'user.departments', 'processedBy'])
-            ->orderBy('processed_at', 'desc')
-            ->limit(10)
-            ->get();
-
-        $departments = Department::active()->orderBy('name')->get();
-        $employees = User::select('id', 'name', 'email')
-            ->whereHas('timesheets')
-            ->orderBy('name')
-            ->get();
-
-        return Inertia::render('TimeManagement/Payroll/Dashboard', [
-            'approvedTimesheets' => $approvedTimesheets,
-            'processedTimesheets' => $processedTimesheets,
-            'departments' => $departments,
-            'employees' => $employees,
-            'stats' => $this->calculatePayrollStats($request),
-            'statusBreakdown' => $this->getStatusBreakdown($request),
-            'departmentSummary' => $this->getDepartmentSummary($request),
-            'filters' => $request->only(['week_start', 'week_end', 'employee_id', 'department_id']),
-        ]);
-    }
-
-    public function departments(Request $request)
-    {
         $query = Timesheet::with(['user.currentPosition', 'user.departments', 'approvedBy', 'processedBy']);
         $this->applyFilters($query, $request);
 
         $timesheets = $query->orderBy('week_start_date', 'desc')
             ->orderBy('user_id')
-            ->paginate(20)
-            ->withQueryString();
+            ->paginate(20);
+//            ->withQueryString();
 
         $timesheets->getCollection()->transform(function ($timesheet) {
             // Get all punches for this timesheet period
@@ -91,11 +67,90 @@ class PayrollTimeClockController extends Controller
 
         $departments = Department::active()->orderBy('name')->get();
 
-        return Inertia::render('TimeManagement/Payroll/Timesheets', [
+        return Inertia::render('TimeManagement/Payroll/Dashboard', [
             'timesheets' => $timesheets,
             'departments' => $departments,
             'filters' => $request->only(['week_start', 'week_end', 'department_id', 'status']),
         ]);
+    }
+    public function clockOut(TimeClock $timeClock)
+    {
+        if ($timeClock->status !== 'active' || $timeClock->clock_out_at) {
+            return back()->withErrors(['message' => 'Punch is not active.']);
+        }
+
+        try {
+            DB::transaction(function() use ($timeClock) {
+                $timeClock->update([
+                    'clock_out_at' => now(),
+                    'status' => 'completed',
+                ]);
+
+                if ($timeClock->punch_type === 'work') {
+                    $timeClock->calculateOvertime();
+                }
+
+                $timeClock->createAudit('manual_edit', [
+                    'edited_by' => Auth::id(),
+                    'edit_reason' => 'payroll_clock_out',
+                    'payroll_action' => 'clock_out',
+                ]);
+            });
+
+            return back()->with('success', 'Clocked out successfully!');
+        } catch (\Exception $e) {
+            return back()->withErrors(['message' => 'Failed to clock out: ' . $e->getMessage()]);
+        }
+    }
+    public function addEntry(Request $request)
+    {
+        $request->validate([
+            'user_id' => 'required|exists:users,id',
+            'timesheet_id' => 'required|exists:timesheets,id',
+            'punch_type' => 'required|in:work,break',
+            'time_in' => 'required',
+            'time_out' => 'nullable|date|after:time_in',
+            'break_type_id' => 'nullable|exists:break_types,id',
+            'notes' => 'nullable|string|max:500',
+            'edit_reason' => 'required|string',
+        ]);
+        $timeIn = $request->time_in === 'now' ? now() : Carbon::parse($request->time_in);
+        $timesheet = Timesheet::findOrFail($request->timesheet_id);
+
+        // Verify this punch belongs to the timesheet period
+        $punchTime = Carbon::parse($request->time_in);
+        if ($punchTime->lt($timesheet->week_start_date) || $punchTime->gt($timesheet->week_end_date)) {
+            return back()->withErrors(['message' => 'Punch time must be within the timesheet period.']);
+        }
+
+        try {
+            DB::transaction(function() use ($request) {
+                $timeClock = TimeClock::create([
+                    'user_id' => $request->user_id,
+                    'punch_type' => $request->punch_type,
+                    'break_type_id' => $request->break_type_id,
+                    'clock_in_at' => $request->time_in,
+                    'clock_out_at' => $request->time_out,
+                    'status' => $request->time_out ? 'completed' : 'active',
+                    'notes' => $request->notes,
+                ]);
+
+                if ($request->time_out) {
+                    $timeClock->calculateOvertime();
+                }
+
+                $timeClock->createAudit('manual_edit', [
+                    'edited_by' => Auth::id(),
+                    'edit_reason' => $request->edit_reason,
+                    'payroll_action' => 'create_punch',
+                    'created_by_payroll' => true,
+                ]);
+            });
+
+            return back()->with('success', 'Punch created successfully!');
+        } catch (\Exception $e) {
+            return back()->withErrors(['message' => 'Failed to create punch: ' . $e->getMessage()]);
+        }
     }
 
     public function timesheetPunches(Request $request, Timesheet $timesheet)
@@ -335,12 +390,21 @@ class PayrollTimeClockController extends Controller
             'payroll_notes' => 'nullable|string|max:500',
         ]);
 
-        if (!$timesheet->isApproved()) {
+        if (!in_array($timesheet->status, ['approved', 'open', 'draft'])) {
             return back()->withErrors(['message' => 'Timesheet is not ready for processing.']);
         }
 
-        if ($timesheet->process(Auth::id(), $request->payroll_notes)) {
+        try {
+            $timesheet->update([
+                'status' => 'processed',
+                'processed_by' => Auth::id(),
+                'processed_at' => now(),
+                'payroll_notes' => $request->payroll_notes
+            ]);
+
             return back()->with('success', 'Timesheet processed successfully!');
+        } catch (\Exception $e) {
+            return back()->withErrors(['message' => 'Failed to process timesheet: ' . $e->getMessage()]);
         }
 
         return back()->withErrors(['message' => 'Failed to process timesheet.']);
@@ -358,14 +422,22 @@ class PayrollTimeClockController extends Controller
         $totalHours = 0;
 
         $timesheets = Timesheet::whereIn('id', $request->timesheet_ids)
-            ->where('status', 'approved')
+            ->whereIn('status', ['approved', 'open', 'draft'])
             ->get();
 
         DB::transaction(function() use ($timesheets, $request, &$processed, &$totalHours) {
             foreach ($timesheets as $timesheet) {
-                if ($timesheet->process(Auth::id(), $request->payroll_notes)) {
+                try {
+                    $timesheet->update([
+                        'status' => 'processed',
+                        'processed_by' => Auth::id(),
+                        'processed_at' => now(),
+                        'payroll_notes' => $request->payroll_notes
+                    ]);
                     $processed++;
                     $totalHours += $timesheet->total_hours;
+                } catch (\Exception $e) {
+                    // Skip this timesheet if it fails
                 }
             }
         });
@@ -375,20 +447,24 @@ class PayrollTimeClockController extends Controller
 
     private function applyFilters($query, Request $request): void
     {
-        if ($request->filled('week_start')) {
-            $query->where('week_start_date', '>=', $request->week_start);
+        if ($request->filled('week_start') && $request->filled('week_end')) {
+            // Show timesheets that overlap with the selected period
+            $query->where(function($q) use ($request) {
+                $q->where('week_start_date', '<=', $request->week_end)
+                    ->where('week_end_date', '>=', $request->week_start);
+            });
         }
-        if ($request->filled('week_end')) {
-            $query->where('week_end_date', '<=', $request->week_end);
-        }
+
         if ($request->filled('employee_id')) {
             $query->where('user_id', $request->employee_id);
         }
+
         if ($request->filled('department_id') && $request->department_id !== 'all') {
             $query->whereHas('user.departments', function($q) use ($request) {
                 $q->where('departments.id', $request->department_id);
             });
         }
+
         if ($request->filled('status') && $request->status !== 'all') {
             $query->where('status', $request->status);
         }
@@ -405,6 +481,7 @@ class PayrollTimeClockController extends Controller
             $query->where('week_end_date', '<=', $request->week_end);
         }
 
+        $open = (clone $query)->whereIn('status', ['open', 'draft'])->count();
         $approved = (clone $query)->where('status', 'approved')->count();
         $processed = (clone $query)->where('status', 'processed')->count();
         $submitted = (clone $query)->where('status', 'submitted')->count();
@@ -418,6 +495,7 @@ class PayrollTimeClockController extends Controller
             ->count();
 
         return [
+            'open_count' => $open,
             'approved_count' => $approved,
             'processed_count' => $processed,
             'submitted_count' => $submitted,

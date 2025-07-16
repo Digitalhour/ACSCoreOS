@@ -4,22 +4,11 @@ import AppLayout from '@/layouts/app-layout';
 import {Button} from '@/components/ui/button';
 import {Card, CardContent, CardHeader, CardTitle} from '@/components/ui/card';
 import {Badge} from '@/components/ui/badge';
+import {Table, TableBody, TableCell, TableHead, TableHeader, TableRow} from '@/components/ui/table';
 import {Dialog, DialogContent, DialogHeader, DialogTitle} from '@/components/ui/dialog';
 import {Label} from '@/components/ui/label';
 import {Textarea} from '@/components/ui/textarea';
-import {
-    ArrowLeft,
-    Calendar,
-    CheckCircle,
-    Clock,
-    Coffee,
-    FileText,
-    MapPin,
-    Pause,
-    Play,
-    User,
-    XCircle
-} from 'lucide-react';
+import {ArrowLeft, Calendar, CheckCircle, Clock, Coffee, FileText, MapPin, Play, User, XCircle} from 'lucide-react';
 
 interface User {
     id: number;
@@ -48,17 +37,16 @@ interface TimeClockAudit {
 interface TimeClock {
     id: number;
     user_id: number;
+    punch_type: 'work' | 'break';
+    break_type_id?: number;
     clock_in_at: string;
     clock_out_at: string | null;
-    break_start_at: string | null;
-    break_end_at: string | null;
     regular_hours: number;
     overtime_hours: number;
-    break_duration: number;
     notes: string | null;
     status: 'active' | 'completed' | 'pending_approval';
     location_data: any;
-    break_type?: BreakType;
+    breakType?: BreakType;
     audits?: TimeClockAudit[];
 }
 
@@ -89,6 +77,8 @@ interface Timesheet {
 interface Props {
     timesheet: Timesheet;
     timeEntries: TimeClock[];
+    currentManagerId: number;
+    title: string;
 }
 
 const breadcrumbs = [
@@ -106,7 +96,7 @@ const breadcrumbs = [
     },
 ];
 
-export default function TimesheetDetail({ timesheet, timeEntries }: Props) {
+export default function TimesheetDetail({ timesheet, timeEntries, currentManagerId }: Props) {
     const [approvalAction, setApprovalAction] = useState<'approve' | 'reject' | null>(null);
     const [managerNotes, setManagerNotes] = useState('');
     const [dialogOpen, setDialogOpen] = useState(false);
@@ -124,6 +114,7 @@ export default function TimesheetDetail({ timesheet, timeEntries }: Props) {
         return new Date(dateString).toLocaleTimeString('en-US', {
             hour: 'numeric',
             minute: '2-digit',
+            second: '2-digit',
             hour12: true,
         });
     };
@@ -134,21 +125,35 @@ export default function TimesheetDetail({ timesheet, timeEntries }: Props) {
             day: 'numeric',
             hour: 'numeric',
             minute: '2-digit',
+            second: '2-digit',
             hour12: true,
         });
     };
 
     const formatHours = (hours: number): string => {
+        if (isNaN(hours) || hours < 0) {
+            return '0:00';
+        }
         const h = Math.floor(hours);
         const m = Math.round((hours - h) * 60);
         return `${h}:${m.toString().padStart(2, '0')}`;
     };
 
     const formatBreakDuration = (hours: number): string => {
+        if (isNaN(hours) || hours < 0) {
+            return '0 mins';
+        }
         const totalMinutes = Math.round(hours * 60);
         const h = Math.floor(totalMinutes / 60);
         const m = totalMinutes % 60;
         return h > 0 ? `${h}:${m.toString().padStart(2, '0')} hrs` : `${m} mins`;
+    };
+
+    const calculatePunchDuration = (clockIn: string, clockOut: string | null): number => {
+        if (!clockOut) return 0;
+        const start = new Date(clockIn).getTime();
+        const end = new Date(clockOut).getTime();
+        return (end - start) / (1000 * 60 * 60); // Convert to hours
     };
 
     const getWeekLabel = (startDate: string, endDate: string): string => {
@@ -199,6 +204,41 @@ export default function TimesheetDetail({ timesheet, timeEntries }: Props) {
         return new Date(dateString).toLocaleDateString('en-US', { weekday: 'long' });
     };
 
+    const isOwnTimesheet = (): boolean => {
+        return timesheet.user_id === currentManagerId;
+    };
+
+    // Get all punches sorted by date and time
+    const getAllPunchesSorted = () => {
+        return timeEntries.sort((a, b) =>
+            new Date(a.clock_in_at).getTime() - new Date(b.clock_in_at).getTime()
+        );
+    };
+
+    const getPunchTypeIcon = (punchType: string) => {
+        return punchType === 'work' ? (
+            <Play className="w-4 h-4 text-blue-600" />
+        ) : (
+            <Coffee className="w-4 h-4 text-orange-600" />
+        );
+    };
+
+    const getPunchTypeBadge = (entry: TimeClock) => {
+        if (entry.punch_type === 'work') {
+            return (
+                <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
+                    Work
+                </Badge>
+            );
+        } else {
+            return (
+                <Badge variant="outline" className="bg-orange-50 text-orange-700 border-orange-200">
+                    {entry.breakType?.label || 'Break'}
+                </Badge>
+            );
+        }
+    };
+
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title={`Timesheet Details - ${timesheet.user.name}`} />
@@ -216,7 +256,10 @@ export default function TimesheetDetail({ timesheet, timeEntries }: Props) {
                             Back to Dashboard
                         </Button>
                         <div>
-                            <h1 className="text-3xl font-bold">Timesheet Details</h1>
+                            <h1 className="text-3xl font-bold">
+                                Timesheet Details
+                                {isOwnTimesheet() && <span className="text-blue-600 ml-2">(Your Timesheet)</span>}
+                            </h1>
                             <p className="text-muted-foreground">
                                 {timesheet.user.name} - {getWeekLabel(timesheet.week_start_date, timesheet.week_end_date)}
                             </p>
@@ -383,7 +426,7 @@ export default function TimesheetDetail({ timesheet, timeEntries }: Props) {
                             <CardHeader>
                                 <CardTitle className="flex items-center gap-2">
                                     <Calendar className="w-5 h-5" />
-                                    Daily Time Entries
+                                    Daily Punch Records ({timeEntries.length} punches)
                                 </CardTitle>
                             </CardHeader>
                             <CardContent>
@@ -392,112 +435,79 @@ export default function TimesheetDetail({ timesheet, timeEntries }: Props) {
                                         <Clock className="w-12 h-12 mx-auto text-gray-400 mb-4" />
                                         <h3 className="text-lg font-medium mb-2">No Time Entries</h3>
                                         <p className="text-muted-foreground">
-                                            No time entries found for this timesheet.
+                                            No time entries found for this timesheet week.
                                         </p>
                                     </div>
                                 ) : (
-                                    <div className="space-y-4">
-                                        {timeEntries.map((entry) => (
-                                            <div key={entry.id} className="border rounded-lg p-4">
-                                                <div className="flex items-center justify-between mb-3">
-                                                    <div>
-                                                        <h4 className="font-medium">{getDayOfWeek(entry.clock_in_at)}</h4>
-                                                        <p className="text-sm text-muted-foreground">{formatDate(entry.clock_in_at)}</p>
-                                                    </div>
-                                                    <Badge variant={entry.status === 'completed' ? 'default' : 'secondary'}>
-                                                        {entry.status === 'completed' ? 'Completed' : 'Active'}
-                                                    </Badge>
-                                                </div>
-
-                                                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
-                                                    <div className="flex items-center gap-2">
-                                                        <Play className="w-4 h-4 text-green-600" />
+                                    <Table>
+                                        <TableHeader>
+                                            <TableRow>
+                                                <TableHead>Date</TableHead>
+                                                <TableHead>Type</TableHead>
+                                                <TableHead>Clock In</TableHead>
+                                                <TableHead>Clock Out</TableHead>
+                                                <TableHead>Duration</TableHead>
+                                                <TableHead>Status</TableHead>
+                                                <TableHead>Notes</TableHead>
+                                            </TableRow>
+                                        </TableHeader>
+                                        <TableBody>
+                                            {getAllPunchesSorted().map((entry) => (
+                                                <TableRow key={entry.id}>
+                                                    <TableCell>
                                                         <div>
-                                                            <p className="text-sm font-medium">Clock In</p>
-                                                            <p className="text-sm text-muted-foreground">{formatTime(entry.clock_in_at)}</p>
+                                                            <p className="font-medium">{formatDate(entry.clock_in_at)}</p>
+                                                            <p className="text-xs text-muted-foreground">{getDayOfWeek(entry.clock_in_at)}</p>
                                                         </div>
-                                                    </div>
-
-                                                    <div className="flex items-center gap-2">
-                                                        <Pause className="w-4 h-4 text-red-600" />
-                                                        <div>
-                                                            <p className="text-sm font-medium">Clock Out</p>
-                                                            <p className="text-sm text-muted-foreground">
-                                                                {entry.clock_out_at ? formatTime(entry.clock_out_at) : '--'}
-                                                            </p>
-                                                        </div>
-                                                    </div>
-
-                                                    <div className="flex items-center gap-2">
-                                                        <Coffee className="w-4 h-4 text-orange-600" />
-                                                        <div>
-                                                            <p className="text-sm font-medium">Break</p>
-                                                            <p className="text-sm text-muted-foreground">
-                                                                {entry.break_duration > 0 ? formatBreakDuration(entry.break_duration) : '--'}
-                                                            </p>
-                                                        </div>
-                                                    </div>
-
-                                                    <div className="flex items-center gap-2">
-                                                        <Clock className="w-4 h-4 text-blue-600" />
-                                                        <div>
-                                                            <p className="text-sm font-medium">Total</p>
-                                                            <p className="text-sm text-muted-foreground">{formatHours(entry.regular_hours + entry.overtime_hours)}</p>
-                                                        </div>
-                                                    </div>
-                                                </div>
-
-                                                {/* Hours Breakdown */}
-                                                <div className="grid grid-cols-3 gap-4 py-3 border-t">
-                                                    <div className="text-center">
-                                                        <p className="text-lg font-bold">{formatHours(entry.regular_hours)}</p>
-                                                        <p className="text-xs text-muted-foreground">Regular</p>
-                                                    </div>
-                                                    <div className="text-center">
-                                                        <p className="text-lg font-bold text-orange-600">{formatHours(entry.overtime_hours)}</p>
-                                                        <p className="text-xs text-muted-foreground">Overtime</p>
-                                                    </div>
-                                                    <div className="text-center">
-                                                        <p className="text-lg font-bold">{formatBreakDuration(entry.break_duration)}</p>
-                                                        <p className="text-xs text-muted-foreground">Breaks</p>
-                                                    </div>
-                                                </div>
-
-                                                {/* Break Type & Notes */}
-                                                {(entry.break_type || entry.notes) && (
-                                                    <div className="pt-3 border-t space-y-2">
-                                                        {entry.break_type && (
-                                                            <div className="flex items-center gap-2">
-                                                                <Coffee className="w-4 h-4" />
-                                                                <span className="text-sm">
-                                                                    {entry.break_type.label}
-                                                                    {entry.break_type.is_paid ? ' (Paid)' : ' (Unpaid)'}
-                                                                </span>
-                                                            </div>
-                                                        )}
-                                                        {entry.notes && (
-                                                            <div>
-                                                                <p className="text-sm font-medium">Notes:</p>
-                                                                <p className="text-sm text-muted-foreground">{entry.notes}</p>
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                )}
-
-                                                {/* Location Data */}
-                                                {entry.location_data && (
-                                                    <div className="pt-3 border-t">
+                                                    </TableCell>
+                                                    <TableCell>
                                                         <div className="flex items-center gap-2">
-                                                            <MapPin className="w-4 h-4" />
-                                                            <span className="text-sm text-muted-foreground">
-                                                                Location data available
-                                                            </span>
+                                                            {getPunchTypeIcon(entry.punch_type)}
+                                                            {getPunchTypeBadge(entry)}
                                                         </div>
-                                                    </div>
-                                                )}
-                                            </div>
-                                        ))}
-                                    </div>
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        <p className="font-mono text-sm">{formatTime(entry.clock_in_at)}</p>
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        <p className="font-mono text-sm">
+                                                            {entry.clock_out_at ? formatTime(entry.clock_out_at) : (
+                                                                <span className="text-orange-600">Active</span>
+                                                            )}
+                                                        </p>
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        <p className="font-mono text-sm">
+                                                            {entry.clock_out_at ?
+                                                                formatHours(calculatePunchDuration(entry.clock_in_at, entry.clock_out_at)) :
+                                                                '--'
+                                                            }
+                                                        </p>
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        <Badge variant={entry.status === 'completed' ? 'default' : 'secondary'}>
+                                                            {entry.status === 'completed' ? 'Completed' : 'Active'}
+                                                        </Badge>
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        <div className="flex items-center gap-2">
+                                                            {entry.notes && (
+                                                                <span className="text-sm text-muted-foreground truncate max-w-32" title={entry.notes}>
+                                                                    {entry.notes}
+                                                                </span>
+                                                            )}
+                                                            {entry.location_data && (
+                                                                <MapPin className="w-4 h-4 text-muted-foreground"  />
+                                                            )}
+                                                            {entry.breakType?.is_paid && entry.punch_type === 'break' && (
+                                                                <Badge variant="outline" className="text-xs">Paid</Badge>
+                                                            )}
+                                                        </div>
+                                                    </TableCell>
+                                                </TableRow>
+                                            ))}
+                                        </TableBody>
+                                    </Table>
                                 )}
                             </CardContent>
                         </Card>
