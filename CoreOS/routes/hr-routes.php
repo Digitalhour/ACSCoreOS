@@ -20,6 +20,7 @@ use App\Http\Controllers\ManagerTimeClockController;
 use App\Http\Controllers\OldStyleTrainingTrackingController;
 use App\Http\Controllers\PayrollTimeClockController;
 use App\Http\Controllers\TagController;
+use App\Http\Controllers\Team;
 use App\Http\Controllers\TimeClockController;
 use App\Http\Controllers\Training\TrainingController;
 use App\Http\Controllers\UserManagementController;
@@ -85,8 +86,9 @@ Route::middleware(['auth', ValidateSessionWithWorkOS::class,])->group(function (
             Route::get('/dashboard', [ManagerTimeClockController::class, 'dashboard'])->name('time-clock.manager.dashboard');
             Route::get('/timesheets', [ManagerTimeClockController::class, 'timesheets'])->name('time-clock.manager.timesheets');
             Route::post('/approve/{timesheet}', [ManagerTimeClockController::class, 'approve'])->name('time-clock.manager.approve');
-            Route::get('/timesheet/{timesheet}', [ManagerTimeClockController::class, 'show'])->name('time-clock.manager.timesheet.show');
 
+            Route::get('/timesheet/{timesheet}', [ManagerTimeClockController::class, 'show'])->name('time-clock.manager.timesheet.show');
+            Route::post('/resubmit/{timesheet}', [ManagerTimeClockController::class, 'resubmit'])->name('manager.resubmit');
 
             Route::get('/day-entries', [ManagerTimeClockController::class, 'getDayEntries'])->name('time-clock.manager.day-entries');
             Route::post('/clock-out/{timeClock}', [ManagerTimeClockController::class, 'clockOutEntry'])->name('time-clock.manager.clock-out');
@@ -115,14 +117,17 @@ Route::middleware(['auth', ValidateSessionWithWorkOS::class,])->group(function (
                 ->name('time-clock.payroll.punch.create');
             Route::post('/punch/{timeClock}/clock-out', [PayrollTimeClockController::class, 'clockOut'])
                 ->name('time-clock.payroll.punch.clock-out');
+            Route::get('/export-punches', [PayrollTimeClockController::class, 'exportPunches'])->name('time-clock.payroll.export-punches');
 
+            Route::post('/reject/{timesheet}', [PayrollTimeClockController::class, 'reject'])->name('payroll.reject');
+            Route::post('/bulk-reject', [PayrollTimeClockController::class, 'bulkReject'])->name('payroll.bulk-reject');
         });
 
 
     });
 
 
-
+Route::get('/team', [Team::class, 'index'])->name('team.index');
 
 
 

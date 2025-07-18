@@ -8,6 +8,7 @@ use App\Http\Controllers\Api\PtoApi\PtoApprovalRuleController;
 use App\Http\Controllers\Api\PtoApi\PtoOverviewController;
 use App\Http\Controllers\Api\UserPtoController;
 use App\Http\Controllers\ArticleController;
+use App\Http\Controllers\BillyAIController;
 use App\Http\Controllers\DepartmentTimeOffController;
 use App\Http\Controllers\HolidayController;
 use App\Http\Controllers\RolePermissionController;
@@ -447,36 +448,36 @@ Route::middleware([
         Route::post('/users/sync-direct-permissions',
             [RolePermissionController::class, 'syncUserDirectPermissions'])->name('users.syncDirectPermissions');
 
-//        /*
-//        |--------------------------------------------------------------------------
-//        | BillyAI Routes
-//        |--------------------------------------------------------------------------
-//        */
-//        // Main chat interface
-//        Route::get('/billy', [BillyAIController::class, 'chat'])->name('billy');
-//
-//        // Messages & feedback
-//        Route::post('/billy/messages', [BillyAIController::class, 'storeMessage'])->name('billy.messages.store');
-//        Route::post('/billy/messages/{message}/feedback',
-//            [BillyAIController::class, 'storeMessageFeedback'])->name('billy.messages.feedback');
-//
-//        // Feedback management
-//        Route::get('/billy/feedback', [BillyAIController::class, 'feedbackIndex'])->name('billy.feedback.index');
-//        Route::get('/billy/feedback-data', [BillyAIController::class, 'getFeedbackData'])->name('billy.feedback.data');
-//
-//        // Conversations management
-//        Route::get('/billy/conversations',
-//            [BillyAIController::class, 'getConversations'])->name('billy.conversations.index');
-//        Route::get('/billy/conversations/all', [BillyAIController::class, 'getAllConversations']);
-//        Route::get('/billy/conversations/{conversation}',
-//            [BillyAIController::class, 'getConversation'])->name('billy.conversations.show');
-//        Route::get('/billy/conversation/{conversation}',
-//            [BillyAIController::class, 'showConversationForAdmin'])->name('billy.conversation.show.admin');
-//        Route::put('/billy/conversations/{conversation}/title',
-//            [BillyAIController::class, 'updateConversationTitle'])->name('billy.conversations.update.title');
-//        Route::delete('/billy/conversations/{conversation}',
-//            [BillyAIController::class, 'deleteConversation'])->name('billy.conversations.destroy');
-//
+        /*
+        |--------------------------------------------------------------------------
+        | BillyAI Routes
+        |--------------------------------------------------------------------------
+        */
+        // Main chat interface
+        Route::get('/billy', [BillyAIController::class, 'chat'])->name('billy');
+
+        // Messages & feedback
+        Route::post('/billy/messages', [BillyAIController::class, 'storeMessage'])->name('billy.messages.store');
+        Route::post('/billy/messages/{message}/feedback',
+            [BillyAIController::class, 'storeMessageFeedback'])->name('billy.messages.feedback');
+
+        // Feedback management
+        Route::get('/billy/feedback', [BillyAIController::class, 'feedbackIndex'])->name('billy.feedback.index');
+        Route::get('/billy/feedback-data', [BillyAIController::class, 'getFeedbackData'])->name('billy.feedback.data');
+
+        // Conversations management
+        Route::get('/billy/conversations',
+            [BillyAIController::class, 'getConversations'])->name('billy.conversations.index');
+        Route::get('/billy/conversations/all', [BillyAIController::class, 'getAllConversations']);
+        Route::get('/billy/conversations/{conversation}',
+            [BillyAIController::class, 'getConversation'])->name('billy.conversations.show');
+        Route::get('/billy/conversation/{conversation}',
+            [BillyAIController::class, 'showConversationForAdmin'])->name('billy.conversation.show.admin');
+        Route::put('/billy/conversations/{conversation}/title',
+            [BillyAIController::class, 'updateConversationTitle'])->name('billy.conversations.update.title');
+        Route::delete('/billy/conversations/{conversation}',
+            [BillyAIController::class, 'deleteConversation'])->name('billy.conversations.destroy');
+
 //        /*
 //        |--------------------------------------------------------------------------
 //        | API Routes

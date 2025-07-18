@@ -192,6 +192,7 @@ class TimeClockController extends Controller
             return back()->withErrors(['message' => 'Timesheet cannot be submitted in its current state.']);
         }
 
+        // Update notes if provided
         if ($request->notes) {
             $timesheet->update(['notes' => $request->notes]);
         }

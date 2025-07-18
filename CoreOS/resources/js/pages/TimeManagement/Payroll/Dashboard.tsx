@@ -1,3 +1,4 @@
+//payroll/Dashboard.tsx
 import {Head, router} from '@inertiajs/react';
 import AppLayout from '@/layouts/app-layout';
 import {Button} from '@/components/ui/button';
@@ -6,6 +7,8 @@ import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from '@/c
 import {Checkbox} from '@/components/ui/checkbox';
 import {Badge} from '@/components/ui/badge';
 import {Table, TableBody, TableCell, TableHead, TableHeader, TableRow} from '@/components/ui/table';
+import {Dialog, DialogContent, DialogHeader, DialogTitle} from '@/components/ui/dialog';
+import {Textarea} from '@/components/ui/textarea';
 import {
     BookOpenText,
     Building2,
@@ -14,7 +17,8 @@ import {
     FileDown,
     FileSpreadsheet,
     FileText,
-    Play
+    Play,
+    X
 } from 'lucide-react';
 import {useCallback, useEffect, useState} from 'react';
 import {debounce} from 'lodash';
@@ -39,15 +43,19 @@ interface Timesheet {
     user_id: number;
     week_start_date: string;
     week_end_date: string;
-    status: 'draft' | 'submitted' | 'approved' | 'processed';
+    status: 'draft' | 'submitted' | 'approved' | 'processed' | 'rejected';
     total_hours: number;
     regular_hours: number;
     overtime_hours: number;
     approved_at?: string;
     processed_at?: string;
+    rejected_at?: string;
     user: User;
     approved_by?: User;
     processed_by?: User;
+    rejected_by?: User;
+    rejection_reason?: string;
+    rejection_notes?: string;
 }
 
 interface Props {
@@ -78,6 +86,12 @@ const breadcrumbs = [
 
 export default function PayrollDepartments({ timesheets, departments, filters }: Props) {
     const [selectedRows, setSelectedRows] = useState<Set<number>>(new Set());
+    const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
+    const [timesheetToReject, setTimesheetToReject] = useState<Timesheet | null>(null);
+    const [rejectionForm, setRejectionForm] = useState({
+        reason: '',
+        notes: ''
+    });
     const [localFilters, setLocalFilters] = useState({
         department_id: filters.department_id || 'all',
         status: filters.status || 'all',
@@ -127,6 +141,8 @@ export default function PayrollDepartments({ timesheets, departments, filters }:
                 return <Badge variant="default">Approved</Badge>;
             case 'processed':
                 return <Badge variant="destructive">Already Processed</Badge>;
+            case 'rejected':
+                return <Badge variant="destructive">Rejected</Badge>;
             default:
                 return <Badge variant="outline">Unknown</Badge>;
         }
@@ -202,6 +218,41 @@ export default function PayrollDepartments({ timesheets, departments, filters }:
 
         setLocalFilters(defaultFilters);
         applyFilters(defaultFilters);
+    };
+
+    const handleReject = (timesheet: Timesheet) => {
+        setTimesheetToReject(timesheet);
+        setRejectionForm({ reason: '', notes: '' });
+        setRejectDialogOpen(true);
+    };
+
+    const confirmReject = () => {
+        if (!timesheetToReject || !rejectionForm.reason) return;
+
+        router.post(`/time-clock/payroll/reject/${timesheetToReject.id}`, {
+            rejection_reason: rejectionForm.reason,
+            rejection_notes: rejectionForm.notes
+        }, {
+            preserveScroll: true,
+            onSuccess: () => {
+                setRejectDialogOpen(false);
+                setTimesheetToReject(null);
+                setRejectionForm({ reason: '', notes: '' });
+            }
+        });
+    };
+
+    const handleBulkReject = () => {
+        if (selectedRows.size === 0) return;
+
+        router.post('/time-clock/payroll/bulk-reject', {
+            timesheet_ids: Array.from(selectedRows),
+            rejection_reason: 'other',
+            rejection_notes: 'Bulk rejection'
+        }, {
+            preserveScroll: true,
+            onSuccess: () => setSelectedRows(new Set())
+        });
     };
 
     const handleExport = (format: 'csv' | 'pdf') => {
@@ -331,6 +382,7 @@ export default function PayrollDepartments({ timesheets, departments, filters }:
                                     <SelectItem value="submitted">Submitted</SelectItem>
                                     <SelectItem value="approved">Approved</SelectItem>
                                     <SelectItem value="processed">Processed</SelectItem>
+                                    <SelectItem value="rejected">Rejected</SelectItem>
                                 </SelectContent>
                             </Select>
                         </div>
@@ -451,34 +503,44 @@ export default function PayrollDepartments({ timesheets, departments, filters }:
                                         </TableCell>
                                         <TableCell>
                                             <div className="flex items-center gap-2">
-                                                {(timesheet.status === 'approved' || timesheet.status === 'draft') && (
+                                                {(timesheet.status === 'approved' || timesheet.status === 'draft' || timesheet.status === 'submitted' || timesheet.status === 'rejected') && (
                                                     <>
-                                                    <Button
-                                                        size="sm"
-                                                        onClick={() => handleProcess(timesheet.id)}
-                                                        variant={"secondary"}
-                                                    >
-                                                        <Play className="w-3 h-3 mr-1" />
-                                                        Process
-                                                    </Button>
+                                                        <Button
+                                                            size="sm"
+                                                            onClick={() => handleProcess(timesheet.id)}
+                                                            variant={"secondary"}
+                                                        >
+                                                            <Play className="w-3 h-3 mr-1" />
+                                                            Process
+                                                        </Button>
 
-                                                    <Button
-                                                        size={"sm"}
-                                                        onClick={() => handleTimesheetAction('view', timesheet.id)}
-                                                        variant={"secondary"}
-                                                    >
-                                                        <BookOpenText className="w-3 h-3 mr-1" />
-                                                        View Details
-                                                    </Button>
-                                                    <Button
-                                                        size={"sm"}
-                                                        onClick={() => handleTimesheetAction('export', timesheet.id)}
-                                                        variant={"secondary"}
-                                                    >
-                                                        <FileDown className="w-3 h-3 mr-1"/>
-                                                        Export
-                                                    </Button>
+                                                        <Button
+                                                            size={"sm"}
+                                                            onClick={() => handleTimesheetAction('view', timesheet.id)}
+                                                            variant={"secondary"}
+                                                        >
+                                                            <BookOpenText className="w-3 h-3 mr-1" />
+                                                            View Details
+                                                        </Button>
+                                                        <Button
+                                                            size={"sm"}
+                                                            onClick={() => handleTimesheetAction('export', timesheet.id)}
+                                                            variant={"secondary"}
+                                                        >
+                                                            <FileDown className="w-3 h-3 mr-1"/>
+                                                            Export
+                                                        </Button>
                                                     </>
+                                                )}
+                                                {(timesheet.status === 'submitted' || timesheet.status === 'approved') && (
+                                                    <Button
+                                                        size={"sm"}
+                                                        onClick={() => handleReject(timesheet)}
+                                                        variant={"destructive"}
+                                                    >
+                                                        <X className="w-3 h-3 mr-1" />
+                                                        Reject
+                                                    </Button>
                                                 )}
                                                 {(timesheet.status === 'processed') && (
                                                     <Button
@@ -551,8 +613,16 @@ export default function PayrollDepartments({ timesheets, departments, filters }:
                                 >
                                     Bulk Process
                                 </Button>
+                                <Button
+                                    size="sm"
+                                    variant="destructive"
+                                    onClick={() => handleBulkReject()}
+                                >
+                                    Bulk Reject
+                                </Button>
                                 <Button size="sm" variant="secondary">
                                     Bulk Export
+
                                 </Button>
                                 <Button
                                     size="sm"
@@ -566,6 +636,71 @@ export default function PayrollDepartments({ timesheets, departments, filters }:
                     </div>
                 )}
             </div>
+
+            {/* Reject Dialog */}
+            <Dialog open={rejectDialogOpen} onOpenChange={setRejectDialogOpen}>
+                <DialogContent className="max-w-md">
+                    <DialogHeader>
+                        <DialogTitle>Reject Timesheet</DialogTitle>
+                    </DialogHeader>
+                    {timesheetToReject && (
+                        <div className="space-y-4">
+                            <div className="text-sm text-muted-foreground">
+                                Rejecting timesheet for {timesheetToReject.user.name}
+                                ({formatPeriod(timesheetToReject.week_start_date, timesheetToReject.week_end_date)})
+                            </div>
+
+                            <div className="space-y-2">
+                                <Label htmlFor="rejection_reason">Reason for Rejection *</Label>
+                                <Select
+                                    value={rejectionForm.reason}
+                                    onValueChange={(value) => setRejectionForm(prev => ({ ...prev, reason: value }))}
+                                >
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Select reason" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="incomplete_data">Incomplete Data</SelectItem>
+                                        <SelectItem value="missing_punches">Missing Punches</SelectItem>
+                                        <SelectItem value="policy_violation">Policy Violation</SelectItem>
+                                        <SelectItem value="incorrect_hours">Incorrect Hours</SelectItem>
+                                        <SelectItem value="documentation_missing">Documentation Missing</SelectItem>
+                                        <SelectItem value="other">Other</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+
+                            <div className="space-y-2">
+                                <Label htmlFor="rejection_notes">Additional Notes</Label>
+                                <Textarea
+                                    id="rejection_notes"
+                                    value={rejectionForm.notes}
+                                    onChange={(e) => setRejectionForm(prev => ({ ...prev, notes: e.target.value }))}
+                                    placeholder="Additional details about the rejection..."
+                                    rows={3}
+                                />
+                            </div>
+
+                            <div className="flex gap-2 justify-end">
+                                <Button
+                                    variant="outline"
+                                    onClick={() => setRejectDialogOpen(false)}
+                                >
+                                    Cancel
+                                </Button>
+                                <Button
+                                    onClick={confirmReject}
+                                    variant="destructive"
+                                    disabled={!rejectionForm.reason}
+                                >
+                                    <X className="w-4 h-4 mr-2" />
+                                    Confirm Rejection
+                                </Button>
+                            </div>
+                        </div>
+                    )}
+                </DialogContent>
+            </Dialog>
         </AppLayout>
     );
 }

@@ -9,32 +9,24 @@ import {Label} from '@/components/ui/label';
 import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from '@/components/ui/select';
 import {Dialog, DialogContent, DialogHeader, DialogTitle} from '@/components/ui/dialog';
 import {Textarea} from '@/components/ui/textarea';
+import {Calendar} from '@/components/ui/calendar';
+import {Popover, PopoverContent, PopoverTrigger} from '@/components/ui/popover';
 import {
     AlertCircle,
     CheckCircle,
+    ChevronDownIcon,
+    ChevronLeft,
+    ChevronRight,
     Clock,
-    Download,
     Edit3,
-    Eye,
-    Filter,
-    MoreHorizontal,
     Plus,
     Save,
     Search,
-    ThumbsDown,
-    ThumbsUp,
     Trash2,
     TrendingUp,
     User,
     Users
 } from 'lucide-react';
-import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuSeparator,
-    DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
 
 interface BreakType {
     id: number;
@@ -84,20 +76,41 @@ interface PaginationMeta {
     total: number;
 }
 
+interface TimesheetAction {
+    id: number;
+    timesheet_id: number;
+    user_id: number;
+    action: 'submitted' | 'approved' | 'rejected' | 'processed' | 'withdrawn';
+    notes: string | null;
+    metadata: any;
+    created_at: string;
+    user: User;
+}
+
 interface Timesheet {
     id: number;
     user_id: number;
     week_start_date: string;
     week_end_date: string;
-    status: 'draft' | 'submitted' | 'approved' | 'processed';
-    submitted_at: string | null;
-    approved_at: string | null;
+    status: 'draft' | 'submitted' | 'approved' | 'processed' | 'rejected';
     total_hours: number;
     regular_hours: number;
     overtime_hours: number;
     notes: string | null;
-    manager_notes: string | null;
     user: User;
+    // Accessor properties for backward compatibility
+    submitted_at?: string | null;
+    approved_at?: string | null;
+    rejected_at?: string | null;
+    manager_notes?: string | null;
+    rejection_reason?: string | null;
+    rejection_notes?: string | null;
+    // Action relationships
+    submission_action?: TimesheetAction;
+    approval_action?: TimesheetAction;
+    rejection_action?: TimesheetAction;
+    processing_action?: TimesheetAction;
+    withdrawal_action?: TimesheetAction;
 }
 
 interface DashboardStats {
@@ -140,12 +153,21 @@ interface TeamHoursData {
     regularHours: number;
     overtimeHours: number;
     currentStatus?: CurrentStatus;
+    timesheetId?: number | null;
+    timesheetStatus?: string | null;
 }
 
 interface Filters {
     status?: string;
     employee_id?: string;
     week_start?: string;
+    week_end?: string;
+}
+
+interface SelectedWeek {
+    start: string;
+    end: string;
+    label: string;
 }
 
 interface Props {
@@ -160,6 +182,7 @@ interface Props {
     filters: Filters;
     teamHoursData: TeamHoursData[];
     currentManagerId: number;
+    selectedWeek: SelectedWeek;
 }
 
 interface BreadcrumbItem {
@@ -172,6 +195,138 @@ interface NewEntryForm {
     clock_out_at: string;
     notes: string;
     punch_type: 'work' | 'break';
+}
+
+// DateTimePicker Component
+interface DateTimePickerProps {
+    value: string;
+    onChange: (value: string) => void;
+    label: string;
+    required?: boolean;
+    className?: string;
+}
+
+function DateTimePicker({ value, onChange, label, required = false, className = "" }: DateTimePickerProps) {
+    const [open, setOpen] = useState(false);
+
+    // Parse the datetime string to separate date and time (keeping in local timezone)
+    const parseDateTime = (dateTimeString: string) => {
+        if (!dateTimeString) return { date: undefined, time: "" };
+
+        // Create date from ISO string but treat as local time
+        const dt = new Date(dateTimeString);
+        if (isNaN(dt.getTime())) return { date: undefined, time: "" };
+
+        const date = dt;
+        // Format time as HH:MM:SS in local timezone
+        const timeString = dt.toTimeString().slice(0, 8);
+
+        return { date, time: timeString };
+    };
+
+    const { date, time } = parseDateTime(value);
+
+    const handleDateChange = (selectedDate: Date | undefined) => {
+        if (!selectedDate) {
+            onChange("");
+            return;
+        }
+
+        // Keep existing time or default to current time
+        const timeToUse = time || new Date().toTimeString().slice(0, 8);
+        const [hours, minutes, seconds] = timeToUse.split(':');
+
+        // Create datetime in local timezone
+        const year = selectedDate.getFullYear();
+        const month = selectedDate.getMonth();
+        const day = selectedDate.getDate();
+
+        const newDateTime = new Date(year, month, day, parseInt(hours), parseInt(minutes), parseInt(seconds || '0'));
+
+        // Format for Laravel (YYYY-MM-DD HH:MM:SS)
+        const formatted = formatForLaravel(newDateTime);
+        onChange(formatted);
+        setOpen(false);
+    };
+
+    const handleTimeChange = (newTime: string) => {
+        if (!newTime) {
+            if (date) {
+                // If we have a date but no time, clear the whole value
+                onChange("");
+            }
+            return;
+        }
+
+        const dateToUse = date || new Date();
+        const [hours, minutes, seconds] = newTime.split(':');
+
+        // Create datetime in local timezone
+        const year = dateToUse.getFullYear();
+        const month = dateToUse.getMonth();
+        const day = dateToUse.getDate();
+
+        const newDateTime = new Date(year, month, day, parseInt(hours), parseInt(minutes), parseInt(seconds || '0'));
+
+        // Format for Laravel (YYYY-MM-DD HH:MM:SS)
+        const formatted = formatForLaravel(newDateTime);
+        onChange(formatted);
+    };
+
+    // Format datetime for Laravel backend
+    const formatForLaravel = (date: Date): string => {
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        const hours = String(date.getHours()).padStart(2, '0');
+        const minutes = String(date.getMinutes()).padStart(2, '0');
+        const seconds = String(date.getSeconds()).padStart(2, '0');
+
+        return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+    };
+
+    return (
+        <div className={`flex gap-2 ${className}`}>
+            <div className="flex flex-col gap-1">
+                <Label htmlFor={`date-${label}`} className="px-1 text-xs">
+                    Date {required && <span className="text-red-500">*</span>}
+                </Label>
+                <Popover open={open} onOpenChange={setOpen}>
+                    <PopoverTrigger asChild>
+                        <Button
+                            variant="outline"
+                            id={`date-${label}`}
+                            className="w-28 justify-between font-normal text-xs h-7"
+                        >
+                            {date ? date.toLocaleDateString() : "Select date"}
+                            <ChevronDownIcon className="w-3 h-3" />
+                        </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto overflow-hidden p-0" align="start">
+                        <Calendar
+                            mode="single"
+                            selected={date}
+                            captionLayout="dropdown"
+                            onSelect={handleDateChange}
+                        />
+                    </PopoverContent>
+                </Popover>
+            </div>
+            <div className="flex flex-col gap-1">
+                <Label htmlFor={`time-${label}`} className="px-1 text-xs">
+                    Time {required && <span className="text-red-500">*</span>}
+                </Label>
+                <Input
+                    type="time"
+                    id={`time-${label}`}
+                    step="1"
+                    value={time}
+                    onChange={(e) => handleTimeChange(e.target.value)}
+                    className="bg-background appearance-none [&::-webkit-calendar-picker-indicator]:hidden [&::-webkit-calendar-picker-indicator]:appearance-none w-28 text-xs h-7"
+                />
+            </div>
+        </div>
+    );
 }
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -190,9 +345,10 @@ export default function ManagerDashboard({
                                              // allTimesheets, // Commented out as it's not used in current implementation
                                              // subordinates, // Commented out as it's not used in current implementation
                                              dashboardStats,
-                                             // filters, // Commented out as it's not used in current implementation
+                                             filters,
                                              teamHoursData,
-                                             currentManagerId
+                                             currentManagerId,
+                                             selectedWeek
                                          }: Props): JSX.Element {
     const [selectedTimesheet, setSelectedTimesheet] = useState<Timesheet | null>(null);
     const [approvalAction, setApprovalAction] = useState<'approve' | 'reject' | null>(null);
@@ -200,6 +356,14 @@ export default function ManagerDashboard({
     const [dialogOpen, setDialogOpen] = useState<boolean>(false);
     const [searchTerm, setSearchTerm] = useState<string>('');
     const [loading, setLoading] = useState<boolean>(false);
+
+    // Week navigation state
+    const [localFilters, setLocalFilters] = useState({
+        week_start: filters.week_start || selectedWeek.start,
+        week_end: filters.week_end || selectedWeek.end,
+        status: filters.status || 'all',
+        employee_id: filters.employee_id || 'all',
+    });
 
     // Time editing modal state
     const [timeEditDialogOpen, setTimeEditDialogOpen] = useState<boolean>(false);
@@ -209,6 +373,66 @@ export default function ManagerDashboard({
     const [dayEntries, setDayEntries] = useState<TimeEntry[]>([]);
     const [editingEntry, setEditingEntry] = useState<TimeEntry | null>(null);
 
+    // Week navigation functions
+    const applyFilters = (filterValues: typeof localFilters) => {
+        const params = new URLSearchParams();
+
+        if (filterValues.week_start) params.set('week_start', filterValues.week_start);
+        if (filterValues.week_end) params.set('week_end', filterValues.week_end);
+        if (filterValues.status && filterValues.status !== 'all') {
+            params.set('status', filterValues.status);
+        }
+        if (filterValues.employee_id && filterValues.employee_id !== 'all') {
+            params.set('employee_id', filterValues.employee_id);
+        }
+
+        router.get('/time-clock/manager/dashboard', Object.fromEntries(params), {
+            preserveState: true,
+            preserveScroll: true,
+            only: ['teamHoursData', 'dashboardStats', 'selectedWeek', 'filters']
+        });
+    };
+
+    const navigateWeek = (direction: 'prev' | 'next') => {
+        const currentWeekStart = new Date(localFilters.week_start || selectedWeek.start);
+        const newWeekStart = new Date(currentWeekStart);
+        newWeekStart.setDate(currentWeekStart.getDate() + (direction === 'next' ? 7 : -7));
+
+        const newWeekEnd = new Date(newWeekStart);
+        newWeekEnd.setDate(newWeekStart.getDate() + 6);
+
+        const newFilters = {
+            ...localFilters,
+            week_start: newWeekStart.toISOString().split('T')[0],
+            week_end: newWeekEnd.toISOString().split('T')[0]
+        };
+
+        setLocalFilters(newFilters);
+        applyFilters(newFilters);
+    };
+
+    const formatPeriod = (startDate: string, endDate: string): string => {
+        const start = new Date(startDate);
+        const end = new Date(endDate);
+        return `${start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${end.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`;
+    };
+
+    const resetToCurrentWeek = () => {
+        const today = new Date();
+        const startOfWeek = new Date(today);
+        startOfWeek.setDate(today.getDate() - today.getDay());
+        const endOfWeek = new Date(startOfWeek);
+        endOfWeek.setDate(startOfWeek.getDate() + 6);
+
+        const defaultFilters = {
+            ...localFilters,
+            week_start: startOfWeek.toISOString().split('T')[0],
+            week_end: endOfWeek.toISOString().split('T')[0]
+        };
+
+        setLocalFilters(defaultFilters);
+        applyFilters(defaultFilters);
+    };
 
     const formatDate = (dateString: string): string => {
         return new Date(dateString).toLocaleDateString('en-US', {
@@ -224,7 +448,9 @@ export default function ManagerDashboard({
     };
 
     const formatTime = (dateString: string): string => {
-        return new Date(dateString).toLocaleTimeString('en-US', {
+        // Parse as local time, not UTC
+        const date = new Date(dateString.replace(' ', 'T'));
+        return date.toLocaleTimeString('en-US', {
             hour: 'numeric',
             minute: '2-digit',
             hour12: true,
@@ -232,13 +458,24 @@ export default function ManagerDashboard({
     };
 
     const formatDateTimeForInput = (dateString: string): string => {
-        const date = new Date(dateString);
-        const year = date.getFullYear();
-        const month = String(date.getMonth() + 1).padStart(2, '0');
-        const day = String(date.getDate()).padStart(2, '0');
-        const hours = String(date.getHours()).padStart(2, '0');
-        const minutes = String(date.getMinutes()).padStart(2, '0');
-        return `${year}-${month}-${day}T${hours}:${minutes}`;
+        if (!dateString) return '';
+        try {
+            // Parse as local time, not UTC
+            const date = new Date(dateString.replace(' ', 'T'));
+            if (isNaN(date.getTime())) return '';
+
+            // Format for Laravel (YYYY-MM-DD HH:MM:SS)
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            const hours = String(date.getHours()).padStart(2, '0');
+            const minutes = String(date.getMinutes()).padStart(2, '0');
+            const seconds = String(date.getSeconds()).padStart(2, '0');
+
+            return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+        } catch {
+            return '';
+        }
     };
 
     const getCurrentDayColumn = (): string => {
@@ -250,11 +487,14 @@ export default function ManagerDashboard({
     const getDateForDay = (dayName: string): string => {
         const days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
         const dayIndex = days.indexOf(dayName);
-        const today = new Date();
-        const currentDay = today.getDay();
-        const diff = dayIndex - currentDay;
-        const targetDate = new Date(today);
-        targetDate.setDate(today.getDate() + diff);
+
+        // Use the selected week's start date instead of today
+        const selectedWeekStart = new Date(localFilters.week_start || selectedWeek.start);
+
+        // Calculate the target date within the selected week
+        const targetDate = new Date(selectedWeekStart);
+        targetDate.setDate(selectedWeekStart.getDate() + dayIndex);
+
         return targetDate.toISOString().split('T')[0];
     };
 
@@ -392,7 +632,7 @@ export default function ManagerDashboard({
             user_id: selectedEmployee?.employee.id ?? 0,
             punch_type: 'work',
             break_type_id: null,
-            clock_in_at: formatDateTimeForInput(startOfWorkDay.toISOString()),
+            clock_in_at: startOfWorkDay.toISOString(),
             clock_out_at: null,
             regular_hours: 0,
             overtime_hours: 0,
@@ -490,6 +730,7 @@ export default function ManagerDashboard({
             submitted: { label: 'Pending', className: 'bg-amber-100 text-amber-700' },
             approved: { label: 'Approved', className: 'bg-emerald-100 text-emerald-700' },
             processed: { label: 'Processed', className: 'bg-blue-100 text-blue-700' },
+            rejected: { label: 'Rejected', className: 'bg-red-100 text-red-700' },
         }[status] || { label: 'Draft', className: 'bg-slate-100 text-slate-700' };
 
         return <Badge className={config.className}>{config.label}</Badge>;
@@ -568,26 +809,53 @@ export default function ManagerDashboard({
                             Monitor, approve, and manage your team's time
                         </p>
                     </div>
-                    <div className="flex items-center gap-3">
-                        <Button variant="outline" size="sm">
-                            <Download className="w-4 h-4 mr-2" />
-                            Export
-                        </Button>
-                        <Button size="sm">
-                            <Plus className="w-4 h-4 mr-2" />
-                            Add Entry
-                        </Button>
+                    <div className="p-4">
+                        <div className="flex items-center justify-center gap-2">
+                            <div className="flex items-center gap-4">
+                                <div className="flex items-center border rounded-md bg-white">
+                                    <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="sm"
+                                        className="px-3 border-r hover:bg-slate-100"
+                                        onClick={() => navigateWeek('prev')}
+                                    >
+                                        <ChevronLeft className="w-4 h-4" />
+                                    </Button>
+                                    <div className="flex-1 px-4 py-2 text-sm font-medium text-center min-w-[200px]">
+                                        {formatPeriod(localFilters.week_start, localFilters.week_end)}
+                                    </div>
+                                    <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="sm"
+                                        className="px-3 border-l hover:bg-slate-100"
+                                        onClick={() => navigateWeek('next')}
+                                    >
+                                        <ChevronRight className="w-4 h-4" />
+                                    </Button>
+                                </div>
+                            </div>
+                            <Button
+                                type="button"
+                                onClick={resetToCurrentWeek}
+                                variant="outline"
+                                size="sm"
+                            >
+                                Current Week
+                            </Button>
+                        </div>
                     </div>
                 </div>
 
                 {/* Key Metrics */}
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                    <Card className="border-l-4 border-l-red-500">
-                        <CardContent className="p-6">
+                    <Card>
+                        <CardContent className="">
                             <div className="flex items-center justify-between">
                                 <div>
-                                    <p className="text-sm font-medium text-slate-600">Pending Approvals</p>
-                                    <p className="text-3xl font-bold text-slate-900">{dashboardStats.pending_count}</p>
+                                    <p className="text-xs font-medium text-slate-600">Pending Approvals</p>
+                                    <p className="text-xl font-bold text-slate-900">{dashboardStats.pending_count}</p>
                                     <p className="text-xs text-red-600 mt-1">Requires attention</p>
                                 </div>
                                 <AlertCircle className="h-8 w-8 text-red-500" />
@@ -595,12 +863,12 @@ export default function ManagerDashboard({
                         </CardContent>
                     </Card>
 
-                    <Card className="border-l-4 border-l-blue-500">
-                        <CardContent className="p-6">
+                    <Card >
+                        <CardContent >
                             <div className="flex items-center justify-between">
                                 <div>
                                     <p className="text-sm font-medium text-slate-600">Team Members</p>
-                                    <p className="text-3xl font-bold text-slate-900">{dashboardStats.total_employees}</p>
+                                    <p className="text-xl font-bold text-slate-900">{dashboardStats.total_employees}</p>
                                     <p className="text-xs text-slate-500 mt-1">Active employees</p>
                                 </div>
                                 <Users className="h-8 w-8 text-blue-500" />
@@ -608,12 +876,12 @@ export default function ManagerDashboard({
                         </CardContent>
                     </Card>
 
-                    <Card className="border-l-4 border-l-green-500">
-                        <CardContent className="p-6">
+                    <Card >
+                        <CardContent>
                             <div className="flex items-center justify-between">
                                 <div>
-                                    <p className="text-sm font-medium text-slate-600">This Week</p>
-                                    <p className="text-3xl font-bold text-slate-900">{formatHours(grandTotal)}</p>
+                                    <p className="text-sm font-medium text-slate-600">Team Hours for the Week</p>
+                                    <p className="text-xl font-bold text-slate-900">{formatHours(grandTotal)}</p>
                                     <p className="text-xs text-green-600 mt-1">Total hours logged</p>
                                 </div>
                                 <Clock className="h-8 w-8 text-green-500" />
@@ -621,12 +889,12 @@ export default function ManagerDashboard({
                         </CardContent>
                     </Card>
 
-                    <Card className="border-l-4 border-l-orange-500">
-                        <CardContent className="p-6">
+                    <Card >
+                        <CardContent >
                             <div className="flex items-center justify-between">
                                 <div>
                                     <p className="text-sm font-medium text-slate-600">Overtime</p>
-                                    <p className="text-3xl font-bold text-slate-900">{formatHours(totalOvertime)}</p>
+                                    <p className="text-xl font-bold text-slate-900">{formatHours(totalOvertime)}</p>
                                     <p className="text-xs text-orange-600 mt-1">This week</p>
                                 </div>
                                 <TrendingUp className="h-8 w-8 text-orange-500" />
@@ -636,14 +904,14 @@ export default function ManagerDashboard({
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                    {/* Pending Approvals - Left Column */}
+                    {/* Action Required - Left Column */}
                     <div className="lg:col-span-1">
                         <Card className="h-fit">
                             <CardHeader className="pb-4">
                                 <div className="flex items-center justify-between">
                                     <CardTitle className="text-lg font-semibold flex items-center gap-2">
                                         <AlertCircle className="w-5 h-5 text-red-500" />
-                                        Pending Approvals
+                                        Action Required
                                         {pendingTimesheets.length > 0 && (
                                             <Badge variant="destructive" className="ml-2">
                                                 {pendingTimesheets.length}
@@ -671,12 +939,13 @@ export default function ManagerDashboard({
                                         <p className="text-sm text-slate-600">No pending approvals</p>
                                     </div>
                                 ) : (
-                                    <div className="space-y-3 max-h-96 overflow-y-auto">
+                                    <div className="space-y-1 max-h-96 overflow-y-auto">
                                         {filteredPendingTimesheets.map((timesheet: Timesheet) => (
                                             <div
                                                 key={timesheet.id}
                                                 className={`border rounded-lg p-4 hover:bg-slate-50 transition-colors ${
-                                                    isOwnTimesheet(timesheet) ? 'border-blue-200 bg-blue-50' : 'border-slate-200'
+                                                    isOwnTimesheet(timesheet) ? 'border-blue-200 bg-blue-50' :
+                                                        timesheet.status === 'rejected' ? 'border-red-200 bg-red-50' : 'border-slate-200'
                                                 }`}
                                             >
                                                 <div className="flex items-start justify-between">
@@ -687,61 +956,66 @@ export default function ManagerDashboard({
                                                             className="w-10 h-10 rounded-full border-2 border-white shadow-sm"
                                                         />
                                                         <div className="flex-1 min-w-0">
-                                                            <div className="flex items-center gap-2">
+                                                            <div className="flex items-center gap-2 mb-1">
                                                                 <p className="font-medium text-slate-900 truncate">
                                                                     {timesheet.user.name}
                                                                 </p>
                                                                 {isOwnTimesheet(timesheet) && (
                                                                     <User className="w-4 h-4 text-blue-600" />
                                                                 )}
+                                                                {getStatusBadge(timesheet.status)}
                                                             </div>
-                                                            <p className="text-xs text-slate-500">
+
+                                                            <p className="text-xs text-slate-500 mb-2">
                                                                 {getWeekLabel(timesheet.week_start_date, timesheet.week_end_date)}
                                                             </p>
-                                                            <p className="text-sm font-medium text-slate-700">
-                                                                {formatHours(timesheet.total_hours)}
-                                                                {timesheet.overtime_hours > 0 && (
-                                                                    <span className="text-orange-600 ml-1">
-                                                                        (+{formatHours(timesheet.overtime_hours)} OT)
+
+                                                            {timesheet.status === 'rejected' && timesheet.rejection_reason && (
+                                                                <div className="mb-2 p-2 bg-red-100 rounded text-xs">
+                                                                    <p className="font-medium text-red-800">Rejected by Payroll:</p>
+                                                                    <p className="text-red-700">{timesheet.rejection_reason.replace('_', ' ').replace(/\b\w/g, (l: string) => l.toUpperCase())}</p>
+                                                                    {timesheet.rejection_notes && (
+                                                                        <p className="text-red-600 mt-1">{timesheet.rejection_notes}</p>
+                                                                    )}
+                                                                </div>
+                                                            )}
+
+                                                            <div className="flex items-center gap-4 text-xs">
+                                                                <div className="flex items-center gap-1">
+                                                                    <span className="text-slate-600">Regular:</span>
+                                                                    <span className="font-medium text-slate-900">
+                                                                        {formatHours(timesheet.regular_hours)}
                                                                     </span>
+                                                                </div>
+
+                                                                {timesheet.overtime_hours > 0 && (
+                                                                    <div className="flex items-center gap-1">
+                                                                        <span className="text-slate-600">OT:</span>
+                                                                        <span className="font-medium text-orange-600">
+                                                                            {formatHours(timesheet.overtime_hours)}
+                                                                        </span>
+                                                                    </div>
                                                                 )}
-                                                            </p>
+
+                                                                <div className="flex items-center gap-1">
+                                                                    <span className="text-slate-600">Total:</span>
+                                                                    <span className="font-semibold text-slate-900">
+                                                                        {formatHours(timesheet.total_hours)}
+                                                                    </span>
+                                                                </div>
+                                                            </div>
                                                         </div>
                                                     </div>
-                                                    <DropdownMenu>
-                                                        <DropdownMenuTrigger asChild>
-                                                            <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                                                                <MoreHorizontal className="h-4 w-4" />
-                                                            </Button>
-                                                        </DropdownMenuTrigger>
-                                                        <DropdownMenuContent align="end">
-                                                            <DropdownMenuItem
-                                                                onClick={() => router.get(`/time-clock/manager/timesheet/${timesheet.id}`)}
-                                                            >
-                                                                <Eye className="w-4 h-4 mr-2" />
-                                                                View Details
-                                                            </DropdownMenuItem>
-                                                            {!isOwnTimesheet(timesheet) && (
-                                                                <>
-                                                                    <DropdownMenuSeparator />
-                                                                    <DropdownMenuItem
-                                                                        onClick={() => handleQuickApproval(timesheet, 'approve')}
-                                                                        className="text-green-600"
-                                                                    >
-                                                                        <ThumbsUp className="w-4 h-4 mr-2" />
-                                                                        Quick Approve
-                                                                    </DropdownMenuItem>
-                                                                    <DropdownMenuItem
-                                                                        onClick={() => handleQuickApproval(timesheet, 'reject')}
-                                                                        className="text-red-600"
-                                                                    >
-                                                                        <ThumbsDown className="w-4 h-4 mr-2" />
-                                                                        Reject
-                                                                    </DropdownMenuItem>
-                                                                </>
-                                                            )}
-                                                        </DropdownMenuContent>
-                                                    </DropdownMenu>
+
+                                                    <Button
+                                                        size="sm"
+                                                        variant={timesheet.status === 'rejected' ? 'default' : 'outline'}
+                                                        onClick={() => router.get(`/time-clock/manager/timesheet/${timesheet.id}`)}
+                                                        className="ml-3"
+                                                    >
+                                                        <Clock className="w-4 h-4 mr-2" />
+                                                        {timesheet.status === 'rejected' ? 'Fix & Resubmit' : 'Timesheet'}
+                                                    </Button>
                                                 </div>
                                             </div>
                                         ))}
@@ -757,10 +1031,6 @@ export default function ManagerDashboard({
                             <CardHeader>
                                 <CardTitle className="text-lg font-semibold flex items-center justify-between">
                                     <span>Weekly Team Hours</span>
-                                    <Button variant="outline" size="sm">
-                                        <Filter className="w-4 h-4 mr-2" />
-                                        Filters
-                                    </Button>
                                 </CardTitle>
                             </CardHeader>
                             <CardContent>
@@ -777,7 +1047,7 @@ export default function ManagerDashboard({
                                             <th className="text-center p-3 font-medium text-slate-700">Fri</th>
                                             <th className="text-center p-3 font-medium text-slate-700">Sat</th>
                                             <th className="text-center p-3 font-medium text-slate-700 bg-slate-50">Total</th>
-                                            <th className="text-center p-3 font-medium text-slate-700">Actions</th>
+
                                         </tr>
                                         </thead>
                                         <tbody>
@@ -823,29 +1093,7 @@ export default function ManagerDashboard({
                                                             </div>
                                                         )}
                                                     </td>
-                                                    <td className="text-center p-3">
-                                                        <DropdownMenu>
-                                                            <DropdownMenuTrigger asChild>
-                                                                <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                                                                    <MoreHorizontal className="h-4 w-4" />
-                                                                </Button>
-                                                            </DropdownMenuTrigger>
-                                                            <DropdownMenuContent align="end">
-                                                                <DropdownMenuItem>
-                                                                    <Eye className="w-4 h-4 mr-2" />
-                                                                    View Timesheet
-                                                                </DropdownMenuItem>
-                                                                <DropdownMenuItem>
-                                                                    <Edit3 className="w-4 h-4 mr-2" />
-                                                                    Edit Hours
-                                                                </DropdownMenuItem>
-                                                                <DropdownMenuItem>
-                                                                    <Plus className="w-4 h-4 mr-2" />
-                                                                    Add Entry
-                                                                </DropdownMenuItem>
-                                                            </DropdownMenuContent>
-                                                        </DropdownMenu>
-                                                    </td>
+
                                                 </tr>
                                             ))
                                         )}
@@ -859,7 +1107,7 @@ export default function ManagerDashboard({
 
                 {/* Time Editing Dialog */}
                 <Dialog open={timeEditDialogOpen} onOpenChange={setTimeEditDialogOpen}>
-                    <DialogContent className="min-w-1/2 w-9/12 max-h-[95vh] overflow-y-auto">
+                    <DialogContent className="min-w-8/12 w-9/12 max-h-[95vh] overflow-y-auto">
                         <DialogHeader>
                             <DialogTitle>
                                 Edit Time - {selectedEmployee?.employee.name} - {selectedDay} ({selectedDate})
@@ -959,7 +1207,7 @@ export default function ManagerDashboard({
                                         )}
                                     </div>
                                 ) : (
-                                    /* Existing Entries Datatable - Keep existing implementation */
+                                    /* Existing Entries Datatable */
                                     <div>
                                         <h3 className="text-lg font-medium mb-3">Existing Entries ({dayEntries.length})</h3>
                                         <div className="border rounded-lg overflow-hidden">
@@ -1005,11 +1253,11 @@ export default function ManagerDashboard({
                                                             </td>
                                                             <td className="p-3">
                                                                 {isEditing ? (
-                                                                    <Input
-                                                                        type="datetime-local"
+                                                                    <DateTimePicker
                                                                         value={editingEntry.clock_in_at}
-                                                                        onChange={(e) => setEditingEntry({...editingEntry, clock_in_at: e.target.value})}
-                                                                        className="w-40 text-xs"
+                                                                        onChange={(value) => setEditingEntry({...editingEntry, clock_in_at: value})}
+                                                                        label="clock-in"
+                                                                        required
                                                                     />
                                                                 ) : (
                                                                     <span className="font-mono">{formatTime(entry.clock_in_at)}</span>
@@ -1017,11 +1265,10 @@ export default function ManagerDashboard({
                                                             </td>
                                                             <td className="p-3">
                                                                 {isEditing ? (
-                                                                    <Input
-                                                                        type="datetime-local"
+                                                                    <DateTimePicker
                                                                         value={editingEntry.clock_out_at || ''}
-                                                                        onChange={(e) => setEditingEntry({...editingEntry, clock_out_at: e.target.value || null})}
-                                                                        className="w-40 text-xs"
+                                                                        onChange={(value) => setEditingEntry({...editingEntry, clock_out_at: value || null})}
+                                                                        label="clock-out"
                                                                     />
                                                                 ) : entry.clock_out_at ? (
                                                                     <span className="font-mono">{formatTime(entry.clock_out_at)}</span>
@@ -1036,11 +1283,11 @@ export default function ManagerDashboard({
                                                             </td>
                                                             <td className="p-3">
                                                                 {isEditing ? (
-                                                                    <Input
+                                                                    <Textarea
                                                                         value={editingEntry.notes || ''}
                                                                         onChange={(e) => setEditingEntry({...editingEntry, notes: e.target.value})}
                                                                         placeholder="Notes..."
-                                                                        className="w-32 text-xs"
+                                                                        className="w-56 text-xs"
                                                                     />
                                                                 ) : (
                                                                     <span className="text-slate-600 text-xs">

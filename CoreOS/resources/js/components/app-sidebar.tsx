@@ -13,7 +13,17 @@ import {
 } from '@/components/ui/sidebar';
 import {type NavItem, type User} from '@/types'; // Ensure NavItem can have 'roles?: string' and 'permission?: string'
 import {Link, usePage} from '@inertiajs/react';
-import {BookOpen, BookOpenText, Folder, LayoutGrid, ShieldCheck, ShipWheel, Users} from 'lucide-react';
+import {
+    BookOpen,
+    BookOpenText,
+    BotMessageSquareIcon,
+    Folder,
+    ImageUp,
+    LayoutGrid,
+    ShieldCheck,
+    ShipWheel,
+    Users
+} from 'lucide-react';
 import AppLogo from './app-logo';
 
 interface AuthenticatedUser extends User {
@@ -29,28 +39,28 @@ interface PageProps {
 }
 
 const mainNavItems: NavItem[] = [
-    
+
     { title: 'Dashboard', href: '/dashboard', icon: LayoutGrid, description:null },
     { title: 'Your PTO', href: '/employee/pto', icon: ShipWheel, description:null },
-    // { title: 'Billy The AI', href: '/billy', icon: BotMessageSquareIcon },
-    // { title: 'Product Picture Manager', href: '/ppm', icon: ImageUp, permission: '' }, // Shows if permission is empty string
-    // { title: 'ACS Organization', href: '/acs-org', icon: Users, permission: '' }, // Shows if permission is empty string
-    // { title: 'ACS PermissionTest', href: '/test', icon: Users, permission: 'AdminMenu' },
-    // { title: 'ACS RoleTest', href: '/Roletest', icon: Users, roles: '' },
-    { title: 'ACS Parts Database', href: '/parts-catalog', icon: Users, roles: '', description:null },
-    // { title: 'ACS Org', href: '/organization-chart', icon: Users, roles: '' },
+    { title: 'Billy The AI', href: '/billy', icon: BotMessageSquareIcon, description:null },
+    { title: 'Product Picture Manager', href: '/ppm', icon: ImageUp, permission: '', description:null }, // Shows if permission is empty string
+    // { title: 'ACS Organization', href: '/acs-org', icon: Users, permission: '', description:null}, // Shows if permission is empty string
+    // { title: 'ACS PermissionTest', href: '/test', icon: Users, permission: 'AdminMenu', description:null },
+    // { title: 'ACS RoleTest', href: '/Roletest', icon: Users, roles: '', description:null},
+    // { title: 'ACS Parts Database', href: '/parts-catalog', icon: Users, roles: '', description:null },
+    // { title: 'ACS Org', href: '/organization-chart', icon: Users, roles: '',description:null },
 
     { title: 'Department PTO', href: '/department-pto', icon: Users, description:null },
     { title: 'holiday', href: '/holidays', icon: Users, description:null },
     { title: 'HR Dashboard', href: '/hr/dashboard', icon: Users, description:null },
-    { title: 'Articles', href: '/articles', icon: Users, description:null },
-    { title: 'Roles and Permissions', href: '/roles-permissions', icon: Users, description:null },
-    { title: 'Company Documents', href: '/employee/documents', icon:BookOpenText , description:null },
-    { title: 'Admin Documents', href: '/folders', icon:BookOpenText , description:null },
+    // { title: 'Articles', href: '/articles', icon: Users, description:null },
+    // { title: 'Roles and Permissions', href: '/roles-permissions', icon: Users, description:null },
+    // { title: 'Company Documents', href: '/employee/documents', icon:BookOpenText , description:null },
+    // { title: 'Admin Documents', href: '/folders', icon:BookOpenText , description:null },
     // New Training Stuff Not in use right now, Use Old style for right now.
     // { title: 'Your Training', href: '/training', icon:BookOpenText , description:null },
     // { title: 'Training Dashboard', href: '/admin/reports', icon:BookOpenText , description:null },
-    { title: 'Old Training Dashboard', href: route('old-style-training-tracking.index'), icon:BookOpenText , description:null },
+    // { title: 'Old Training Dashboard', href: route('old-style-training-tracking.index'), icon:BookOpenText , description:null },
     { title: 'My Timesheet', href: route('time-clock.employee'), icon:BookOpenText , description:null },
     { title: 'Timesheet Manager Dash', href: route('time-clock.manager.dashboard'), icon:BookOpenText , description:null },
     { title: 'Timesheet Payroll Dash', href: route('time-clock.payroll.dashboard'), icon:BookOpenText , description:null },

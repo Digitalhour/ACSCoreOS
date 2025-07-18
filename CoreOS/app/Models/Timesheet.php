@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Timesheet extends Model
@@ -18,32 +19,17 @@ class Timesheet extends Model
         'week_start_date',
         'week_end_date',
         'status',
-        'submitted_at',
-        'submitted_by',
-        'approved_at',
-        'approved_by',
-        'processed_at',
-        'processed_by',
-        'withdrawn_at',
-        'withdrawn_by',
         'total_hours',
         'regular_hours',
         'overtime_hours',
         'break_hours',
         'notes',
-        'manager_notes',
-        'payroll_notes',
-        'withdrawal_reason',
         'legal_acknowledgment',
     ];
 
     protected $casts = [
         'week_start_date' => 'date',
         'week_end_date' => 'date',
-        'submitted_at' => 'datetime',
-        'approved_at' => 'datetime',
-        'processed_at' => 'datetime',
-        'withdrawn_at' => 'datetime',
         'total_hours' => 'decimal:2',
         'regular_hours' => 'decimal:2',
         'overtime_hours' => 'decimal:2',
@@ -60,35 +46,69 @@ class Timesheet extends Model
     }
 
     /**
-     * Get the user who submitted this timesheet.
+     * Get all actions for this timesheet.
      */
-    public function submittedBy(): BelongsTo
+    public function actions(): HasMany
     {
-        return $this->belongsTo(User::class, 'submitted_by');
+        return $this->hasMany(TimesheetAction::class)->orderBy('created_at', 'asc');
     }
 
     /**
-     * Get the user who approved this timesheet.
+     * Get the latest action for this timesheet.
      */
-    public function approvedBy(): BelongsTo
+    public function latestAction(): HasOne
     {
-        return $this->belongsTo(User::class, 'approved_by');
+        return $this->hasOne(TimesheetAction::class)->latestOfMany();
     }
 
     /**
-     * Get the user who processed this timesheet.
+     * Get the submission action.
      */
-    public function processedBy(): BelongsTo
+    public function submissionAction(): HasOne
     {
-        return $this->belongsTo(User::class, 'processed_by');
+        return $this->hasOne(TimesheetAction::class)
+            ->where('action', TimesheetAction::ACTION_SUBMITTED)
+            ->latestOfMany();
     }
 
     /**
-     * Get the user who withdrew this timesheet.
+     * Get the approval action.
      */
-    public function withdrawnBy(): BelongsTo
+    public function approvalAction(): HasOne
     {
-        return $this->belongsTo(User::class, 'withdrawn_by');
+        return $this->hasOne(TimesheetAction::class)
+            ->where('action', TimesheetAction::ACTION_APPROVED)
+            ->latestOfMany();
+    }
+
+    /**
+     * Get the rejection action.
+     */
+    public function rejectionAction(): HasOne
+    {
+        return $this->hasOne(TimesheetAction::class)
+            ->where('action', TimesheetAction::ACTION_REJECTED)
+            ->latestOfMany();
+    }
+
+    /**
+     * Get the processing action.
+     */
+    public function processingAction(): HasOne
+    {
+        return $this->hasOne(TimesheetAction::class)
+            ->where('action', TimesheetAction::ACTION_PROCESSED)
+            ->latestOfMany();
+    }
+
+    /**
+     * Get the withdrawal action.
+     */
+    public function withdrawalAction(): HasOne
+    {
+        return $this->hasOne(TimesheetAction::class)
+            ->where('action', TimesheetAction::ACTION_WITHDRAWN)
+            ->latestOfMany();
     }
 
     /**
@@ -137,6 +157,11 @@ class Timesheet extends Model
         return $query->where('status', 'processed');
     }
 
+    public function scopeRejected($query)
+    {
+        return $query->where('status', 'rejected');
+    }
+
     public function scopeForDateRange($query, $startDate, $endDate)
     {
         return $query->whereBetween('week_start_date', [$startDate, $endDate]);
@@ -175,6 +200,11 @@ class Timesheet extends Model
         return $this->status === 'processed';
     }
 
+    public function isRejected(): bool
+    {
+        return $this->status === 'rejected';
+    }
+
     public function canBeWithdrawn(): bool
     {
         return $this->isSubmitted();
@@ -183,6 +213,16 @@ class Timesheet extends Model
     public function canBeEdited(): bool
     {
         return $this->isDraft() || $this->isSubmitted();
+    }
+
+    public function canBeRejected(): bool
+    {
+        return $this->isSubmitted() || $this->isApproved();
+    }
+
+    public function canBeResubmitted(): bool
+    {
+        return $this->isRejected();
     }
 
     /**
@@ -195,6 +235,7 @@ class Timesheet extends Model
             'submitted' => 'Submitted',
             'approved' => 'Approved',
             'processed' => 'Processed',
+            'rejected' => 'Rejected',
             default => ucfirst($this->status),
         };
     }
@@ -206,6 +247,7 @@ class Timesheet extends Model
             'submitted' => 'bg-blue-100 text-blue-800',
             'approved' => 'bg-green-100 text-green-800',
             'processed' => 'bg-purple-100 text-purple-800',
+            'rejected' => 'bg-red-100 text-red-800',
             default => 'bg-gray-100 text-gray-800',
         };
     }
@@ -237,43 +279,65 @@ class Timesheet extends Model
     {
         $timeClocks = $this->timeClocks()->completed()->get();
 
-        $totalHours = 0;
+        $totalWorkHours = 0;
+        $totalBreakHours = 0;
         $regularHours = 0;
         $overtimeHours = 0;
-        $breakHours = 0;
 
+        // Calculate total work hours for the week
         foreach ($timeClocks as $timeClock) {
-            $totalHours += $timeClock->getTotalHours();
-            $regularHours += $timeClock->regular_hours;
-            $overtimeHours += $timeClock->overtime_hours;
-            $breakHours += $timeClock->break_duration;
+            if ($timeClock->punch_type === 'work') {
+                $totalWorkHours += $timeClock->getTotalHours();
+            } else {
+                $totalBreakHours += $timeClock->getTotalHours();
+            }
+        }
+
+        // Apply 40-hour weekly overtime rule
+        if ($totalWorkHours > 40) {
+            $regularHours = 40;
+            $overtimeHours = $totalWorkHours - 40;
+        } else {
+            $regularHours = $totalWorkHours;
+            $overtimeHours = 0;
         }
 
         $this->update([
-            'total_hours' => $totalHours,
+            'total_hours' => $totalWorkHours,
             'regular_hours' => $regularHours,
             'overtime_hours' => $overtimeHours,
-            'break_hours' => $breakHours,
+            'break_hours' => $totalBreakHours,
         ]);
     }
 
     /**
      * Submit the timesheet
      */
-    public function submit(int $submittedBy, bool $legalAcknowledgment = true): bool
+    public function submit(int $submittedBy, bool $legalAcknowledgment = true, ?string $notes = null): bool
     {
-        if (!$this->isDraft()) {
+        if (!$this->isDraft() && !$this->isRejected()) {
             return false;
         }
 
         $this->calculateTotals();
 
-        return $this->update([
+        // Update timesheet status and legal acknowledgment
+        $success = $this->update([
             'status' => 'submitted',
-            'submitted_at' => now(),
-            'submitted_by' => $submittedBy,
             'legal_acknowledgment' => $legalAcknowledgment,
         ]);
+
+        if ($success) {
+            // Create submission action
+            TimesheetAction::createAction(
+                $this->id,
+                $submittedBy,
+                TimesheetAction::ACTION_SUBMITTED,
+                $notes
+            );
+        }
+
+        return $success;
     }
 
     /**
@@ -285,15 +349,22 @@ class Timesheet extends Model
             return false;
         }
 
-        return $this->update([
+        $success = $this->update([
             'status' => 'draft',
-            'submitted_at' => null,
-            'submitted_by' => null,
-            'withdrawn_at' => now(),
-            'withdrawn_by' => $withdrawnBy,
-            'withdrawal_reason' => $reason,
             'legal_acknowledgment' => false,
         ]);
+
+        if ($success) {
+            // Create withdrawal action
+            TimesheetAction::createAction(
+                $this->id,
+                $withdrawnBy,
+                TimesheetAction::ACTION_WITHDRAWN,
+                $reason
+            );
+        }
+
+        return $success;
     }
 
     /**
@@ -307,12 +378,51 @@ class Timesheet extends Model
 
         $this->calculateTotals();
 
-        return $this->update([
+        $success = $this->update([
             'status' => 'approved',
-            'approved_at' => now(),
-            'approved_by' => $approvedBy,
-            'manager_notes' => $managerNotes,
         ]);
+
+        if ($success) {
+            // Create approval action
+            TimesheetAction::createAction(
+                $this->id,
+                $approvedBy,
+                TimesheetAction::ACTION_APPROVED,
+                $managerNotes
+            );
+        }
+
+        return $success;
+    }
+
+    /**
+     * Reject the timesheet (manager/payroll action)
+     */
+    public function reject(int $rejectedBy, string $rejectionReason, ?string $rejectionNotes = null): bool
+    {
+        if (!$this->canBeRejected()) {
+            return false;
+        }
+
+        $success = $this->update([
+            'status' => 'rejected',
+        ]);
+
+        if ($success) {
+            // Create rejection action with metadata
+            TimesheetAction::createAction(
+                $this->id,
+                $rejectedBy,
+                TimesheetAction::ACTION_REJECTED,
+                $rejectionNotes,
+                [
+                    'rejection_reason' => $rejectionReason,
+                    'rejection_notes' => $rejectionNotes,
+                ]
+            );
+        }
+
+        return $success;
     }
 
     /**
@@ -320,16 +430,131 @@ class Timesheet extends Model
      */
     public function process(int $processedBy, ?string $payrollNotes = null): bool
     {
-        if (!$this->isApproved()) {
+        if (!$this->isApproved() && !$this->isDraft() && !$this->isSubmitted()) {
             return false;
         }
 
-        return $this->update([
+        $success = $this->update([
             'status' => 'processed',
-            'processed_at' => now(),
-            'processed_by' => $processedBy,
-            'payroll_notes' => $payrollNotes,
         ]);
+
+        if ($success) {
+            // Create processing action
+            TimesheetAction::createAction(
+                $this->id,
+                $processedBy,
+                TimesheetAction::ACTION_PROCESSED,
+                $payrollNotes
+            );
+        }
+
+        return $success;
+    }
+
+    /**
+     * Accessor methods for backward compatibility
+     */
+    public function getSubmittedAtAttribute()
+    {
+        return $this->submissionAction?->created_at;
+    }
+
+    public function getSubmittedByAttribute()
+    {
+        return $this->submissionAction?->user_id;
+    }
+
+    public function getApprovedAtAttribute()
+    {
+        return $this->approvalAction?->created_at;
+    }
+
+    public function getApprovedByAttribute()
+    {
+        return $this->approvalAction?->user_id;
+    }
+
+    public function getProcessedAtAttribute()
+    {
+        return $this->processingAction?->created_at;
+    }
+
+    public function getProcessedByAttribute()
+    {
+        return $this->processingAction?->user_id;
+    }
+
+    public function getRejectedAtAttribute()
+    {
+        return $this->rejectionAction?->created_at;
+    }
+
+    public function getRejectedByAttribute()
+    {
+        return $this->rejectionAction?->user_id;
+    }
+
+    public function getWithdrawnAtAttribute()
+    {
+        return $this->withdrawalAction?->created_at;
+    }
+
+    public function getWithdrawnByAttribute()
+    {
+        return $this->withdrawalAction?->user_id;
+    }
+
+    public function getManagerNotesAttribute()
+    {
+        return $this->approvalAction?->notes;
+    }
+
+    public function getPayrollNotesAttribute()
+    {
+        return $this->processingAction?->notes;
+    }
+
+    public function getWithdrawalReasonAttribute()
+    {
+        return $this->withdrawalAction?->notes;
+    }
+
+    public function getRejectionReasonAttribute()
+    {
+        return $this->rejectionAction?->metadata['rejection_reason'] ?? null;
+    }
+
+    public function getRejectionNotesAttribute()
+    {
+        return $this->rejectionAction?->metadata['rejection_notes'] ?? null;
+    }
+
+    /**
+     * Relationship accessors for backward compatibility
+     */
+    public function getSubmittedByRelationAttribute()
+    {
+        return $this->submissionAction?->user;
+    }
+
+    public function getApprovedByRelationAttribute()
+    {
+        return $this->approvalAction?->user;
+    }
+
+    public function getProcessedByRelationAttribute()
+    {
+        return $this->processingAction?->user;
+    }
+
+    public function getRejectedByRelationAttribute()
+    {
+        return $this->rejectionAction?->user;
+    }
+
+    public function getWithdrawnByRelationAttribute()
+    {
+        return $this->withdrawalAction?->user;
     }
 
     /**
