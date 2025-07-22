@@ -55,5 +55,11 @@ return [
         'token' => env('NETSUITE_TOKEN'),
         'token_secret' => env('NETSUITE_TOKEN_SECRET'),
     ],
+    'google' => [
+        'service_account_path' => storage_path('app/google-service-account.json'),
+        'drive_id' => '0APmI_YWtWCEhUk9PVA',
+    ],
+
+
 
 ];

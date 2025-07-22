@@ -26,50 +26,29 @@ class GoogleDriveService
     protected function initializeClient()
     {
         $this->client = new GoogleClient();
-        $this->client->setClientId(config('services.google.client_id'));
-        $this->client->setClientSecret(config('services.google.client_secret'));
-        $this->client->setRedirectUri(config('services.google.redirect'));
-        $this->client->setAccessType('offline');
-        $this->client->setPrompt('consent');
-        $this->client->setIncludeGrantedScopes(true);
-        $this->client->addScope(Drive::DRIVE);
 
-        $user = Auth::user();
-        if ($user && $user->google_refresh_token) {
-            try {
-                $this->client->fetchAccessTokenWithRefreshToken($user->google_refresh_token);
-                $accessToken = $this->client->getAccessToken();
+        try {
+            // Use service account authentication
+            $serviceAccountPath = config('services.google.service_account_path');
 
-                if (!isset($accessToken['access_token'])) {
-                    throw new Exception('Failed to refresh Google access token');
-                }
-
-                // Update user token in database
-                $user->google_token = $accessToken['access_token'];
-                $user->save();
-
-                $this->driveService = new Drive($this->client);
-
-            } catch (Exception $e) {
-                Log::error('Google Drive client initialization failed', [
-                    'error' => $e->getMessage(),
-                    'user_id' => $user->id
-                ]);
-                throw new Exception('Google authentication failed: '.$e->getMessage());
+            if (!file_exists($serviceAccountPath)) {
+                throw new Exception('Google service account file not found at: ' . $serviceAccountPath);
             }
-        } else {
-            // If user exists but refresh token is null, we need to redirect to Google auth
-            if ($user) {
-                Log::info('Google refresh token is null, redirecting to Google auth', [
-                    'user_id' => $user->id
-                ]);
 
-                // We can't directly return a redirect from a service class,
-                // so we throw a specific exception that can be caught by the calling code
-                throw new Exception('REDIRECT_TO_GOOGLE_AUTH');
-            } else {
-                throw new Exception('Google authentication required');
-            }
+            $this->client->setAuthConfig($serviceAccountPath);
+            $this->client->addScope(Drive::DRIVE);
+            $this->client->setSubject(null); // No impersonation needed
+
+            $this->driveService = new Drive($this->client);
+
+            Log::info('Google Drive service initialized with service account');
+
+        } catch (Exception $e) {
+            Log::error('Google Drive service account initialization failed', [
+                'error' => $e->getMessage(),
+                'service_account_path' => $serviceAccountPath ?? 'not set'
+            ]);
+            throw new Exception('Google Drive authentication failed: ' . $e->getMessage());
         }
     }
 
@@ -77,18 +56,22 @@ class GoogleDriveService
     {
         $this->clearTemporaryImages();
 
-        $cacheKey = "folders_{$query}_".Auth::id();
+        $cacheKey = "folders_{$query}_" . (Auth::id() ?? 'guest');
 
         return Cache::remember($cacheKey, now()->addMinutes(5), function () use ($query) {
             try {
                 $optParams = [
                     'q' => "mimeType='application/vnd.google-apps.folder' and name contains '{$query}' and trashed=false",
-                    'includeItemsFromAllDrives' => true,
-                    'corpora' => 'drive',
-                    'supportsAllDrives' => true,
-                    'driveId' => $this->sharedDriveId,
                     'fields' => 'files(id, name)'
                 ];
+
+                // Add shared drive parameters if configured
+                if ($this->sharedDriveId) {
+                    $optParams['includeItemsFromAllDrives'] = true;
+                    $optParams['corpora'] = 'drive';
+                    $optParams['supportsAllDrives'] = true;
+                    $optParams['driveId'] = $this->sharedDriveId;
+                }
 
                 $results = $this->driveService->files->listFiles($optParams);
 
@@ -102,7 +85,7 @@ class GoogleDriveService
                     'query' => $query,
                     'error' => $e->getMessage()
                 ]);
-                throw new Exception('Failed to search folders: '.$e->getMessage());
+                throw new Exception('Failed to search folders: ' . $e->getMessage());
             }
         });
     }
@@ -110,7 +93,7 @@ class GoogleDriveService
     protected function clearTemporaryImages()
     {
         try {
-            $tempPath = 'google_temp/'.Auth::id();
+            $tempPath = 'google_temp/' . (Auth::id() ?? 'guest');
             if (Storage::disk('public')->exists($tempPath)) {
                 Storage::disk('public')->deleteDirectory($tempPath);
             }
@@ -121,7 +104,7 @@ class GoogleDriveService
 
     public function fetchImages($folderId)
     {
-        $cacheKey = "drive_images_{$folderId}_".Auth::id();
+        $cacheKey = "drive_images_{$folderId}_" . (Auth::id() ?? 'guest');
 
         return Cache::remember($cacheKey, now()->addMinutes(5), function () use ($folderId) {
             try {
@@ -151,7 +134,7 @@ class GoogleDriveService
                     'folder_id' => $folderId,
                     'error' => $e->getMessage()
                 ]);
-                throw new Exception('Failed to fetch images: '.$e->getMessage());
+                throw new Exception('Failed to fetch images: ' . $e->getMessage());
             }
         });
     }
@@ -159,12 +142,17 @@ class GoogleDriveService
     protected function findSubfolder($parentFolderId, $folderName)
     {
         try {
-            $results = $this->driveService->files->listFiles([
+            $params = [
                 'q' => "name = '{$folderName}' and mimeType = 'application/vnd.google-apps.folder' and '{$parentFolderId}' in parents and trashed = false",
                 'spaces' => 'drive',
-                'supportsAllDrives' => true,
-                'includeItemsFromAllDrives' => true,
-            ]);
+            ];
+
+            if ($this->sharedDriveId) {
+                $params['supportsAllDrives'] = true;
+                $params['includeItemsFromAllDrives'] = true;
+            }
+
+            $results = $this->driveService->files->listFiles($params);
 
             if (count($results->getFiles()) > 0) {
                 return $results->getFiles()[0]->getId();
@@ -181,12 +169,18 @@ class GoogleDriveService
     {
         try {
             $imageQuery = "'{$folderId}' in parents and trashed = false and (mimeType contains 'image/')";
-            $imageResults = $this->driveService->files->listFiles([
+
+            $params = [
                 'q' => $imageQuery,
                 'fields' => 'files(id, name, mimeType, parents)',
-                'supportsAllDrives' => true,
-                'includeItemsFromAllDrives' => true,
-            ]);
+            ];
+
+            if ($this->sharedDriveId) {
+                $params['supportsAllDrives'] = true;
+                $params['includeItemsFromAllDrives'] = true;
+            }
+
+            $imageResults = $this->driveService->files->listFiles($params);
 
             return collect($imageResults->getFiles())->map(function ($file) use ($isOriginal) {
                 try {
@@ -218,17 +212,15 @@ class GoogleDriveService
     protected function storeTemporaryFile($content, $filename)
     {
         try {
-            // Create unique filename to avoid conflicts
-            $uniqueFilename = uniqid().'_'.$filename;
-            $path = 'google_temp/'.Auth::id().'/'.$uniqueFilename;
+            $uniqueFilename = uniqid() . '_' . $filename;
+            $path = 'google_temp/' . (Auth::id() ?? 'guest') . '/' . $uniqueFilename;
 
-            // Ensure the directory exists
-            Storage::disk('public')->makeDirectory('google_temp/'.Auth::id());
-
-            // Store the file
+            Storage::disk('public')->makeDirectory('google_temp/' . (Auth::id() ?? 'guest'));
             Storage::disk('public')->put($path, $content);
 
-            return 'storage/'.$path;  // Return path with 'storage/' prefix
+            // Return proper asset URL
+            return asset('storage/' . $path);
+
         } catch (Exception $e) {
             Log::error('Failed to store temporary file', [
                 'filename' => $filename,
@@ -249,7 +241,7 @@ class GoogleDriveService
                 $targetFolderId = $this->getOrCreateProcessedFolder($folderId);
             }
 
-            $fileName = $productNumber.'_'.($isCropped ? 'processed_' : 'original_').$file->getClientOriginalName();
+            $fileName = $productNumber . '_' . ($isCropped ? 'processed_' : 'original_') . $file->getClientOriginalName();
 
             $fileMetadata = new Drive\DriveFile([
                 'name' => $fileName,
@@ -257,23 +249,25 @@ class GoogleDriveService
             ]);
 
             $content = file_get_contents($file->getRealPath());
-            $uploadedFile = $this->driveService->files->create($fileMetadata, [
+
+            $uploadParams = [
                 'data' => $content,
                 'mimeType' => $file->getMimeType(),
                 'uploadType' => 'media',
                 'fields' => 'id',
-                'supportsAllDrives' => true,
-            ]);
+            ];
+
+            if ($this->sharedDriveId) {
+                $uploadParams['supportsAllDrives'] = true;
+            }
+
+            $uploadedFile = $this->driveService->files->create($fileMetadata, $uploadParams);
 
             // Clear cache for both parent and target folders
-            Cache::forget("drive_images_{$folderId}_".Auth::id());
-            Cache::forget("drive_images_{$targetFolderId}_".Auth::id());
+            Cache::forget("drive_images_{$folderId}_" . (Auth::id() ?? 'guest'));
+            Cache::forget("drive_images_{$targetFolderId}_" . (Auth::id() ?? 'guest'));
 
-            ActivityLogger::log(
-                'Product Picture Manager',
-                'Uploaded to Google Drive',
-                auth()->user()->name.' uploaded file: '.$fileName.' to folder ID: '.$targetFolderId
-            );
+
 
             return $uploadedFile->getId();
 
@@ -284,7 +278,7 @@ class GoogleDriveService
                 'is_cropped' => $isCropped,
                 'error' => $e->getMessage()
             ]);
-            throw new Exception('Failed to upload to Google Drive: '.$e->getMessage());
+            throw new Exception('Failed to upload to Google Drive: ' . $e->getMessage());
         }
     }
 
@@ -322,17 +316,16 @@ class GoogleDriveService
             ]);
 
             $options = [
-                'supportsAllDrives' => true,
                 'fields' => 'id',
             ];
 
+            if ($this->sharedDriveId) {
+                $options['supportsAllDrives'] = true;
+            }
+
             $folder = $this->driveService->files->create($fileMetadata, $options);
 
-            ActivityLogger::log(
-                'Product Picture Manager',
-                'Created Folder',
-                auth()->user()->name.' created folder: '.$name.' (ID: '.$folder->getId().')'
-            );
+
 
             return $folder->getId();
 
@@ -342,7 +335,7 @@ class GoogleDriveService
                 'parent_id' => $parentId,
                 'error' => $e->getMessage()
             ]);
-            throw new Exception('Failed to create folder: '.$e->getMessage());
+            throw new Exception('Failed to create folder: ' . $e->getMessage());
         }
     }
 
@@ -363,15 +356,14 @@ class GoogleDriveService
             }
 
             // Delete the file
-            $this->driveService->files->delete($fileId, [
-                'supportsAllDrives' => true
-            ]);
+            $deleteParams = [];
+            if ($this->sharedDriveId) {
+                $deleteParams['supportsAllDrives'] = true;
+            }
 
-            ActivityLogger::log(
-                'Product Picture Manager',
-                'Deleted from Google Drive',
-                auth()->user()->name.' deleted file: '.($fileInfo ?? $fileId)
-            );
+            $this->driveService->files->delete($fileId, $deleteParams);
+
+
 
             // Clear relevant caches
             $this->clearImageCaches();
@@ -384,14 +376,14 @@ class GoogleDriveService
                 'error' => $e->getMessage()
             ]);
 
-            throw new Exception('Failed to delete file from Google Drive: '.$e->getMessage());
+            throw new Exception('Failed to delete file from Google Drive: ' . $e->getMessage());
         }
     }
 
     protected function clearImageCaches()
     {
         try {
-            $userId = Auth::id();
+            $userId = Auth::id() ?? 'guest';
             $cacheKeys = Cache::getRedis()->keys("*drive_images_*_{$userId}");
             foreach ($cacheKeys as $key) {
                 Cache::forget($key);
@@ -411,22 +403,23 @@ class GoogleDriveService
             $previousParents = join(',', $file->getParents());
 
             // Move file to processed folder
-            $this->driveService->files->update($fileId, new Drive\DriveFile(), [
+            $updateParams = [
                 'addParents' => $processedFolderId,
                 'removeParents' => $previousParents,
-                'supportsAllDrives' => true,
                 'fields' => 'id,parents'
-            ]);
+            ];
 
-            ActivityLogger::log(
-                'Product Picture Manager',
-                'Moved to Processed',
-                auth()->user()->name.' moved file '.$file->getName().' to processed folder'
-            );
+            if ($this->sharedDriveId) {
+                $updateParams['supportsAllDrives'] = true;
+            }
+
+            $this->driveService->files->update($fileId, new Drive\DriveFile(), $updateParams);
+
+
 
             // Clear cache
-            Cache::forget("drive_images_{$parentFolderId}_".Auth::id());
-            Cache::forget("drive_images_{$processedFolderId}_".Auth::id());
+            Cache::forget("drive_images_{$parentFolderId}_" . (Auth::id() ?? 'guest'));
+            Cache::forget("drive_images_{$processedFolderId}_" . (Auth::id() ?? 'guest'));
 
             return true;
 
@@ -436,7 +429,7 @@ class GoogleDriveService
                 'parent_folder_id' => $parentFolderId,
                 'error' => $e->getMessage()
             ]);
-            throw new Exception('Failed to move file to processed folder: '.$e->getMessage());
+            throw new Exception('Failed to move file to processed folder: ' . $e->getMessage());
         }
     }
 

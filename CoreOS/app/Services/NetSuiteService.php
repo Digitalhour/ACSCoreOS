@@ -46,12 +46,7 @@ class NetSuiteService
                 $productsQuery = "SELECT * FROM customrecord_product WHERE custrecord_product_parent_item = '{$number}'";
                 $customRecords = $this->executeQuery($productsQuery);
 
-                ActivityLogger::log(
-                    'Product Picture Manager',
-                    'NetSuite Search',
-                    auth()->user()->name.' searched NetSuite for item, using item ID: '.$number.
-                    '. Found '.count($customRecords['items'] ?? []).' associated products.'
-                );
+
 
                 return [
                     'itemDetails' => $itemDetails['items'][0] ?? null,
@@ -226,11 +221,7 @@ class NetSuiteService
                 throw new Exception('NetSuite API Error: '.$errorBody);
             }
 
-            ActivityLogger::log(
-                'Product Picture Manager',
-                'NetSuite Image Date Update',
-                auth()->user()->name.' updated image capture date for item ID: '.$itemId
-            );
+
 
             return $response->json();
 

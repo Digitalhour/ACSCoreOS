@@ -43,7 +43,7 @@ const mainNavItems: NavItem[] = [
     { title: 'Dashboard', href: '/dashboard', icon: LayoutGrid, description:null },
     { title: 'Your PTO', href: '/employee/pto', icon: ShipWheel, description:null },
     { title: 'Billy The AI', href: '/billy', icon: BotMessageSquareIcon, description:null },
-    { title: 'Product Picture Manager', href: '/ppm', icon: ImageUp, permission: '', description:null }, // Shows if permission is empty string
+    { title: 'Product Picture Manager', href: '/product-picture-manager', icon: ImageUp, permission: '', description:null }, // Shows if permission is empty string
     // { title: 'ACS Organization', href: '/acs-org', icon: Users, permission: '', description:null}, // Shows if permission is empty string
     // { title: 'ACS PermissionTest', href: '/test', icon: Users, permission: 'AdminMenu', description:null },
     // { title: 'ACS RoleTest', href: '/Roletest', icon: Users, roles: '', description:null},

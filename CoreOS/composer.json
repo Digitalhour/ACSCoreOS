@@ -10,7 +10,9 @@
     "license": "MIT",
     "require": {
         "php": "^8.2",
+        "google/apiclient": "^2.18",
         "inertiajs/inertia-laravel": "^2.0",
+        "intervention/image": "^3.11",
         "lab404/laravel-impersonate": "^1.7",
         "laravel/framework": "^12.0",
         "laravel/reverb": "^1.5",

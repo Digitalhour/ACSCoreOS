@@ -164,6 +164,15 @@
       <excludeFolder url="file://$MODULE_DIR$/CoreOS/vendor/aws/aws-sdk-php" />
       <excludeFolder url="file://$MODULE_DIR$/CoreOS/vendor/league/flysystem-aws-s3-v3" />
       <excludeFolder url="file://$MODULE_DIR$/CoreOS/vendor/mtdowling/jmespath.php" />
+      <excludeFolder url="file://$MODULE_DIR$/CoreOS/vendor/google/apiclient" />
+      <excludeFolder url="file://$MODULE_DIR$/CoreOS/vendor/google/apiclient-services" />
+      <excludeFolder url="file://$MODULE_DIR$/CoreOS/vendor/google/auth" />
+      <excludeFolder url="file://$MODULE_DIR$/CoreOS/vendor/intervention/gif" />
+      <excludeFolder url="file://$MODULE_DIR$/CoreOS/vendor/intervention/image" />
+      <excludeFolder url="file://$MODULE_DIR$/CoreOS/vendor/paragonie/constant_time_encoding" />
+      <excludeFolder url="file://$MODULE_DIR$/CoreOS/vendor/paragonie/random_compat" />
+      <excludeFolder url="file://$MODULE_DIR$/CoreOS/vendor/phpseclib/phpseclib" />
+      <excludeFolder url="file://$MODULE_DIR$/CoreOS/vendor/psr/cache" />
     </content>
     <content url="file://$MODULE_DIR$/CoreOS/node_modules" />
     <orderEntry type="inheritedJdk" />
