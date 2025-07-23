@@ -16,7 +16,12 @@ return new class extends Migration
             $table->decimal('grade_score', 5, 2);
             $table->timestamps();
 
-            $table->index(['grade_employee_id', 'grade_assessment_id', 'grade_assessment_type']);
+//            $table->index(['grade_employee_id', 'grade_assessment_id', 'grade_assessment_type']);
+            $table->index(
+                ['grade_employee_id', 'grade_assessment_id', 'grade_assessment_type'],
+                'training_grades_emp_assess_type_idx'
+            );
+
         });
     }
 
