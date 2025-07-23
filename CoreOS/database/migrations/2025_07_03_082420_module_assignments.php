@@ -16,7 +16,9 @@ return new class extends Migration
             $table->timestamps();
 
             // Ensure unique assignments per module and assignable combination
-            $table->unique(['module_id', 'assignment_type', 'assignable_id']);
+//            $table->unique(['module_id', 'assignment_type', 'assignable_id']);
+            $table->unique(['module_id', 'assignment_type', 'assignable_id'], 'mod_assign_type_id_unique');
+
 
             // Add indexes for performance
             $table->index(['assignment_type', 'assignable_id']);
