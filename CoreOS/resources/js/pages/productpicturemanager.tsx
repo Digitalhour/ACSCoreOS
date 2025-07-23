@@ -1,4 +1,5 @@
 import {Badge} from '@/components/ui/badge';
+import {type BreadcrumbItem} from '@/types';
 import {Button} from '@/components/ui/button';
 import {Card, CardContent, CardHeader, CardTitle} from '@/components/ui/card';
 import {Checkbox} from '@/components/ui/checkbox';
@@ -7,6 +8,8 @@ import {Input} from '@/components/ui/input';
 import {Label} from '@/components/ui/label';
 import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from '@/components/ui/select';
 import {Separator} from '@/components/ui/separator';
+import {Skeleton} from '@/components/ui/skeleton';
+import {Table, TableBody, TableCell, TableHead, TableHeader, TableRow} from '@/components/ui/table';
 import {Head, router} from '@inertiajs/react';
 import {
     Download,
@@ -29,7 +32,6 @@ import {toast} from 'sonner';
 import {Accordion, AccordionContent, AccordionItem, AccordionTrigger} from "@/components/ui/accordion";
 import {Slider} from "@/components/ui/slider";
 import AppLayout from "@/layouts/app-layout";
-
 
 interface NetSuiteItem {
     id: string;
@@ -69,6 +71,24 @@ interface ShopifyImage {
     };
 }
 
+interface InertiaPageProps {
+    props: {
+        folders?: Folder[];
+        success?: boolean;
+        images?: DriveImage[];
+        itemDetails?: NetSuiteItem;
+        items?: ProductItem[];
+        message?: string;
+        error?: string;
+    };
+}
+
+interface ShopifyImagesResponse {
+    success: boolean;
+    images?: ShopifyImage[];
+    error?: string;
+}
+
 const IMAGE_VIEW_OPTIONS = [
     { value: 'front', label: 'Front View' },
     { value: 'back', label: 'Back View' },
@@ -93,7 +113,17 @@ export default function ProductPictureManager() {
     const [imageViews, setImageViews] = useState<string[]>([]);
     const [customTitles, setCustomTitles] = useState<string[]>([]);
     const [shopifyImages, setShopifyImages] = useState<Record<string, ShopifyImage[]>>({});
-    const [loading, setLoading] = useState(false);
+
+    // Loading states
+    const [loadingFolders, setLoadingFolders] = useState(false);
+    const [loadingDriveImages, setLoadingDriveImages] = useState(false);
+    const [loadingNetSuite, setLoadingNetSuite] = useState(false);
+    const [loadingUpload, setLoadingUpload] = useState(false);
+    const [loadingFolderCreation, setLoadingFolderCreation] = useState(false);
+    const [loadingImageDeletion, setLoadingImageDeletion] = useState(false);
+    const [loadingShopifyImages, setLoadingShopifyImages] = useState<Record<string, boolean>>({});
+
+    // Modal states
     const [showCropModal, setShowCropModal] = useState(false);
     const [showFolderModal, setShowFolderModal] = useState(false);
     const [showImageModal, setShowImageModal] = useState(false);
@@ -105,6 +135,43 @@ export default function ProductPictureManager() {
     const [netsuiteItem, setNetsuiteItem] = useState<NetSuiteItem | null>(null);
     const [storeOriginal, setStoreOriginal] = useState(false);
 
+    // Reset all state to initial values
+    const resetAll = useCallback(() => {
+        // Clear search and folder state
+        setSearchQuery('');
+        setFolders([]);
+        setSelectedFolder(null);
+        setDriveImages([]);
+
+        // Clear NetSuite state
+        setNetsuiteResults(null);
+        setNetsuiteItem(null);
+        setNetsuiteNumber('');
+        setProductItems([]);
+
+        // Clear selection and processing state
+        setSelectedItems([]);
+        setUploadedImages([]);
+        setCroppedImages([]);
+        setImageViews([]);
+        setCustomTitles([]);
+        setShopifyImages({});
+
+        // Clear modal and UI state
+        setSelectedImage(null);
+        setSelectedProductItem(null);
+        setSelectedImageIndex(0);
+        setStoreOriginal(false);
+
+        // Clear file input
+        if (fileInputRef.current) {
+            fileInputRef.current.value = '';
+        }
+
+        // Show success message
+        toast.success('All data cleared. Ready to start fresh!');
+    }, []);
+
     // Search folders
     const searchFolders = useCallback(
         async (query: string) => {
@@ -113,22 +180,28 @@ export default function ProductPictureManager() {
                 return;
             }
 
+            setLoadingFolders(true);
+
             try {
                 router.get('/product-picture-manager/search-folders',
                     { query },
                     {
                         preserveState: true,
                         preserveScroll: true,
-                        onSuccess: (page: any) => {
+                        onSuccess: (page: InertiaPageProps) => {
                             setFolders(page.props.folders || []);
                         },
                         onError: () => {
                             toast.error('Failed to search folders');
+                        },
+                        onFinish: () => {
+                            setLoadingFolders(false);
                         }
                     }
                 );
-            } catch (error) {
+            } catch {
                 toast.error('Failed to search folders');
+                setLoadingFolders(false);
             }
         },
         [],
@@ -138,7 +211,8 @@ export default function ProductPictureManager() {
     const selectFolder = useCallback(
         async (folder: Folder) => {
             setSelectedFolder(folder);
-            setLoading(true);
+            setLoadingDriveImages(true);
+            setLoadingNetSuite(true);
 
             try {
                 router.get('/product-picture-manager/fetch-drive-images',
@@ -146,7 +220,7 @@ export default function ProductPictureManager() {
                     {
                         preserveState: true,
                         preserveScroll: true,
-                        onSuccess: (page: any) => {
+                        onSuccess: (page: InertiaPageProps) => {
                             if (page.props.success) {
                                 setDriveImages(page.props.images || []);
                             }
@@ -161,13 +235,14 @@ export default function ProductPictureManager() {
                             toast.error('Failed to fetch folder images');
                         },
                         onFinish: () => {
-                            setLoading(false);
+                            setLoadingDriveImages(false);
                         }
                     }
                 );
-            } catch (error) {
+            } catch {
                 toast.error('Failed to fetch folder images');
-                setLoading(false);
+                setLoadingDriveImages(false);
+                setLoadingNetSuite(false);
             }
         },
         [],
@@ -176,25 +251,31 @@ export default function ProductPictureManager() {
     // Search NetSuite
     const searchNetSuite = useCallback(
         async (number: string) => {
+            setLoadingNetSuite(true);
+
             try {
                 router.get('/product-picture-manager/search-netsuite',
                     { query: number },
                     {
                         preserveState: true,
                         preserveScroll: true,
-                        onSuccess: (page: any) => {
-                            setNetsuiteResults(page.props.itemDetails);
-                            setNetsuiteItem(page.props.itemDetails);
+                        onSuccess: (page: InertiaPageProps) => {
+                            setNetsuiteResults(page.props.itemDetails || null);
+                            setNetsuiteItem(page.props.itemDetails || null);
                             setProductItems(page.props.items?.filter((item: ProductItem) =>
                                 item.isinactive === 'F' && item.custrecord_product_shopify_id) || []);
                         },
                         onError: () => {
                             toast.error('Failed to search NetSuite');
+                        },
+                        onFinish: () => {
+                            setLoadingNetSuite(false);
                         }
                     }
                 );
-            } catch (error) {
+            } catch {
                 toast.error('Failed to search NetSuite');
+                setLoadingNetSuite(false);
             }
         },
         [],
@@ -251,9 +332,11 @@ export default function ProductPictureManager() {
     // Load Shopify images
     const loadShopifyImages = useCallback(
         async (shopifyId: string) => {
+            setLoadingShopifyImages(prev => ({ ...prev, [shopifyId]: true }));
+
             try {
                 const response = await fetch(`/product-picture-manager/shopify-images?shopifyId=${shopifyId}`);
-                const data = await response.json();
+                const data: ShopifyImagesResponse = await response.json();
 
                 if (data.success) {
                     setShopifyImages((prev) => ({
@@ -273,6 +356,8 @@ export default function ProductPictureManager() {
                     ...prev,
                     [shopifyId]: [],
                 }));
+            } finally {
+                setLoadingShopifyImages(prev => ({ ...prev, [shopifyId]: false }));
             }
         },
         [],
@@ -287,7 +372,7 @@ export default function ProductPictureManager() {
 
         if (!imageToDelete) return;
 
-        setLoading(true);
+        setLoadingImageDeletion(true);
 
         try {
             router.delete('/product-picture-manager/delete-shopify-image', {
@@ -308,7 +393,7 @@ export default function ProductPictureManager() {
                     // Reload images
                     fetch(`/product-picture-manager/shopify-images?shopifyId=${shopifyId}`)
                         .then(response => response.json())
-                        .then(data => {
+                        .then((data: ShopifyImagesResponse) => {
                             if (data.success) {
                                 setShopifyImages((prev) => ({
                                     ...prev,
@@ -331,12 +416,12 @@ export default function ProductPictureManager() {
                     toast.error('Failed to delete image');
                 },
                 onFinish: () => {
-                    setLoading(false);
+                    setLoadingImageDeletion(false);
                 }
             });
-        } catch (error) {
+        } catch {
             toast.error('Failed to delete image');
-            setLoading(false);
+            setLoadingImageDeletion(false);
         }
     }, [selectedProductItem, selectedImageIndex, shopifyImages]);
 
@@ -384,7 +469,7 @@ export default function ProductPictureManager() {
             }
         }
 
-        setLoading(true);
+        setLoadingUpload(true);
 
         try {
             const selectedItemsData = productItems.filter((item) => selectedItems.includes(item.id));
@@ -397,9 +482,9 @@ export default function ProductPictureManager() {
                 customTitles,
                 storeOriginal,
             }, {
-                onSuccess: (page: any) => {
+                onSuccess: (page: InertiaPageProps) => {
                     if (page.props.success) {
-                        toast.success(page.props.message);
+                        toast.success(page.props.message || 'Images uploaded successfully');
 
                         // Clear uploaded and cropped images
                         setUploadedImages([]);
@@ -413,21 +498,21 @@ export default function ProductPictureManager() {
                             selectFolder(selectedFolder);
                         }
                     } else {
-                        throw new Error(page.props.error);
+                        throw new Error(page.props.error || 'Upload failed');
                     }
                 },
                 onError: () => {
                     toast.error('Failed to upload images');
                 },
                 onFinish: () => {
-                    setLoading(false);
+                    setLoadingUpload(false);
                 }
             });
-        } catch (error) {
+        } catch {
             toast.error('Failed to upload images');
-            setLoading(false);
+            setLoadingUpload(false);
         }
-    }, [selectedFolder, selectedItems, croppedImages, imageViews, customTitles, storeOriginal, productItems]);
+    }, [selectedFolder, selectedItems, croppedImages, imageViews, customTitles, storeOriginal, productItems, selectFolder]);
 
     // Create folders
     const createFolders = useCallback(async () => {
@@ -436,33 +521,33 @@ export default function ProductPictureManager() {
             return;
         }
 
-        setLoading(true);
+        setLoadingFolderCreation(true);
 
         try {
             router.post('/product-picture-manager/create-folders', {
                 netsuiteNumber,
                 itemDetails: netsuiteItem,
             }, {
-                onSuccess: (page: any) => {
+                onSuccess: (page: InertiaPageProps) => {
                     if (page.props.success) {
                         toast.success('Folder created successfully');
                         setShowFolderModal(false);
                         setNetsuiteNumber('');
                         setNetsuiteItem(null);
                     } else {
-                        throw new Error(page.props.error);
+                        throw new Error(page.props.error || 'Failed to create folder');
                     }
                 },
                 onError: () => {
                     toast.error('Failed to create folder');
                 },
                 onFinish: () => {
-                    setLoading(false);
+                    setLoadingFolderCreation(false);
                 }
             });
-        } catch (error) {
+        } catch {
             toast.error('Failed to create folder');
-            setLoading(false);
+            setLoadingFolderCreation(false);
         }
     }, [netsuiteItem, netsuiteNumber]);
 
@@ -491,57 +576,78 @@ export default function ProductPictureManager() {
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Product Picture Manager" />
-            <div className="container mx-auto space-y-6 ">
+            <div className="flex h-full max-h-screen flex-1 flex-col gap-4 rounded-xl p-4">
                 <div className="flex items-center justify-between">
                     <h1 className="text-3xl font-bold">Product Picture Manager</h1>
-                    <Dialog open={showFolderModal} onOpenChange={setShowFolderModal}>
-                        <DialogTrigger asChild>
-                            <Button>
-                                <Plus className="mr-2 h-4 w-4" />
-                                Create Folder
+                    <div className="flex items-center space-x-3">
+                        {/* Show reset-button when there's data to reset */}
+                        {(selectedFolder || uploadedImages.length > 0 || croppedImages.length > 0 || selectedItems.length > 0) && (
+                            <Button
+                                variant="outline"
+                                onClick={resetAll}
+                                className="text-destructive hover:text-destructive"
+                            >
+                                <X className="mr-2 h-4 w-4" />
+                                Reset All
                             </Button>
-                        </DialogTrigger>
-                        <DialogContent>
-                            <DialogHeader>
-                                <DialogTitle>Create New Folder</DialogTitle>
-                            </DialogHeader>
-                            <div className="space-y-4">
-                                <div>
-                                    <Label htmlFor="netsuite-number">NetSuite Number</Label>
-                                    <Input
-                                        id="netsuite-number"
-                                        value={netsuiteNumber}
-                                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-                                            setNetsuiteNumber(e.target.value);
-                                            if (e.target.value.length >= 2) {
-                                                searchNetSuite(e.target.value);
-                                            }
-                                        }}
-                                        placeholder="Enter NetSuite number..."
-                                    />
-                                </div>
-                                {netsuiteItem && (
-                                    <Card>
-                                        <CardContent className="pt-4">
-                                            <h4 className="font-semibold">{netsuiteItem.displayname}</h4>
-                                            <p className="text-sm text-muted-foreground">{netsuiteItem.description}</p>
-                                            <p className="text-sm text-muted-foreground">ID: {netsuiteItem.id}</p>
-                                        </CardContent>
-                                    </Card>
-                                )}
-                                <Button
-                                    onClick={createFolders}
-                                    disabled={!netsuiteItem || loading}
-                                    className="w-full"
-                                >
-                                    {loading ? 'Creating...' : 'Create Folder'}
-                                </Button>
-                            </div>
-                        </DialogContent>
-                    </Dialog>
-                </div>
+                        )}
 
-                <div className="grid grid-cols-1 gap-6 lg:grid-cols-4">
+                        <Dialog open={showFolderModal} onOpenChange={setShowFolderModal}>
+                            <DialogTrigger asChild>
+                                <Button>
+                                    <Plus className="mr-2 h-4 w-4" />
+                                    Create Folder
+                                </Button>
+                            </DialogTrigger>
+                            <DialogContent>
+                                <DialogHeader>
+                                    <DialogTitle>Create New Folder</DialogTitle>
+                                </DialogHeader>
+                                <div className="space-y-4">
+                                    <div>
+                                        <Label htmlFor="netsuite-number">NetSuite Number</Label>
+                                        <Input
+                                            id="netsuite-number"
+                                            value={netsuiteNumber}
+                                            onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                                                setNetsuiteNumber(e.target.value);
+                                                if (e.target.value.length >= 2) {
+                                                    searchNetSuite(e.target.value);
+                                                }
+                                            }}
+                                            placeholder="Enter NetSuite number..."
+                                        />
+                                    </div>
+                                    {loadingNetSuite ? (
+                                        <Card>
+                                            <CardContent className="pt-4">
+                                                <Skeleton className="h-4 w-3/4 mb-2" />
+                                                <Skeleton className="h-3 w-full mb-1" />
+                                                <Skeleton className="h-3 w-1/2" />
+                                            </CardContent>
+                                        </Card>
+                                    ) : netsuiteItem && (
+                                        <Card>
+                                            <CardContent className="pt-4">
+                                                <h4 className="font-semibold">{netsuiteItem.displayname}</h4>
+                                                <p className="text-sm text-muted-foreground">{netsuiteItem.description}</p>
+                                                <p className="text-sm text-muted-foreground">ID: {netsuiteItem.id}</p>
+                                            </CardContent>
+                                        </Card>
+                                    )}
+                                    <Button
+                                        onClick={createFolders}
+                                        disabled={!netsuiteItem || loadingFolderCreation}
+                                        className="w-full"
+                                    >
+                                        {loadingFolderCreation ? 'Creating...' : 'Create Folder'}
+                                    </Button>
+                                </div>
+                            </DialogContent>
+                        </Dialog>
+                    </div>
+                </div>
+                <div className="grid grid-cols-1 gap-4 lg:grid-cols-4">
                     {/* Left Sidebar */}
                     <div className="space-y-6">
                         {/* Folder Search */}
@@ -563,7 +669,18 @@ export default function ProductPictureManager() {
                                         }}
                                     />
 
-                                    {folders.length > 0 && (
+                                    {loadingFolders ? (
+                                        <div className="max-h-60 space-y-2 overflow-y-auto">
+                                            {Array.from({ length: 3 }).map((_, index) => (
+                                                <div key={index} className="rounded-lg border p-3">
+                                                    <div className="flex items-center">
+                                                        <Skeleton className="mr-2 h-4 w-4" />
+                                                        <Skeleton className="h-4 w-3/4" />
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    ) : folders.length > 0 && (
                                         <div className="max-h-60 space-y-2 overflow-y-auto">
                                             {folders.map((folder) => (
                                                 <div
@@ -635,200 +752,6 @@ export default function ProductPictureManager() {
                                 </div>
                             </CardContent>
                         </Card>
-                    </div>
-
-                    {/* Main Content */}
-                    <div className="space-y-6 lg:col-span-3">
-                        {/* NetSuite Item Details */}
-                        {netsuiteResults && (
-                            <Card>
-                                <CardHeader>
-                                    <CardTitle>NetSuite Item Details</CardTitle>
-                                </CardHeader>
-                                <CardContent>
-                                    <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-                                        <div>
-                                            <Label className="text-sm text-muted-foreground">Name</Label>
-                                            <p className="font-semibold">{netsuiteResults.displayname}</p>
-                                        </div>
-                                        <div>
-                                            <Label className="text-sm text-muted-foreground">Item ID</Label>
-                                            <p className="font-semibold">{netsuiteResults.id}</p>
-                                        </div>
-                                        <div>
-                                            <Label className="text-sm text-muted-foreground">Description</Label>
-                                            <p className="font-semibold">{netsuiteResults.description}</p>
-                                        </div>
-                                        <div>
-                                            <Label className="text-sm text-muted-foreground">Vendor</Label>
-                                            <p className="font-semibold">{netsuiteResults.vendorname}</p>
-                                        </div>
-                                    </div>
-                                </CardContent>
-                            </Card>
-                        )}
-
-                        {/* Google Drive Images */}
-                        <Card>
-                            <CardHeader>
-                                <CardTitle>Google Drive Images</CardTitle>
-                            </CardHeader>
-                            <CardContent>
-                                {selectedFolder ? (
-                                    <div className="space-y-4">
-                                        <Badge variant="outline">{selectedFolder.name}</Badge>
-
-                                        {driveImages.length > 0 ? (
-                                            <div className="grid grid-cols-2 gap-4 md:grid-cols-4 lg:grid-cols-6">
-                                                {driveImages.map((image) => (
-                                                    <div key={image.id} className="group relative">
-                                                        <img
-                                                            src={image.tempUrl}
-                                                            alt={image.name}
-                                                            className="h-24 w-full cursor-pointer rounded-md object-cover"
-                                                            onClick={() => addDriveImageToQueue(image)}
-                                                        />
-                                                        <Badge
-                                                            variant={image.isOriginal ? 'default' : 'secondary'}
-                                                            className="absolute left-1 top-1 text-xs"
-                                                        >
-                                                            {image.isOriginal ? 'Original' : 'Processed'}
-                                                        </Badge>
-                                                        <div className="absolute inset-0 flex items-center justify-center rounded-md opacity-0 transition-opacity group-hover:opacity-100">
-                                                            <Button
-                                                                size="sm"
-                                                                variant="secondary"
-                                                                onClick={() => addDriveImageToQueue(image)}
-                                                            >
-                                                                <Download className="h-4 w-4" />
-                                                            </Button>
-                                                        </div>
-                                                        <p className="mt-1 truncate text-center text-xs text-muted-foreground">
-                                                            {image.name}
-                                                        </p>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        ) : (
-                                            <p className="py-8 text-center text-muted-foreground">
-                                                No images found in this folder
-                                            </p>
-                                        )}
-                                    </div>
-                                ) : (
-                                    <p className="py-8 text-center text-muted-foreground">
-                                        Select a folder to view images
-                                    </p>
-                                )}
-                            </CardContent>
-                        </Card>
-
-                        {/* Product Items */}
-                        <Card>
-                            <CardHeader>
-                                <CardTitle>Product Items</CardTitle>
-                            </CardHeader>
-                            <CardContent>
-                                {productItems.length > 0 ? (
-                                    <div className="space-y-4">
-                                        <div className="flex items-center space-x-2">
-                                            <Checkbox
-                                                id="select-all"
-                                                checked={selectedItems.length === productItems.length}
-                                                onCheckedChange={(checked: boolean) => {
-                                                    if (checked) {
-                                                        setSelectedItems(productItems.map((item) => item.id));
-                                                    } else {
-                                                        setSelectedItems([]);
-                                                    }
-                                                }}
-                                            />
-                                            <Label htmlFor="select-all">Select All Products</Label>
-                                        </div>
-
-                                        <div className="space-y-2">
-                                            {productItems.map((item) => (
-                                                <div key={item.id} className="flex items-center space-x-4 rounded-lg border p-4">
-                                                    <Checkbox
-                                                        checked={selectedItems.includes(item.id)}
-                                                        onCheckedChange={(checked: boolean) => {
-                                                            if (checked) {
-                                                                setSelectedItems((prev) => [...prev, item.id]);
-                                                            } else {
-                                                                setSelectedItems((prev) => prev.filter((id) => id !== item.id));
-                                                            }
-                                                        }}
-                                                    />
-                                                    <div className="flex-1">
-                                                        <h4 className="font-semibold">{item.name}</h4>
-                                                        <p className="text-sm text-muted-foreground">
-                                                            Shopify ID: {item.custrecord_product_shopify_id}
-                                                        </p>
-                                                        <p className="text-sm text-muted-foreground">NetSuite ID: {item.id}</p>
-                                                    </div>
-                                                    <div className="flex space-x-2">
-                                                        <div className="flex items-center space-x-2">
-                                                            <Button
-                                                                size="sm"
-                                                                variant="outline"
-                                                                onClick={() => window.open(getNetSuiteUrl(item), '_blank')}
-                                                                title="Open in NetSuite"
-                                                            >
-                                                                NS
-                                                            </Button>
-                                                            <Button
-                                                                size="sm"
-                                                                variant="outline"
-                                                                onClick={() => window.open(getShopifyAdminUrl(item), '_blank')}
-                                                                title="Open in Shopify Admin"
-                                                            >
-                                                                Shopify
-                                                            </Button>
-                                                        </div>
-                                                        <div className="flex items-center space-x-1">
-                                                            {shopifyImages[item.custrecord_product_shopify_id]?.length > 0 ? (
-                                                                <div className="flex -space-x-1">
-                                                                    {shopifyImages[item.custrecord_product_shopify_id]
-                                                                        .filter(image => image.image?.url)
-                                                                        .slice(0, 3).map((image, imgIndex) => (
-                                                                            <img
-                                                                                key={imgIndex}
-                                                                                src={image.image!.url}
-                                                                                alt={image.alt || 'Product image'}
-                                                                                className="h-8 w-8 rounded-full ring-2 ring-white cursor-pointer hover:opacity-75 transition-opacity"
-                                                                                onClick={() => openImageModal(item, imgIndex)}
-                                                                            />
-                                                                        ))}
-                                                                    {shopifyImages[item.custrecord_product_shopify_id].filter(image => image.image?.url).length > 3 && (
-                                                                        <div
-                                                                            className="h-8 w-8 rounded-full bg-gray-100 ring-2 ring-white flex items-center justify-center text-xs text-gray-600 cursor-pointer hover:bg-gray-200 transition-colors"
-                                                                            onClick={() => openImageModal(item, 3)}
-                                                                        >
-                                                                            +{shopifyImages[item.custrecord_product_shopify_id].filter(image => image.image?.url).length - 3}
-                                                                        </div>
-                                                                    )}
-                                                                </div>
-                                                            ) : (
-                                                                <Button
-                                                                    size="sm"
-                                                                    variant="outline"
-                                                                    onClick={() => loadShopifyImages(item.custrecord_product_shopify_id)}
-                                                                >
-                                                                    <Image className="mr-1 h-3 w-3" />
-                                                                    Load Images
-                                                                </Button>
-                                                            )}
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </div>
-                                ) : (
-                                    <p className="py-8 text-center text-muted-foreground">No products found</p>
-                                )}
-                            </CardContent>
-                        </Card>
 
                         {/* Cropped Images */}
                         <Card>
@@ -838,10 +761,10 @@ export default function ProductPictureManager() {
                             <CardContent>
                                 {croppedImages.length > 0 ? (
                                     <div className="space-y-4">
-                                        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                                        <div className="grid grid-cols-1 gap-1 md:grid-cols-2">
                                             {croppedImages.map((image, index) => (
                                                 <Card key={index}>
-                                                    <CardContent className="p-4">
+                                                    <CardContent className="p-1">
                                                         <img
                                                             src={image}
                                                             alt={`Cropped ${index}`}
@@ -900,21 +823,297 @@ export default function ProductPictureManager() {
                                                 <Checkbox
                                                     id="store-original"
                                                     checked={storeOriginal}
-                                                    onCheckedChange={setStoreOriginal}
+                                                    onCheckedChange={(checked: boolean) => setStoreOriginal(checked)}
                                                 />
                                                 <Label htmlFor="store-original">Store Original</Label>
                                             </div>
 
                                             <Button
                                                 onClick={uploadProcessedImages}
-                                                disabled={loading || croppedImages.length === 0 || selectedItems.length === 0}
+                                                disabled={loadingUpload || croppedImages.length === 0 || selectedItems.length === 0}
                                             >
-                                                {loading ? 'Uploading...' : 'Upload All Images'}
+                                                {loadingUpload ? 'Uploading...' : 'Upload All Images'}
                                             </Button>
                                         </div>
                                     </div>
                                 ) : (
                                     <p className="py-8 text-center text-muted-foreground">No cropped images yet</p>
+                                )}
+                            </CardContent>
+                        </Card>
+                    </div>
+
+                    {/* Main Content */}
+                    <div className="space-y-6 lg:col-span-3">
+                        {/* NetSuite Item Details */}
+                        {loadingNetSuite ? (
+                            <Card>
+                                <CardHeader>
+                                    <CardTitle>NetSuite Item Details</CardTitle>
+                                </CardHeader>
+                                <CardContent>
+                                    <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+                                        <div>
+                                            <Skeleton className="h-3 w-16 mb-1" />
+                                            <Skeleton className="h-4 w-24" />
+                                        </div>
+                                        <div>
+                                            <Skeleton className="h-3 w-12 mb-1" />
+                                            <Skeleton className="h-4 w-20" />
+                                        </div>
+                                        <div>
+                                            <Skeleton className="h-3 w-20 mb-1" />
+                                            <Skeleton className="h-4 w-32" />
+                                        </div>
+                                        <div>
+                                            <Skeleton className="h-3 w-14 mb-1" />
+                                            <Skeleton className="h-4 w-28" />
+                                        </div>
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        ) : netsuiteResults && (
+                            <Card>
+                                <CardHeader>
+                                    <CardTitle>NetSuite Item Details</CardTitle>
+                                </CardHeader>
+                                <CardContent>
+                                    <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+                                        <div>
+                                            <Label className="text-sm text-muted-foreground">Name</Label>
+                                            <p className="font-semibold">{netsuiteResults.displayname}</p>
+                                        </div>
+                                        <div>
+                                            <Label className="text-sm text-muted-foreground">Item ID</Label>
+                                            <p className="font-semibold">{netsuiteResults.id}</p>
+                                        </div>
+                                        <div>
+                                            <Label className="text-sm text-muted-foreground">Description</Label>
+                                            <p className="font-semibold">{netsuiteResults.description}</p>
+                                        </div>
+                                        <div>
+                                            <Label className="text-sm text-muted-foreground">Vendor</Label>
+                                            <p className="font-semibold">{netsuiteResults.vendorname}</p>
+                                        </div>
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        )}
+
+                        {/* Product Items */}
+                        <Card>
+                            <CardHeader>
+                                <CardTitle>Product Items</CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                {loadingNetSuite ? (
+                                    <div className="space-y-4">
+                                        <div className="flex items-center space-x-2">
+                                            <Skeleton className="h-4 w-4" />
+                                            <Skeleton className="h-4 w-32" />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <div className="flex space-x-4">
+                                                <Skeleton className="h-4 w-12" />
+                                                <Skeleton className="h-4 w-32" />
+                                                <Skeleton className="h-4 w-24" />
+                                                <Skeleton className="h-4 w-24" />
+                                                <Skeleton className="h-4 w-16" />
+                                                <Skeleton className="h-4 w-20" />
+                                            </div>
+                                            {Array.from({ length: 3 }).map((_, index) => (
+                                                <div key={index} className="flex space-x-4 py-2">
+                                                    <Skeleton className="h-4 w-4" />
+                                                    <Skeleton className="h-4 w-32" />
+                                                    <Skeleton className="h-4 w-24" />
+                                                    <Skeleton className="h-4 w-24" />
+                                                    <Skeleton className="h-4 w-16" />
+                                                    <div className="flex space-x-2">
+                                                        <Skeleton className="h-6 w-8" />
+                                                        <Skeleton className="h-6 w-16" />
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                ) : productItems.length > 0 ? (
+                                    <div className="space-y-4">
+                                        <div className="flex items-center space-x-2">
+                                            <Checkbox
+                                                id="select-all"
+                                                checked={selectedItems.length === productItems.length}
+                                                onCheckedChange={(checked: boolean) => {
+                                                    if (checked) {
+                                                        setSelectedItems(productItems.map((item) => item.id));
+                                                    } else {
+                                                        setSelectedItems([]);
+                                                    }
+                                                }}
+                                            />
+                                            <Label htmlFor="select-all">Select All Products</Label>
+                                        </div>
+
+                                        <Table>
+                                            <TableHeader>
+                                                <TableRow>
+                                                    <TableHead className="w-12">Select</TableHead>
+                                                    <TableHead>Product Name</TableHead>
+                                                    <TableHead>Shopify ID</TableHead>
+                                                    <TableHead>NetSuite ID</TableHead>
+                                                    <TableHead>Images</TableHead>
+                                                    <TableHead className="text-right">Actions</TableHead>
+                                                </TableRow>
+                                            </TableHeader>
+                                            <TableBody>
+                                                {productItems.map((item) => (
+                                                    <TableRow key={item.id}>
+                                                        <TableCell>
+                                                            <Checkbox
+                                                                checked={selectedItems.includes(item.id)}
+                                                                onCheckedChange={(checked: boolean) => {
+                                                                    if (checked) {
+                                                                        setSelectedItems((prev) => [...prev, item.id]);
+                                                                    } else {
+                                                                        setSelectedItems((prev) => prev.filter((id) => id !== item.id));
+                                                                    }
+                                                                }}
+                                                            />
+                                                        </TableCell>
+                                                        <TableCell className="font-medium">{item.name}</TableCell>
+                                                        <TableCell>{item.custrecord_product_shopify_id}</TableCell>
+                                                        <TableCell>{item.id}</TableCell>
+                                                        <TableCell>
+                                                            {loadingShopifyImages[item.custrecord_product_shopify_id] ? (
+                                                                <div className="flex -space-x-1">
+                                                                    {Array.from({ length: 3 }).map((_, index) => (
+                                                                        <Skeleton key={index} className="h-8 w-8 rounded-full ring-2 ring-white" />
+                                                                    ))}
+                                                                </div>
+                                                            ) : shopifyImages[item.custrecord_product_shopify_id]?.length > 0 ? (
+                                                                <div className="flex -space-x-1">
+                                                                    {shopifyImages[item.custrecord_product_shopify_id]
+                                                                        .filter(image => image.image?.url)
+                                                                        .slice(0, 3).map((image, imgIndex) => (
+                                                                            <img
+                                                                                key={imgIndex}
+                                                                                src={image.image!.url}
+                                                                                alt={image.alt || 'Product image'}
+                                                                                className="h-8 w-8 rounded-full ring-2 ring-white cursor-pointer hover:opacity-75 transition-opacity"
+                                                                                onClick={() => openImageModal(item, imgIndex)}
+                                                                            />
+                                                                        ))}
+                                                                    {shopifyImages[item.custrecord_product_shopify_id].filter(image => image.image?.url).length > 3 && (
+                                                                        <div
+                                                                            className="h-8 w-8 rounded-full bg-gray-100 ring-2 ring-white flex items-center justify-center text-xs text-gray-600 cursor-pointer hover:bg-gray-200 transition-colors"
+                                                                            onClick={() => openImageModal(item, 3)}
+                                                                        >
+                                                                            +{shopifyImages[item.custrecord_product_shopify_id].filter(image => image.image?.url).length - 3}
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+                                                            ) : (
+                                                                <Button
+                                                                    size="sm"
+                                                                    variant="outline"
+                                                                    onClick={() => loadShopifyImages(item.custrecord_product_shopify_id)}
+                                                                >
+                                                                    <Image className="mr-1 h-3 w-3" />
+                                                                    Load
+                                                                </Button>
+                                                            )}
+                                                        </TableCell>
+                                                        <TableCell className="text-right">
+                                                            <div className="flex items-center justify-end space-x-2">
+                                                                <Button
+                                                                    size="sm"
+                                                                    variant="outline"
+                                                                    onClick={() => window.open(getNetSuiteUrl(item), '_blank')}
+                                                                    title="Open in NetSuite"
+                                                                >
+                                                                    NS
+                                                                </Button>
+                                                                <Button
+                                                                    size="sm"
+                                                                    variant="outline"
+                                                                    onClick={() => window.open(getShopifyAdminUrl(item), '_blank')}
+                                                                    title="Open in Shopify Admin"
+                                                                >
+                                                                    Shopify
+                                                                </Button>
+                                                            </div>
+                                                        </TableCell>
+                                                    </TableRow>
+                                                ))}
+                                            </TableBody>
+                                        </Table>
+                                    </div>
+                                ) : (
+                                    <p className="py-8 text-center text-muted-foreground">No products found</p>
+                                )}
+                            </CardContent>
+                        </Card>
+
+                        {/* Google Drive Images */}
+                        <Card>
+                            <CardHeader>
+                                <CardTitle>Google Drive Images</CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                {selectedFolder ? (
+                                    <div className="space-y-4">
+                                        <Badge variant="outline">{selectedFolder.name}</Badge>
+
+                                        {loadingDriveImages ? (
+                                            <div className="grid grid-cols-2 gap-4 md:grid-cols-4 lg:grid-cols-6">
+                                                {Array.from({ length: 6 }).map((_, index) => (
+                                                    <div key={index} className="group relative">
+                                                        <Skeleton className="h-24 w-full rounded-md" />
+                                                        <Skeleton className="absolute left-1 top-1 h-4 w-12 rounded-sm" />
+                                                        <Skeleton className="mt-1 h-4 w-full" />
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        ) : driveImages.length > 0 ? (
+                                            <div className="grid grid-cols-2 gap-4 md:grid-cols-4 lg:grid-cols-6">
+                                                {driveImages.map((image) => (
+                                                    <div key={image.id} className="group relative">
+                                                        <img
+                                                            src={image.tempUrl}
+                                                            alt={image.name}
+                                                            className="h-24 w-full cursor-pointer rounded-md object-cover"
+                                                            onClick={() => addDriveImageToQueue(image)}
+                                                        />
+                                                        <Badge
+                                                            variant={image.isOriginal ? 'default' : 'secondary'}
+                                                            className="absolute left-1 top-1 text-xs"
+                                                        >
+                                                            {image.isOriginal ? 'Original' : 'Processed'}
+                                                        </Badge>
+                                                        <div className="absolute inset-0 flex items-center justify-center rounded-md opacity-0 transition-opacity group-hover:opacity-100">
+                                                            <Button
+                                                                size="sm"
+                                                                variant="secondary"
+                                                                onClick={() => addDriveImageToQueue(image)}
+                                                            >
+                                                                <Download className="h-4 w-4" />
+                                                            </Button>
+                                                        </div>
+                                                        <p className="mt-1 truncate text-center text-xs text-muted-foreground">
+                                                            {image.name}
+                                                        </p>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        ) : (
+                                            <p className="py-8 text-center text-muted-foreground">
+                                                No images found in this folder
+                                            </p>
+                                        )}
+                                    </div>
+                                ) : (
+                                    <p className="py-8 text-center text-muted-foreground">
+                                        Select a folder to view images
+                                    </p>
                                 )}
                             </CardContent>
                         </Card>
@@ -950,7 +1149,6 @@ export default function ProductPictureManager() {
                                 currentIndex={selectedImageIndex}
                                 onNavigate={navigateImage}
                                 onDelete={() => setShowDeleteConfirm(true)}
-                                onClose={() => setShowImageModal(false)}
                                 getNetSuiteUrl={getNetSuiteUrl}
                                 getShopifyAdminUrl={getShopifyAdminUrl}
                             />
@@ -970,8 +1168,8 @@ export default function ProductPictureManager() {
                                 <Button variant="outline" onClick={() => setShowDeleteConfirm(false)}>
                                     Cancel
                                 </Button>
-                                <Button variant="destructive" onClick={handleDeleteImage} disabled={loading}>
-                                    {loading ? 'Deleting...' : 'Delete'}
+                                <Button variant="destructive" onClick={handleDeleteImage} disabled={loadingImageDeletion}>
+                                    {loadingImageDeletion ? 'Deleting...' : 'Delete'}
                                 </Button>
                             </div>
                         </div>
@@ -989,7 +1187,6 @@ interface ImageViewModalProps {
     currentIndex: number;
     onNavigate: (direction: 'next' | 'prev') => void;
     onDelete: () => void;
-    onClose: () => void;
     getNetSuiteUrl: (item: ProductItem) => string;
     getShopifyAdminUrl: (item: ProductItem) => string;
 }
@@ -1000,7 +1197,6 @@ function ImageViewModal({
                             currentIndex,
                             onNavigate,
                             onDelete,
-                            onClose,
                             getNetSuiteUrl,
                             getShopifyAdminUrl
                         }: ImageViewModalProps) {
