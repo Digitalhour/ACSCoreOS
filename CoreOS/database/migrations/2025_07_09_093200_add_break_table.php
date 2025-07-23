@@ -32,9 +32,9 @@ return new class extends Migration
         $this->migrateBreakDataFromAudits();
 
         // Step 3: Remove break fields from time_clocks table (keep break_duration for totals)
-        Schema::table('time_clocks', function (Blueprint $table) {
-            $table->dropColumn(['break_start_at', 'break_end_at', 'break_type_id']);
-        });
+//        Schema::table('time_clocks', function (Blueprint $table) {
+//            $table->dropColumn(['break_start_at', 'break_end_at', 'break_type_id']);
+//        });
     }
 
     public function down(): void
