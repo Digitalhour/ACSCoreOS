@@ -28,7 +28,8 @@ import {Textarea} from '@/components/ui/textarea';
 import AppLayout from '@/layouts/app-layout';
 import {cn} from '@/lib/utils';
 import {type BreadcrumbItem} from '@/types';
-import {Head, router} from '@inertiajs/react';
+import {Head} from '@inertiajs/react';
+import axios from 'axios';
 import {
     Check,
     Edit,
@@ -315,59 +316,46 @@ export default function PtoTypesView() {
         ptoTypes.filter(pt => pt.is_active === false), [ptoTypes]
     );
 
-    const fetchPtoTypes = useCallback(() => {
-        setLoading(true);
+    const fetchPtoTypes = useCallback(async () => {
+        try {
+            setLoading(true);
+            const response = await axios.get('/api/pto-types?with_stats=true');
+            const responseData = response.data.data || response.data;
 
-        router.get('/api/pto-types', { with_stats: true }, {
-            preserveState: true,
-            preserveScroll: true,
-            only: [],
-            onSuccess: (page: any) => {
-                const responseData = page.props || [];
+            // Ensure proper boolean conversion for is_active
+            const processedData = Array.isArray(responseData) ? responseData.map(item => ({
+                ...item,
+                is_active: Boolean(item.is_active),
+                multi_level_approval: Boolean(item.multi_level_approval),
+                disable_hierarchy_approval: Boolean(item.disable_hierarchy_approval),
+                uses_balance: Boolean(item.uses_balance),
+                carryover_allowed: Boolean(item.carryover_allowed),
+                negative_allowed: Boolean(item.negative_allowed),
+                affects_schedule: Boolean(item.affects_schedule),
+                show_in_department_calendar: Boolean(item.show_in_department_calendar),
+            })) : [];
 
-                // Ensure proper boolean conversion for is_active
-                const processedData = Array.isArray(responseData) ? responseData.map(item => ({
-                    ...item,
-                    is_active: Boolean(item.is_active),
-                    multi_level_approval: Boolean(item.multi_level_approval),
-                    disable_hierarchy_approval: Boolean(item.disable_hierarchy_approval),
-                    uses_balance: Boolean(item.uses_balance),
-                    carryover_allowed: Boolean(item.carryover_allowed),
-                    negative_allowed: Boolean(item.negative_allowed),
-                    affects_schedule: Boolean(item.affects_schedule),
-                    show_in_department_calendar: Boolean(item.show_in_department_calendar),
-                })) : [];
+            console.log('Processed PTO Types:', processedData);
+            console.log('Active count:', processedData.filter(pt => pt.is_active).length);
+            console.log('Inactive count:', processedData.filter(pt => !pt.is_active).length);
 
-                console.log('Processed PTO Types:', processedData);
-                console.log('Active count:', processedData.filter(pt => pt.is_active).length);
-                console.log('Inactive count:', processedData.filter(pt => !pt.is_active).length);
-
-                setPtoTypes(processedData);
-            },
-            onError: (errors) => {
-                console.error('Error fetching PTO types:', errors);
-                toast.error('Failed to load PTO types. Please try again.');
-            },
-            onFinish: () => {
-                setLoading(false);
-            }
-        });
+            setPtoTypes(processedData);
+        } catch (error) {
+            console.error('Error fetching PTO types:', error);
+            toast.error('Failed to load PTO types. Please try again.');
+        } finally {
+            setLoading(false);
+        }
     }, []);
 
-    const fetchUsers = useCallback(() => {
-        router.get('/api/users/list', {}, {
-            preserveState: true,
-            preserveScroll: true,
-            only: [],
-            onSuccess: (page: any) => {
-                const usersData = page.props || [];
-                setUsers(Array.isArray(usersData) ? usersData : []);
-            },
-            onError: (errors) => {
-                console.error('Error fetching users:', errors);
-                toast.error('Failed to load users for selection.');
-            }
-        });
+    const fetchUsers = useCallback(async () => {
+        try {
+            const response = await axios.get('/api/users/list');
+            setUsers(response.data || []);
+        } catch (error) {
+            console.error('Error fetching users:', error);
+            toast.error('Failed to load users for selection.');
+        }
     }, []);
 
     useEffect(() => {
@@ -420,101 +408,52 @@ export default function PtoTypesView() {
         setShowDeleteAlert(true);
     }, []);
 
-    const confirmDelete = useCallback(() => {
+    const confirmDelete = useCallback(async () => {
         if (!ptoTypeToDelete) return;
-
-        router.delete(`/api/pto-types/${ptoTypeToDelete.id}`, {
-            preserveState: true,
-            preserveScroll: true,
-            onSuccess: () => {
-                fetchPtoTypes();
-                toast.success(`PTO type "${ptoTypeToDelete.name}" deleted successfully.`);
-                setShowDeleteAlert(false);
-                setPtoTypeToDelete(null);
-            },
-            onError: (errors) => {
-                console.error('Error deleting PTO type:', errors);
-                const errorMessage = typeof errors === 'object' && errors !== null
-                    ? Object.values(errors)[0] as string
-                    : 'Failed to delete PTO type.';
-                toast.error(errorMessage);
-                setShowDeleteAlert(false);
-                setPtoTypeToDelete(null);
-            }
-        });
+        try {
+            await axios.delete(`/api/pto-types/${ptoTypeToDelete.id}`);
+            await fetchPtoTypes();
+            toast.success(`PTO type "${ptoTypeToDelete.name}" deleted successfully.`);
+        } catch (error: any) {
+            toast.error(error.response?.data?.error || 'Failed to delete PTO type.');
+        } finally {
+            setShowDeleteAlert(false);
+            setPtoTypeToDelete(null);
+        }
     }, [ptoTypeToDelete, fetchPtoTypes]);
 
-    const toggleActive = useCallback((ptoType: PtoType) => {
-        router.patch(`/api/pto-types/${ptoType.id}/toggle-active`, {}, {
-            preserveState: true,
-            preserveScroll: true,
-            onSuccess: () => {
-                fetchPtoTypes();
-                toast.success(`PTO type "${ptoType.name}" status updated.`);
-            },
-            onError: (errors) => {
-                console.error('Error toggling PTO type status:', errors);
-                toast.error('Failed to update PTO type status.');
-            }
-        });
+    const toggleActive = useCallback(async (ptoType: PtoType) => {
+        try {
+            await axios.patch(`/api/pto-types/${ptoType.id}/toggle-active`);
+            await fetchPtoTypes();
+            toast.success(`PTO type "${ptoType.name}" status updated.`);
+        } catch (error) {
+            toast.error('Failed to update PTO type status.');
+        }
     }, [fetchPtoTypes]);
 
-    const handleSubmit = useCallback((e: React.FormEvent) => {
+    const handleSubmit = useCallback(async (e: React.FormEvent) => {
         e.preventDefault();
-
         if (!formData.name.trim()) {
             toast.error('PTO type name is required.');
             return;
         }
 
         setSubmitting(true);
+        const url = isEditing ? `/api/pto-types/${currentPtoType!.id}` : '/api/pto-types';
+        const method = isEditing ? 'put' : 'post';
 
-        if (isEditing && currentPtoType) {
-            // Update existing PTO type
-            router.put(`/api/pto-types/${currentPtoType.id}`, formData, {
-                preserveState: true,
-                preserveScroll: true,
-                onSuccess: (page: any) => {
-                    const updatedPtoType = page.props;
-                    if (updatedPtoType) {
-                        toast.success(`PTO type "${updatedPtoType.name}" updated successfully.`);
-                    }
-                    fetchPtoTypes();
-                    resetForm();
-                    setSubmitting(false);
-                },
-                onError: (errors) => {
-                    console.error('Error updating PTO type:', errors);
-                    const errorMessage = typeof errors === 'object' && errors !== null
-                        ? Object.values(errors)[0] as string
-                        : 'Failed to update PTO type.';
-                    toast.error(errorMessage);
-                    setSubmitting(false);
-                }
+        try {
+            const response = await axios[method](url, formData);
+            toast.success(response.data.message);
+            await fetchPtoTypes();
+            resetForm();
+        } catch (error: any) {
+            toast.error(error.response?.data?.error || 'Failed to save PTO type.', {
+                description: error.response?.data?.details,
             });
-        } else {
-            // Create new PTO type
-            router.post('/api/pto-types', formData, {
-                preserveState: true,
-                preserveScroll: true,
-                onSuccess: (page: any) => {
-                    const newPtoType = page.props;
-                    if (newPtoType) {
-                        toast.success(`PTO type "${newPtoType.name}" created successfully.`);
-                    }
-                    fetchPtoTypes();
-                    resetForm();
-                    setSubmitting(false);
-                },
-                onError: (errors) => {
-                    console.error('Error creating PTO type:', errors);
-                    const errorMessage = typeof errors === 'object' && errors !== null
-                        ? Object.values(errors)[0] as string
-                        : 'Failed to create PTO type.';
-                    toast.error(errorMessage);
-                    setSubmitting(false);
-                }
-            });
+        } finally {
+            setSubmitting(false);
         }
     }, [formData, isEditing, currentPtoType, resetForm, fetchPtoTypes]);
 

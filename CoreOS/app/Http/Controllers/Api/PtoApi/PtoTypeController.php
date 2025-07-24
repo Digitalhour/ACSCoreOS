@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\PtoApi;
 
 use App\Http\Controllers\Controller;
 use App\Models\PtoModels\PtoType;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\App;
 use Illuminate\Support\Facades\DB;
@@ -24,7 +25,7 @@ class PtoTypeController extends Controller
     /**
      * Display a listing of the resource.
      */
-    public function index(Request $request)
+    public function index(Request $request): JsonResponse
     {
         try {
             $query = PtoType::query();
@@ -75,29 +76,17 @@ class PtoTypeController extends Controller
                 })
             ]);
 
-            $responseData = [
+            return response()->json([
                 'data' => $ptoTypes->values(), // Reset array keys
                 'meta' => [
                     'total' => $ptoTypes->count(),
                     'active_count' => $activeCount,
                     'inactive_count' => $inactiveCount,
                 ]
-            ];
-
-            // Check if this is an Inertia request
-            if ($request->header('X-Inertia')) {
-                return response()->json($ptoTypes->values());
-            }
-
-            return response()->json($responseData);
+            ]);
 
         } catch (\Exception $e) {
             Log::error("Error fetching PTO Types: " . $e->getMessage());
-
-            if ($request->header('X-Inertia')) {
-                return response()->json(['error' => 'Failed to fetch PTO Types.'], 500);
-            }
-
             return response()->json([
                 'error' => 'Failed to fetch PTO Types.',
                 'details' => App::environment('local') ? $e->getMessage() : 'An unexpected error occurred.'
@@ -108,7 +97,7 @@ class PtoTypeController extends Controller
     /**
      * Store a newly created resource in storage.
      */
-    public function store(Request $request)
+    public function store(Request $request): JsonResponse
     {
         $validator = Validator::make($request->all(), [
             'name' => 'required|string|unique:pto_types,name|max:255',
@@ -129,13 +118,6 @@ class PtoTypeController extends Controller
         ]);
 
         if ($validator->fails()) {
-            if ($request->header('X-Inertia')) {
-                return response()->json([
-                    'error' => 'Validation failed.',
-                    'errors' => $validator->errors()
-                ], 422);
-            }
-
             return response()->json([
                 'error' => 'Validation failed.',
                 'errors' => $validator->errors()
@@ -167,11 +149,6 @@ class PtoTypeController extends Controller
 
             Log::info("PTO Type created: ID {$ptoType->id}, Name: {$ptoType->name}");
 
-            // Handle Inertia vs API response
-            if ($request->header('X-Inertia')) {
-                return response()->json($ptoType);
-            }
-
             return response()->json([
                 'data' => $ptoType,
                 'message' => "PTO Type '{$ptoType->name}' created successfully."
@@ -179,11 +156,6 @@ class PtoTypeController extends Controller
         } catch (\Exception $e) {
             DB::rollBack();
             Log::error("Error creating PTO Type: " . $e->getMessage());
-
-            if ($request->header('X-Inertia')) {
-                return response()->json(['error' => 'Failed to create PTO Type.'], 500);
-            }
-
             return response()->json([
                 'error' => 'Failed to create PTO Type.',
                 'details' => App::environment('local') ? $e->getMessage() : 'An unexpected error occurred.'
@@ -194,25 +166,16 @@ class PtoTypeController extends Controller
     /**
      * Display the specified resource.
      */
-    public function show(PtoType $ptoType, Request $request)
+    public function show(PtoType $ptoType, Request $request): JsonResponse
     {
         try {
             if ($request->boolean('with_stats')) {
                 $ptoType->usage_stats = $ptoType->getUsageStats();
             }
 
-            if ($request->header('X-Inertia')) {
-                return response()->json($ptoType);
-            }
-
             return response()->json(['data' => $ptoType]);
         } catch (\Exception $e) {
             Log::error("Error fetching PTO Type ID {$ptoType->id}: " . $e->getMessage());
-
-            if ($request->header('X-Inertia')) {
-                return response()->json(['error' => 'Failed to fetch PTO Type.'], 500);
-            }
-
             return response()->json([
                 'error' => 'Failed to fetch PTO Type.',
                 'details' => App::environment('local') ? $e->getMessage() : 'An unexpected error occurred.'
@@ -223,7 +186,7 @@ class PtoTypeController extends Controller
     /**
      * Update the specified resource in storage.
      */
-    public function update(Request $request, PtoType $ptoType)
+    public function update(Request $request, PtoType $ptoType): JsonResponse
     {
         $validator = Validator::make($request->all(), [
             'name' => ['required', 'string', 'max:255', Rule::unique('pto_types')->ignore($ptoType->id)],
@@ -244,13 +207,6 @@ class PtoTypeController extends Controller
         ]);
 
         if ($validator->fails()) {
-            if ($request->header('X-Inertia')) {
-                return response()->json([
-                    'error' => 'Validation failed.',
-                    'errors' => $validator->errors()
-                ], 422);
-            }
-
             return response()->json(['error' => 'Validation failed.', 'errors' => $validator->errors()], 422);
         }
 
@@ -277,11 +233,6 @@ class PtoTypeController extends Controller
 
             DB::commit();
 
-            // Handle Inertia vs API response
-            if ($request->header('X-Inertia')) {
-                return response()->json($ptoType);
-            }
-
             return response()->json([
                 'data' => $ptoType,
                 'message' => "PTO Type '{$ptoType->name}' updated successfully."
@@ -289,11 +240,6 @@ class PtoTypeController extends Controller
         } catch (\Exception $e) {
             DB::rollBack();
             Log::error("Error updating PTO Type ID {$ptoType->id}: " . $e->getMessage());
-
-            if ($request->header('X-Inertia')) {
-                return response()->json(['error' => 'Failed to update PTO Type.'], 500);
-            }
-
             return response()->json([
                 'error' => 'Failed to update PTO Type.',
                 'details' => App::environment('local') ? $e->getMessage() : 'An unexpected error occurred.'
@@ -304,7 +250,7 @@ class PtoTypeController extends Controller
     /**
      * Remove the specified resource from storage.
      */
-    public function destroy(PtoType $ptoType, Request $request)
+    public function destroy(PtoType $ptoType): JsonResponse
     {
         try {
             DB::beginTransaction();
@@ -324,15 +270,9 @@ class PtoTypeController extends Controller
                     $usageDetails[] = "{$stats['users_with_balance_count']} user balance(s)";
                 }
 
-                $errorMessage = "This PTO type is being used by: " . implode(', ', $usageDetails) . ". Please reassign or resolve these dependencies first.";
-
-                if ($request->header('X-Inertia')) {
-                    return response()->json(['error' => $errorMessage], 422);
-                }
-
                 return response()->json([
                     'error' => 'Cannot delete PTO Type.',
-                    'message' => $errorMessage
+                    'message' => "This PTO type is being used by: " . implode(', ', $usageDetails) . ". Please reassign or resolve these dependencies first."
                 ], 422);
             }
 
@@ -346,11 +286,6 @@ class PtoTypeController extends Controller
 
             Log::info("PTO Type soft deleted: ID {$ptoTypeId}, Name: {$ptoTypeName}");
 
-            // Handle Inertia vs API response
-            if ($request->header('X-Inertia')) {
-                return response()->json(['success' => true]);
-            }
-
             return response()->json([
                 'message' => "PTO Type '{$ptoTypeName}' deleted successfully."
             ], 200);
@@ -358,10 +293,6 @@ class PtoTypeController extends Controller
         } catch (\Exception $e) {
             DB::rollBack();
             Log::error("Error deleting PTO Type ID {$ptoType->id}: " . $e->getMessage());
-
-            if ($request->header('X-Inertia')) {
-                return response()->json(['error' => 'Failed to delete PTO Type.'], 500);
-            }
 
             return response()->json([
                 'error' => 'Failed to delete PTO Type.',
@@ -373,7 +304,7 @@ class PtoTypeController extends Controller
     /**
      * Toggle the active status of the specified PTO type.
      */
-    public function toggleActive(PtoType $ptoType, Request $request)
+    public function toggleActive(PtoType $ptoType): JsonResponse
     {
         try {
             DB::beginTransaction();
@@ -387,11 +318,6 @@ class PtoTypeController extends Controller
             $status = $ptoType->is_active ? 'active' : 'inactive';
             Log::info("PTO Type status toggled: ID {$ptoType->id}, Name: {$ptoType->name}, Status: {$status}");
 
-            // Handle Inertia vs API response
-            if ($request->header('X-Inertia')) {
-                return response()->json($ptoType);
-            }
-
             return response()->json([
                 'data' => $ptoType,
                 'message' => "PTO Type '{$ptoType->name}' is now {$status}."
@@ -400,10 +326,6 @@ class PtoTypeController extends Controller
         } catch (\Exception $e) {
             DB::rollBack();
             Log::error("Error toggling PTO Type status ID {$ptoType->id}: " . $e->getMessage());
-
-            if ($request->header('X-Inertia')) {
-                return response()->json(['error' => 'Failed to toggle PTO Type status.'], 500);
-            }
 
             return response()->json([
                 'error' => 'Failed to toggle PTO Type status.',
