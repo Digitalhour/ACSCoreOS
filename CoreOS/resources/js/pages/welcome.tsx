@@ -27,8 +27,8 @@ export default function Welcome() {
             setTimeout(() => {
                 setIsFading(false)
                 setPrevIndex(null)
-            }, 1000) // match fade duration
-        }, 10000) // switch every 10 seconds
+            }, 2000) // match fade duration
+        }, 9000) // switch every 10 seconds
 
         return () => clearInterval(interval)
     }, [currentIndex, videos.length])
