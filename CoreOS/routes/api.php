@@ -109,7 +109,7 @@ ValidateSessionWithWorkOS::class,
             Route::delete('{pto_policy}', [PtoPolicyController::class, 'destroy'])->name('destroy');
         });
 
-// User-specific policy routes
+        // User-specific policy routes
         Route::get('users/{user}/pto-policies',
             [PtoPolicyController::class, 'getUserPolicies'])->name('users.pto-policies');
 

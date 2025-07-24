@@ -8,10 +8,10 @@ use App\Models\PtoModels\PtoPolicy;
 use App\Models\PtoModels\PtoType;
 use App\Models\User;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\App;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
+use Inertia\Inertia;
 
 class PtoPolicyController extends Controller
 {
@@ -34,31 +34,22 @@ class PtoPolicyController extends Controller
 
             $policies = $query->orderBy('user_id')->orderBy('pto_type_id')->get();
 
-            $responseData = [
-                'data' => $policies,
+            return Inertia::render('PtoPolicies/Index', [
+                'policies' => $policies,
                 'meta' => [
                     'total' => $policies->count(),
                     'active_count' => $policies->filter(fn($p) => $p->isCurrentlyActive())->count(),
-                ]
-            ];
-
-            // Check if this is an Inertia request
-            if ($request->header('X-Inertia')) {
-                return response()->json($policies);
-            }
-
-            return response()->json($responseData);
+                ],
+                'filters' => $request->only(['active_only', 'pto_type_id', 'user_id'])
+            ]);
         } catch (\Exception $e) {
             Log::error("Error fetching PTO Policies: ".$e->getMessage());
 
-            if ($request->header('X-Inertia')) {
-                return response()->json(['error' => 'Failed to fetch PTO Policies.'], 500);
-            }
-
-            return response()->json([
-                'error' => 'Failed to fetch PTO Policies.',
-                'details' => App::environment('local') ? $e->getMessage() : 'An unexpected error occurred.'
-            ], 500);
+            return Inertia::render('PtoPolicies/Index', [
+                'policies' => [],
+                'meta' => ['total' => 0, 'active_count' => 0],
+                'error' => 'Failed to fetch PTO Policies.'
+            ]);
         }
     }
 
@@ -84,17 +75,7 @@ class PtoPolicyController extends Controller
         ]);
 
         if ($validator->fails()) {
-            if ($request->header('X-Inertia')) {
-                return response()->json([
-                    'error' => 'Validation failed.',
-                    'errors' => $validator->errors()
-                ], 422);
-            }
-
-            return response()->json([
-                'error' => 'Validation failed.',
-                'errors' => $validator->errors()
-            ], 422);
+            return redirect()->back()->withErrors($validator)->withInput();
         }
 
         try {
@@ -125,51 +106,31 @@ class PtoPolicyController extends Controller
 
             Log::info("PTO Policy created: ID {$ptoPolicy->id}");
 
-            // Handle Inertia vs API response
-            if ($request->header('X-Inertia')) {
-                return response()->json($ptoPolicy);
-            }
-
-            return response()->json([
-                'data' => $ptoPolicy,
-                'message' => "PTO Policy created successfully."
-            ], 201);
+            return redirect()->route('pto-policies.index')
+                ->with('success', 'PTO Policy created successfully.');
         } catch (\Exception $e) {
             DB::rollBack();
             Log::error("Error creating PTO Policy: ".$e->getMessage());
 
-            if ($request->header('X-Inertia')) {
-                return response()->json(['error' => 'Failed to create PTO Policy.'], 500);
-            }
-
-            return response()->json([
-                'error' => 'Failed to create PTO Policy.',
-                'details' => App::environment('local') ? $e->getMessage() : 'An unexpected error occurred.'
-            ], 500);
+            return redirect()->back()
+                ->withErrors(['error' => 'Failed to create PTO Policy.'])
+                ->withInput();
         }
     }
 
-    public function show(PtoPolicy $ptoPolicy, Request $request)
+    public function show(PtoPolicy $ptoPolicy)
     {
         try {
             $ptoPolicy->load(['ptoType', 'user']);
 
-            if ($request->header('X-Inertia')) {
-                return response()->json($ptoPolicy);
-            }
-
-            return response()->json(['data' => $ptoPolicy]);
+            return Inertia::render('PtoPolicies/Show', [
+                'policy' => $ptoPolicy
+            ]);
         } catch (\Exception $e) {
             Log::error("Error fetching PTO Policy ID {$ptoPolicy->id}: ".$e->getMessage());
 
-            if ($request->header('X-Inertia')) {
-                return response()->json(['error' => 'Failed to fetch PTO Policy.'], 500);
-            }
-
-            return response()->json([
-                'error' => 'Failed to fetch PTO Policy.',
-                'details' => App::environment('local') ? $e->getMessage() : 'An unexpected error occurred.'
-            ], 500);
+            return redirect()->route('pto-policies.index')
+                ->withErrors(['error' => 'Failed to fetch PTO Policy.']);
         }
     }
 
@@ -195,17 +156,7 @@ class PtoPolicyController extends Controller
         ]);
 
         if ($validator->fails()) {
-            if ($request->header('X-Inertia')) {
-                return response()->json([
-                    'error' => 'Validation failed.',
-                    'errors' => $validator->errors()
-                ], 422);
-            }
-
-            return response()->json([
-                'error' => 'Validation failed.',
-                'errors' => $validator->errors()
-            ], 422);
+            return redirect()->back()->withErrors($validator)->withInput();
         }
 
         try {
@@ -227,36 +178,23 @@ class PtoPolicyController extends Controller
 
             DB::commit();
 
-            // Handle Inertia vs API response
-            if ($request->header('X-Inertia')) {
-                return response()->json($ptoPolicy);
-            }
-
-            return response()->json([
-                'data' => $ptoPolicy,
-                'message' => "PTO Policy updated successfully."
-            ]);
+            return redirect()->route('pto-policies.show', $ptoPolicy)
+                ->with('success', 'PTO Policy updated successfully.');
         } catch (\Exception $e) {
             DB::rollBack();
             Log::error("Error updating PTO Policy ID {$ptoPolicy->id}: ".$e->getMessage());
 
-            if ($request->header('X-Inertia')) {
-                return response()->json(['error' => 'Failed to update PTO Policy.'], 500);
-            }
-
-            return response()->json([
-                'error' => 'Failed to update PTO Policy.',
-                'details' => App::environment('local') ? $e->getMessage() : 'An unexpected error occurred.'
-            ], 500);
+            return redirect()->back()
+                ->withErrors(['error' => 'Failed to update PTO Policy.'])
+                ->withInput();
         }
     }
 
-    public function destroy(PtoPolicy $ptoPolicy, Request $request)
+    public function destroy(PtoPolicy $ptoPolicy)
     {
         try {
             DB::beginTransaction();
 
-            $ptoPolicyName = $ptoPolicy->name;
             $ptoPolicyId = $ptoPolicy->id;
             $userId = $ptoPolicy->user_id;
             $ptoTypeId = $ptoPolicy->pto_type_id;
@@ -273,26 +211,14 @@ class PtoPolicyController extends Controller
 
             Log::info("PTO Policy deleted: ID {$ptoPolicyId}");
 
-            // Handle Inertia vs API response
-            if ($request->header('X-Inertia')) {
-                return response()->json(['success' => true]);
-            }
-
-            return response()->json([
-                'message' => "PTO Policy deleted successfully."
-            ], 200);
+            return redirect()->route('pto-policies.index')
+                ->with('success', 'PTO Policy deleted successfully.');
         } catch (\Exception $e) {
             DB::rollBack();
             Log::error("Error deleting PTO Policy ID {$ptoPolicy->id}: ".$e->getMessage());
 
-            if ($request->header('X-Inertia')) {
-                return response()->json(['error' => 'Failed to delete PTO Policy.'], 500);
-            }
-
-            return response()->json([
-                'error' => 'Failed to delete PTO Policy.',
-                'details' => App::environment('local') ? $e->getMessage() : 'An unexpected error occurred.'
-            ], 500);
+            return redirect()->route('pto-policies.index')
+                ->withErrors(['error' => 'Failed to delete PTO Policy.']);
         }
     }
 
@@ -307,32 +233,24 @@ class PtoPolicyController extends Controller
 
             $policies = $query->get();
 
-            $responseData = [
-                'data' => $policies,
+            return Inertia::render('Users/PtoPolicies', [
+                'user' => $user->only(['id', 'name', 'email']),
+                'policies' => $policies,
                 'meta' => [
-                    'user' => $user->only(['id', 'name', 'email']),
                     'total' => $policies->count(),
                     'active_count' => $policies->filter(fn($p) => $p->isCurrentlyActive())->count(),
-                ]
-            ];
-
-            // Handle Inertia vs API response
-            if ($request->header('X-Inertia')) {
-                return response()->json($policies);
-            }
-
-            return response()->json($responseData);
+                ],
+                'filters' => $request->only(['active_only'])
+            ]);
         } catch (\Exception $e) {
             Log::error("Error fetching policies for user {$user->id}: ".$e->getMessage());
 
-            if ($request->header('X-Inertia')) {
-                return response()->json(['error' => 'Failed to fetch user policies.'], 500);
-            }
-
-            return response()->json([
-                'error' => 'Failed to fetch user policies.',
-                'details' => App::environment('local') ? $e->getMessage() : 'An unexpected error occurred.'
-            ], 500);
+            return Inertia::render('Users/PtoPolicies', [
+                'user' => $user->only(['id', 'name', 'email']),
+                'policies' => [],
+                'meta' => ['total' => 0, 'active_count' => 0],
+                'error' => 'Failed to fetch user policies.'
+            ]);
         }
     }
 
