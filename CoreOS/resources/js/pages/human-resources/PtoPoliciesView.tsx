@@ -158,8 +158,9 @@ export default function PtoPoliciesView() {
                 preserveState: true,
                 preserveScroll: true,
                 only: [],
-                onSuccess: (response: any) => {
-                    const policiesData = response.props?.data || response?.data || [];
+                onSuccess: (page: any) => {
+                    // Inertia passes response data directly
+                    const policiesData = page.props || [];
                     setPtoPolicies(Array.isArray(policiesData) ? policiesData : []);
                 },
                 onError: (errors) => {
@@ -173,8 +174,8 @@ export default function PtoPoliciesView() {
                 preserveState: true,
                 preserveScroll: true,
                 only: [],
-                onSuccess: (response: any) => {
-                    const usersData = response.props?.data || response?.data || [];
+                onSuccess: (page: any) => {
+                    const usersData = page.props || [];
                     setUsers(Array.isArray(usersData) ? usersData : []);
                 },
                 onError: (errors) => {
@@ -188,8 +189,8 @@ export default function PtoPoliciesView() {
                 preserveState: true,
                 preserveScroll: true,
                 only: [],
-                onSuccess: (response: any) => {
-                    const typesData = response.props?.data || response?.data || [];
+                onSuccess: (page: any) => {
+                    const typesData = page.props || [];
                     setPtoTypes(Array.isArray(typesData) ? typesData : []);
                 },
                 onError: (errors) => {
@@ -349,8 +350,8 @@ export default function PtoPoliciesView() {
                 router.put(`/api/pto-policies/${currentPolicy.id}`, submitData, {
                     preserveState: true,
                     preserveScroll: true,
-                    onSuccess: (response: any) => {
-                        const updatedPolicy = response.props?.data || response?.data;
+                    onSuccess: (page: any) => {
+                        const updatedPolicy = page.props;
                         if (updatedPolicy) {
                             setPtoPolicies((prev) =>
                                 prev.map((policy) => (policy.id === currentPolicy.id ? updatedPolicy : policy))
@@ -374,8 +375,8 @@ export default function PtoPoliciesView() {
                 router.post('/api/pto-policies', submitData, {
                     preserveState: true,
                     preserveScroll: true,
-                    onSuccess: (response: any) => {
-                        const newPolicy = response.props?.data || response?.data;
+                    onSuccess: (page: any) => {
+                        const newPolicy = page.props;
                         if (newPolicy) {
                             setPtoPolicies((prev) => [...prev, newPolicy]);
                             toast.success(`PTO policy "${newPolicy.name}" created successfully.`);
