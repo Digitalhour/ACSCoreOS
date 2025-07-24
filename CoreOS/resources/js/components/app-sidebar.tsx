@@ -47,7 +47,7 @@ const mainNavItems: NavItem[] = [
     // { title: 'ACS Organization', href: '/acs-org', icon: Users, permission: '', description:null}, // Shows if permission is empty string
     // { title: 'ACS PermissionTest', href: '/test', icon: Users, permission: 'AdminMenu', description:null },
     // { title: 'ACS RoleTest', href: '/Roletest', icon: Users, roles: '', description:null},
-    // { title: 'ACS Parts Database', href: '/parts-catalog', icon: Users, roles: '', description:null },
+    { title: 'ACS Parts Database', href: '/parts-catalog', icon: Users, roles: '', description:null },
     // { title: 'ACS Org', href: '/organization-chart', icon: Users, roles: '',description:null },
 
     { title: 'Department PTO', href: '/department-pto', icon: Users, description:null },
@@ -60,7 +60,7 @@ const mainNavItems: NavItem[] = [
     // New Training Stuff Not in use right now, Use Old style for right now.
     // { title: 'Your Training', href: '/training', icon:BookOpenText , description:null },
     // { title: 'Training Dashboard', href: '/admin/reports', icon:BookOpenText , description:null },
-    // { title: 'Old Training Dashboard', href: route('old-style-training-tracking.index'), icon:BookOpenText , description:null },
+    { title: 'Old Training Dashboard', href: route('old-style-training-tracking.index'), icon:BookOpenText , description:null },
     { title: 'My Timesheet', href: route('time-clock.employee'), icon:BookOpenText , description:null },
     { title: 'Timesheet Manager Dash', href: route('time-clock.manager.dashboard'), icon:BookOpenText , description:null },
     { title: 'Timesheet Payroll Dash', href: route('time-clock.payroll.dashboard'), icon:BookOpenText , description:null },

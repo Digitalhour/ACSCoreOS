@@ -102,7 +102,7 @@ export default function Welcome() {
                     </p>
 
                 </div>
-                
+
             </div>
         </>
     )
