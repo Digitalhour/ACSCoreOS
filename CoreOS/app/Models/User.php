@@ -79,7 +79,10 @@ class User extends Authenticatable
     {
         return $this->belongsToMany(Department::class)->withPivot('assigned_at')->withTimestamps();
     }
-
+    public function activities()
+    {
+        return $this->morphMany(\Spatie\Activitylog\Models\Activity::class, 'subject');
+    }
     /**
      * Get the user's current position.
      */

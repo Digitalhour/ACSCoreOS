@@ -96,8 +96,14 @@ Route::middleware([
                 'title' => 'Admin Dashboard',
                 'userStats' => [
                     'totalUsers' => User::count(),
-                    'activeUsers' => User::where('last_login_at', '>=', now()->subDays(30))->count(),
-                    'totalLogins' => User::sum('login_count')
+                    'activeUsers' => User::whereHas('activities', function ($query) {
+                        $query->where('log_name', 'UserModel')
+                            ->whereRaw("JSON_EXTRACT(properties, '$.attributes.last_login_at') IS NOT NULL")
+                            ->whereRaw("JSON_EXTRACT(properties, '$.attributes.last_login_at') >= ?", [
+                                now()->subDays(30)->format('Y-m-d H:i:s')
+                            ]);
+                    })->count(),
+                    'totalLogins' => 0 // Remove if you don't have login_count column
                 ]
             ]);
         })->name('admin.index');
