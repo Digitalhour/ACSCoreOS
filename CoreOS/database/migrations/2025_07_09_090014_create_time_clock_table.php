@@ -16,12 +16,13 @@ return new class extends Migration
             $table->foreignId('user_id')->constrained()->cascadeOnDelete();
             $table->timestamp('clock_in_at');
             $table->timestamp('clock_out_at')->nullable();
-            $table->timestamp('break_start_at')->nullable();
-            $table->timestamp('break_end_at')->nullable();
-            $table->foreignId('break_type_id')->nullable()->constrained()->nullOnDelete();
+            $table->enum('punch_type', ['work', 'break'])->default('work')->after('user_id');
+
+            // Add break_type_id back (for break punches only)
+            $table->foreignId('break_type_id')->nullable()->after('punch_type')->constrained()->nullOnDelete();
+
             $table->decimal('regular_hours', 5, 2)->default(0);
             $table->decimal('overtime_hours', 5, 2)->default(0);
-            $table->decimal('break_duration', 5, 2)->default(0); // in hours
             $table->text('notes')->nullable();
             $table->enum('status', ['active', 'completed', 'pending_approval'])->default('active');
             $table->json('location_data')->nullable(); // For GPS coordinates if needed
@@ -29,9 +30,7 @@ return new class extends Migration
             $table->softDeletes();
 
             // Indexes
-            $table->index(['user_id', 'clock_in_at']);
-            $table->index(['user_id', 'status']);
-            $table->index('clock_in_at');
+            $table->index(['user_id', 'punch_type', 'status']);
         });
     }
 
