@@ -44,28 +44,15 @@ return new class extends Migration
 
         // Add index for efficient querying
         Schema::table('time_clocks', function (Blueprint $table) {
-            // Check if index doesn't already exist
-            $indexName = 'time_clocks_user_id_punch_type_status_index';
-            $indexes = Schema::getConnection()->getDoctrineSchemaManager()
-                ->listTableIndexes('time_clocks');
-
-            if (!isset($indexes[$indexName])) {
-                $table->index(['user_id', 'punch_type', 'status'], $indexName);
-            }
+            $table->index(['user_id', 'punch_type', 'status']);
         });
     }
 
     public function down(): void
     {
         Schema::table('time_clocks', function (Blueprint $table) {
-            // Drop index if it exists
-            $indexName = 'time_clocks_user_id_punch_type_status_index';
-            $indexes = Schema::getConnection()->getDoctrineSchemaManager()
-                ->listTableIndexes('time_clocks');
-
-            if (isset($indexes[$indexName])) {
-                $table->dropIndex($indexName);
-            }
+            // Drop index (Laravel will ignore if it doesn't exist)
+            $table->dropIndex(['user_id', 'punch_type', 'status']);
 
             // Drop foreign key and columns if they exist
             if (Schema::hasColumn('time_clocks', 'break_type_id')) {
