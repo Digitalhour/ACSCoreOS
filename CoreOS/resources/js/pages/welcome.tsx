@@ -102,21 +102,7 @@ export default function Welcome() {
                     </p>
 
                 </div>
-                {auth.user ? (
-                    <Link
-                        href={route('dashboard')}
-                        className="rounded-sm border border-white/30 px-5 py-1.5 hover:border-white/50"
-                    >
-                        Dashboard
-                    </Link>
-                ) : (
-                    <Link
-                        href={route('login')}
-                        className="rounded-sm border border-transparent px-5 py-1.5 hover:border-white/30"
-                    >
-                        Log in
-                    </Link>
-                )}
+                
             </div>
         </>
     )
