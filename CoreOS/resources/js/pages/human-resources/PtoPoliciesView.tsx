@@ -28,7 +28,8 @@ import {Textarea} from '@/components/ui/textarea';
 import AppLayout from '@/layouts/app-layout';
 import HrLayout from "@/layouts/settings/hr-layout";
 import {type BreadcrumbItem} from '@/types';
-import {Head, router} from '@inertiajs/react';
+import {Head} from '@inertiajs/react';
+import axios from 'axios';
 import {Edit, Loader2, Plus, Save, Search, Trash2, User, X} from 'lucide-react';
 import {useCallback, useEffect, useState} from 'react';
 import {toast} from 'sonner';
@@ -153,58 +154,23 @@ export default function PtoPoliciesView() {
         try {
             setLoading(true);
 
-            // Fetch PTO policies
-            router.get('/api/pto-policies', {}, {
-                preserveState: true,
-                preserveScroll: true,
-                only: [],
-                onSuccess: (page: any) => {
-                    // Inertia passes response data directly
-                    const policiesData = page.props || [];
-                    setPtoPolicies(Array.isArray(policiesData) ? policiesData : []);
-                },
-                onError: (errors) => {
-                    console.error('Error fetching policies:', errors);
-                    toast.error('Failed to load PTO policies.');
-                }
-            });
+            const [policiesResponse, usersResponse, typesResponse] = await Promise.all([
+                axios.get('/api/pto-policies'),
+                axios.get('/api/users'),
+                axios.get('/api/pto-types?active_only=true'),
+            ]);
 
-            // Fetch users
-            router.get('/api/users', {}, {
-                preserveState: true,
-                preserveScroll: true,
-                only: [],
-                onSuccess: (page: any) => {
-                    const usersData = page.props || [];
-                    setUsers(Array.isArray(usersData) ? usersData : []);
-                },
-                onError: (errors) => {
-                    console.error('Error fetching users:', errors);
-                    toast.error('Failed to load users.');
-                }
-            });
+            const policiesData = policiesResponse.data.data || policiesResponse.data;
+            const usersData = usersResponse.data.data || usersResponse.data;
+            const typesData = typesResponse.data.data || typesResponse.data;
 
-            // Fetch PTO types
-            router.get('/api/pto-types', { active_only: true }, {
-                preserveState: true,
-                preserveScroll: true,
-                only: [],
-                onSuccess: (page: any) => {
-                    const typesData = page.props || [];
-                    setPtoTypes(Array.isArray(typesData) ? typesData : []);
-                },
-                onError: (errors) => {
-                    console.error('Error fetching PTO types:', errors);
-                    toast.error('Failed to load PTO types.');
-                },
-                onFinish: () => {
-                    setLoading(false);
-                }
-            });
-
+            setPtoPolicies(Array.isArray(policiesData) ? policiesData : []);
+            setUsers(Array.isArray(usersData) ? usersData : []);
+            setPtoTypes(Array.isArray(typesData) ? typesData : []);
         } catch (error) {
             console.error('Error fetching data:', error);
             toast.error('Failed to load data. Please try again.');
+        } finally {
             setLoading(false);
         }
     }, []);
@@ -303,33 +269,26 @@ export default function PtoPoliciesView() {
     }, []);
 
     // Confirm delete
-    const confirmDelete = useCallback(() => {
+    const confirmDelete = useCallback(async () => {
         if (!policyToDelete) return;
 
-        router.delete(`/api/pto-policies/${policyToDelete.id}`, {
-            preserveState: true,
-            preserveScroll: true,
-            onSuccess: () => {
-                setPtoPolicies((prev) => prev.filter((policy) => policy.id !== policyToDelete.id));
-                toast.success(`PTO policy "${policyToDelete.name}" deleted successfully.`);
-                setShowDeleteAlert(false);
-                setPolicyToDelete(null);
-            },
-            onError: (errors) => {
-                console.error('Error deleting policy:', errors);
-                const errorMessage = typeof errors === 'object' && errors !== null
-                    ? Object.values(errors)[0] as string
-                    : 'Failed to delete PTO policy.';
-                toast.error(errorMessage);
-                setShowDeleteAlert(false);
-                setPolicyToDelete(null);
-            }
-        });
+        try {
+            await axios.delete(`/api/pto-policies/${policyToDelete.id}`);
+            setPtoPolicies((prev) => prev.filter((policy) => policy.id !== policyToDelete.id));
+            toast.success(`PTO policy "${policyToDelete.name}" deleted successfully.`);
+        } catch (error: any) {
+            console.error('Error deleting policy:', error);
+            const errorMessage = error.response?.data?.error || 'Failed to delete PTO policy.';
+            toast.error(errorMessage);
+        } finally {
+            setShowDeleteAlert(false);
+            setPolicyToDelete(null);
+        }
     }, [policyToDelete]);
 
     // Submit form
     const handleSubmit = useCallback(
-        (e: React.FormEvent) => {
+        async (e: React.FormEvent) => {
             e.preventDefault();
 
             if (!formData.pto_type_id || !formData.user_id) {
@@ -337,62 +296,37 @@ export default function PtoPoliciesView() {
                 return;
             }
 
-            setSubmitting(true);
+            try {
+                setSubmitting(true);
 
-            const submitData = {
-                ...formData,
-                max_rollover_days: formData.max_rollover_days === '' ? null : formData.max_rollover_days,
-                end_date: formData.end_date === '' ? null : formData.end_date,
-            };
+                const submitData = {
+                    ...formData,
+                    max_rollover_days: formData.max_rollover_days === '' ? null : formData.max_rollover_days,
+                    end_date: formData.end_date === '' ? null : formData.end_date,
+                };
 
-            if (isEditing && currentPolicy) {
-                // Update existing policy
-                router.put(`/api/pto-policies/${currentPolicy.id}`, submitData, {
-                    preserveState: true,
-                    preserveScroll: true,
-                    onSuccess: (page: any) => {
-                        const updatedPolicy = page.props;
-                        if (updatedPolicy) {
-                            setPtoPolicies((prev) =>
-                                prev.map((policy) => (policy.id === currentPolicy.id ? updatedPolicy : policy))
-                            );
-                            toast.success(`PTO policy "${updatedPolicy.name}" updated successfully.`);
-                        }
-                        resetForm();
-                        setSubmitting(false);
-                    },
-                    onError: (errors) => {
-                        console.error('Error updating policy:', errors);
-                        const errorMessage = typeof errors === 'object' && errors !== null
-                            ? Object.values(errors)[0] as string
-                            : 'Failed to update PTO policy.';
-                        toast.error(errorMessage);
-                        setSubmitting(false);
-                    }
-                });
-            } else {
-                // Create new policy
-                router.post('/api/pto-policies', submitData, {
-                    preserveState: true,
-                    preserveScroll: true,
-                    onSuccess: (page: any) => {
-                        const newPolicy = page.props;
-                        if (newPolicy) {
-                            setPtoPolicies((prev) => [...prev, newPolicy]);
-                            toast.success(`PTO policy "${newPolicy.name}" created successfully.`);
-                        }
-                        resetForm();
-                        setSubmitting(false);
-                    },
-                    onError: (errors) => {
-                        console.error('Error creating policy:', errors);
-                        const errorMessage = typeof errors === 'object' && errors !== null
-                            ? Object.values(errors)[0] as string
-                            : 'Failed to create PTO policy.';
-                        toast.error(errorMessage);
-                        setSubmitting(false);
-                    }
-                });
+                if (isEditing && currentPolicy) {
+                    const response = await axios.put(`/api/pto-policies/${currentPolicy.id}`, submitData);
+                    const updatedPolicy = response.data.data;
+
+                    setPtoPolicies((prev) => prev.map((policy) => (policy.id === currentPolicy.id ? updatedPolicy : policy)));
+
+                    toast.success(`PTO policy "${updatedPolicy.name}" updated successfully.`);
+                } else {
+                    const response = await axios.post('/api/pto-policies', submitData);
+                    const newPolicy = response.data.data;
+
+                    setPtoPolicies((prev) => [...prev, newPolicy]);
+                    toast.success(`PTO policy "${newPolicy.name}" created successfully.`);
+                }
+
+                resetForm();
+            } catch (error: any) {
+                console.error('Error saving policy:', error);
+                const errorMessage = error.response?.data?.error || 'Failed to save PTO policy.';
+                toast.error(errorMessage);
+            } finally {
+                setSubmitting(false);
             }
         },
         [formData, isEditing, currentPolicy, resetForm],
@@ -420,6 +354,7 @@ export default function PtoPoliciesView() {
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
+
             <Head title="Manage PTO Policies" />
             <HrLayout>
                 <div className="flex h-full flex-1 flex-col gap-6 p-4">
