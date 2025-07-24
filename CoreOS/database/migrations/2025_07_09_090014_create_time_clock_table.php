@@ -14,13 +14,10 @@ return new class extends Migration
         Schema::create('time_clocks', function (Blueprint $table) {
             $table->id();
             $table->foreignId('user_id')->constrained()->cascadeOnDelete();
+            $table->enum('punch_type', ['work', 'break'])->default('work');
+            $table->foreignId('break_type_id')->nullable()->constrained()->nullOnDelete();
             $table->timestamp('clock_in_at');
             $table->timestamp('clock_out_at')->nullable();
-            $table->enum('punch_type', ['work', 'break'])->default('work')->after('user_id');
-
-            // Add break_type_id back (for break punches only)
-            $table->foreignId('break_type_id')->nullable()->after('punch_type')->constrained()->nullOnDelete();
-
             $table->decimal('regular_hours', 5, 2)->default(0);
             $table->decimal('overtime_hours', 5, 2)->default(0);
             $table->text('notes')->nullable();
