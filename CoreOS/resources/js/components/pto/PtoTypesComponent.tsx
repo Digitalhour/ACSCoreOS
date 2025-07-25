@@ -8,20 +8,41 @@ import {
     AlertDialogHeader,
     AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Switch } from '@/components/ui/switch';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Textarea } from '@/components/ui/textarea';
-import { cn } from '@/lib/utils';
+import {Badge} from '@/components/ui/badge';
+import {Button} from '@/components/ui/button';
+import {Card, CardContent, CardHeader, CardTitle} from '@/components/ui/card';
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle
+} from '@/components/ui/dialog';
+import {Input} from '@/components/ui/input';
+import {Label} from '@/components/ui/label';
+import {Switch} from '@/components/ui/switch';
+import {Table, TableBody, TableCell, TableHead, TableHeader, TableRow} from '@/components/ui/table';
+import {Textarea} from '@/components/ui/textarea';
+import {cn} from '@/lib/utils';
 import axios from 'axios';
-import { Check, Edit, Eye, EyeOff, Gavel, Info, Loader2, Plus, Save, Search, Settings2, Trash2, Users } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { toast } from 'sonner';
+import {
+    Check,
+    Edit,
+    Eye,
+    EyeOff,
+    Gavel,
+    Info,
+    Loader2,
+    Plus,
+    Save,
+    Search,
+    Settings2,
+    Trash2,
+    Users
+} from 'lucide-react';
+import {useCallback, useEffect, useMemo, useState} from 'react';
+import {toast} from 'sonner';
 
 // Interface Definitions
 interface User {
@@ -455,7 +476,7 @@ export default function PtoTypesComponent() {
 
             {/* Form Modal */}
             <Dialog open={showFormModal} onOpenChange={setShowFormModal}>
-                <DialogContent className="max-h-[95vh] max-w-11/12 min-w-11/12 overflow-y-auto p-0">
+                <DialogContent className="max-h-[95vh] max-w-7xl min-w-6xl p-0">
                     <form onSubmit={handleSubmit}>
                         <div className="p-6">
                             <DialogHeader>

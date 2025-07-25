@@ -563,7 +563,7 @@ export default function PtoTypesView() {
 
                 {/* Form Modal */}
                 <Dialog open={showFormModal} onOpenChange={setShowFormModal}>
-                    <DialogContent className="max-h-[95vh] max-w-5xl overflow-y-auto p-0">
+                    <DialogContent className="max-h-[95vh] max-w-7xl min-w-6xl overflow-y-auto p-0">
                         <form onSubmit={handleSubmit}>
                             <div className="p-6">
                                 <DialogHeader>

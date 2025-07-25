@@ -8,23 +8,44 @@ import {
     AlertDialogHeader,
     AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Switch } from '@/components/ui/switch';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Textarea } from '@/components/ui/textarea';
+import {Badge} from '@/components/ui/badge';
+import {Button} from '@/components/ui/button';
+import {Card, CardContent, CardHeader, CardTitle} from '@/components/ui/card';
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle
+} from '@/components/ui/dialog';
+import {Input} from '@/components/ui/input';
+import {Label} from '@/components/ui/label';
+import {Switch} from '@/components/ui/switch';
+import {Table, TableBody, TableCell, TableHead, TableHeader, TableRow} from '@/components/ui/table';
+import {Textarea} from '@/components/ui/textarea';
 import AppLayout from '@/layouts/app-layout';
-import { cn } from '@/lib/utils';
-import { type BreadcrumbItem } from '@/types';
-import { Head } from '@inertiajs/react';
+import {cn} from '@/lib/utils';
+import {type BreadcrumbItem} from '@/types';
+import {Head} from '@inertiajs/react';
 import axios from 'axios';
-import { Check, Edit, Eye, EyeOff, FileText, Gavel, Info, Loader2, Plus, Save, Search, Settings2, Trash2, Users, XCircle } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { toast } from 'sonner';
+import {
+    Check,
+    Edit,
+    Eye,
+    EyeOff,
+    Gavel,
+    Info,
+    Loader2,
+    Plus,
+    Save,
+    Search,
+    Settings2,
+    Trash2,
+    Users
+} from 'lucide-react';
+import {useCallback, useEffect, useMemo, useState} from 'react';
+import {toast} from 'sonner';
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
@@ -401,7 +422,7 @@ export default function AdminPtoTypesView() {
 
             {/* --- NEW: Revamped Form Modal --- */}
             <Dialog open={showFormModal} onOpenChange={setShowFormModal}>
-                <DialogContent className="max-h-[95vh] max-w-11/12 min-w-11/12 overflow-y-auto p-0">
+                <DialogContent className="max-h-[95vh] max-w-7xl min-w-6xl overflow-y-auto p-0">
                     <form onSubmit={handleSubmit}>
                         <div className="p-6">
                             <DialogHeader>

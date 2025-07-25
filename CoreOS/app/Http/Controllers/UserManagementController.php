@@ -157,6 +157,9 @@ class UserManagementController extends Controller
 
             $inviteData = $request->input('invite');
 
+            // ADD THIS LOG HERE
+
+
             // Send WorkOS invitation
             $workosResponse = Http::withHeaders([
                 'Authorization' => 'Bearer ' . env('WORKOS_API_KEY'),
@@ -168,6 +171,8 @@ class UserManagementController extends Controller
                 'inviter_user_id' => Auth::user()->workos_id ?? (string)Auth::id(),
                 'role_slug' => $inviteData['role']
             ]);
+
+
 
             if (!$workosResponse->successful()) {
                 DB::rollBack();
@@ -185,6 +190,8 @@ class UserManagementController extends Controller
                     'avatar' => null,
                 ]
             );
+
+
 
             // Create PTO policy if requested
             if ($inviteData['create_pto_policy'] && $request->has('pto_policy')) {
