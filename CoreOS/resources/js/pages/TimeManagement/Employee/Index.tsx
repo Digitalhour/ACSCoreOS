@@ -25,6 +25,16 @@ import {Label} from "@/components/ui/label";
 import {Textarea} from "@/components/ui/textarea";
 import {Checkbox} from "@/components/ui/checkbox";
 
+interface User {
+    id: number;
+    name: string;
+    first_name: string;
+    last_name: string;
+    email: string;
+    phone: string;
+    avatar: string;
+    is_active: boolean;
+}
 interface TimeClock {
     id: number;
     user_id: number;
@@ -104,6 +114,7 @@ interface Props {
     currentDate: string;
     weekStart: string;
     weekEnd: string;
+    User: User;
 }
 
 const breadcrumbs = [
@@ -124,6 +135,7 @@ export default function EmployeeTimeClock({
                                               breakTypes,
                                               currentTimesheet: initialCurrentTimesheet,
                                               availableWeeks,
+                                              User,
                                               weekStart: initialWeekStart,
                                               weekEnd: initialWeekEnd,
                                           }: Props) {
@@ -521,7 +533,9 @@ export default function EmployeeTimeClock({
                     <div>
                         <h1 className="text-3xl font-bold">TimeSheet</h1>
                         <p className="text-muted-foreground">
-                            Track your time and manage your schedule
+                            Welcome, {User.name} you are currently  {currentStatus.is_on_break ? "on Break" : currentStatus.is_clocked_in ? "Working" : "Clocked Out"}
+                  
+
                         </p>
                     </div>
                     <div className="text-right">
@@ -598,11 +612,11 @@ export default function EmployeeTimeClock({
                                                 </Button>
                                             )}
 
-                                            {!currentStatus.is_clocked_in && (
-                                                <p className="text-sm text-muted-foreground text-center">
-                                                    Clock in to start a break
-                                                </p>
-                                            )}
+                                            {/*{!currentStatus.is_clocked_in && (*/}
+                                            {/*    <p className="text-sm text-muted-foreground text-center">*/}
+                                            {/*        Clock in to start a break*/}
+                                            {/*    </p>*/}
+                                            {/*)}*/}
                                         </div>
                                     </div>
                                 </CardTitle>
