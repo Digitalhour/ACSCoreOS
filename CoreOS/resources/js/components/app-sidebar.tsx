@@ -13,17 +13,7 @@ import {
 } from '@/components/ui/sidebar';
 import {type NavItem, type User} from '@/types'; // Ensure NavItem can have 'roles?: string' and 'permission?: string'
 import {Link, usePage} from '@inertiajs/react';
-import {
-    BookOpen,
-    BookOpenText,
-    BotMessageSquareIcon,
-    Folder,
-    ImageUp,
-    LayoutGrid,
-    ShieldCheck,
-    ShipWheel,
-    Users
-} from 'lucide-react';
+import {BookOpenText, BotMessageSquareIcon, ImageUp, LayoutGrid, ShieldCheck, ShipWheel, Users} from 'lucide-react';
 import AppLogo from './app-logo';
 
 interface AuthenticatedUser extends User {
@@ -44,7 +34,7 @@ const mainNavItems: NavItem[] = [
     { title: 'Your PTO', href: '/employee/pto', icon: ShipWheel, description:null },
     { title: 'Billy The AI', href: '/billy', icon: BotMessageSquareIcon, description:null },
     { title: 'Product Picture Manager', href: '/product-picture-manager', icon: ImageUp, permission: '', description:null }, // Shows if permission is empty string
-    // { title: 'ACS Organization', href: '/acs-org', icon: Users, permission: '', description:null}, // Shows if permission is empty string
+    { title: 'ACS Organization', href: '/acs-org', icon: Users, permission: '', description:null}, // Shows if permission is empty string
     // { title: 'ACS PermissionTest', href: '/test', icon: Users, permission: 'AdminMenu', description:null },
     // { title: 'ACS RoleTest', href: '/Roletest', icon: Users, roles: '', description:null},
     { title: 'ACS Parts Database', href: '/parts-catalog', icon: Users, roles: '', description:null },
@@ -55,8 +45,8 @@ const mainNavItems: NavItem[] = [
     { title: 'HR Dashboard', href: '/hr/dashboard', icon: Users, description:null },
     // { title: 'Articles', href: '/articles', icon: Users, description:null },
     // { title: 'Roles and Permissions', href: '/roles-permissions', icon: Users, description:null },
-    // { title: 'Company Documents', href: '/employee/documents', icon:BookOpenText , description:null },
-    // { title: 'Admin Documents', href: '/folders', icon:BookOpenText , description:null },
+    { title: 'Company Documents', href: '/employee/documents', icon:BookOpenText , description:null },
+    { title: 'Admin Documents', href: '/folders', icon:BookOpenText , description:null },
     // New Training Stuff Not in use right now, Use Old style for right now.
     // { title: 'Your Training', href: '/training', icon:BookOpenText , description:null },
     // { title: 'Training Dashboard', href: '/admin/reports', icon:BookOpenText , description:null },
@@ -68,9 +58,9 @@ const mainNavItems: NavItem[] = [
 ];
 
 const footerNavItems: NavItem[] = [
-    { title: 'Repository', href: 'https://github.com/laravel/react-starter-kit', icon: Folder, external: true, description:null },
-    { title: 'Documentation', href: 'https://laravel.com/docs/starter-kits#react', icon: BookOpen, external: true, description:null },
-    { title: 'Shadcn Component explore', href: 'https://shipixen.com/component-explorer-shadcn', icon: BookOpen, external: true, description:null },
+    // { title: 'Repository', href: 'https://github.com/laravel/react-starter-kit', icon: Folder, external: true, description:null },
+    // { title: 'Documentation', href: 'https://laravel.com/docs/starter-kits#react', icon: BookOpen, external: true, description:null },
+    // { title: 'Shadcn Component explore', href: 'https://shipixen.com/component-explorer-shadcn', icon: BookOpen, external: true, description:null },
     { title: 'Admin Dashboard', href: '/admin', icon: ShieldCheck, roles: '', description:null },
 ];
 
