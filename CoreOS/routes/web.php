@@ -56,7 +56,7 @@ Route::middleware([
         Route::put('/comments/{comment}', [CommentController::class, 'update'])->name('comments.update');
         Route::delete('/comments/{comment}', [CommentController::class, 'destroy'])->name('comments.destroy');
         Route::get('/comments/{comment}/replies', [CommentController::class, 'getReplies'])->name('comments.replies');
-    
+
 
 
 
@@ -737,7 +737,7 @@ Route::middleware([
 
             // Users API (for dropdowns)
             Route::get('users', function () {
-                return response()->json(User::select('id', 'name', 'email', 'hire_date')->get());
+                return response()->json(User::select('id', 'name', 'email')->get());
             })->name('users.index');
         });
     });
