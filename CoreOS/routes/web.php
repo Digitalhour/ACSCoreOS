@@ -445,13 +445,13 @@ Route::middleware([
 //            return Inertia::render('Admin/UserHierarchy/IndexPage');
 //        })->name('admin.user-hierarchy.index');
 //
-//        Route::get('/admin/organization-chart', function () {
-//            return Inertia::render('Admin/UserHierarchy/OrgChartPage');
-//        })->name('admin.organization-chart.view');
-//
-//        Route::get('/organization-chart', function () {
-//            return Inertia::render('Admin/OrganizationChartPage');
-//        })->name('acs-origination');
+        Route::get('/admin/organization-chart', function () {
+            return Inertia::render('Admin/UserHierarchy/OrgChartPage');
+        })->name('admin.organization-chart.view');
+
+        Route::get('/organization-chart', function () {
+            return Inertia::render('Admin/OrganizationChartPage');
+        })->name('acs-origination');
 //
 //        Route::get('/admin/users/add', [AdminAddUserController::class, 'create'])->name('adduser.create');
 //
