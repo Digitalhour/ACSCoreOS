@@ -268,7 +268,7 @@ ValidateSessionWithWorkOS::class,
 
 // Users API (for dropdowns)
         Route::get('users', function () {
-            return response()->json(User::select('id', 'name', 'email', 'hire_date')->get());
+            return response()->json(User::select('id', 'name', 'email')->get());
         })->name('users.index');
     });
 
