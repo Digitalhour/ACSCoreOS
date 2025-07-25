@@ -13,9 +13,20 @@ use Illuminate\Support\Facades\App;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
+use Inertia\Inertia;
 
 class PtoPolicyController extends Controller
 {
+
+    /**
+     * Display the PTO policies admin page.
+     */
+    public function policies()
+    {
+        return Inertia::render('human-resources/PtoPoliciesView', [
+            'title' => 'PTO Policies Administration',
+        ]);
+    }
     public function index(Request $request): JsonResponse
     {
         try {

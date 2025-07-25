@@ -4,6 +4,7 @@ use App\Http\Controllers\Admin\BlackoutController;
 use App\Http\Controllers\Admin\PtoAdminController;
 use App\Http\Controllers\Api\PtoApi\HREmployeesController;
 use App\Http\Controllers\Api\PtoApi\PtoOverviewController;
+use App\Http\Controllers\Api\PtoApi\PtoPolicyController;
 use App\Http\Controllers\Api\PtoApi\PTOSubmitHistoricalController;
 use App\Http\Controllers\DepartmentController;
 use App\Http\Controllers\DocumentController;
@@ -311,7 +312,7 @@ Route::get('/team', [Team::class, 'index'])->name('team.index');
         Route::post('/hr/pto/submit-historical',
             [PTOSubmitHistoricalController::class, 'submitHistoricalPto'])->name('submit-historical');
 
-        Route::get('/hr/pto-policies', [PtoAdminController::class, 'policies'])->name('hr.pto.policies');
+        Route::get('/hr/pto-policies', [PtoPolicyController::class, 'policies'])->name('hr.pto.policies');
         Route::get('/hr/pto-types', [PtoAdminController::class, 'types'])->name('hr.pto.types');
         Route::get('/hr/time-off-requests', [PtoAdminController::class, 'requests'])->name('hr.pto.requests');
 

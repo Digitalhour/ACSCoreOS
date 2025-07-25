@@ -28,7 +28,8 @@ import {Textarea} from '@/components/ui/textarea';
 import AppLayout from '@/layouts/app-layout';
 import HrLayout from "@/layouts/settings/hr-layout";
 import {type BreadcrumbItem} from '@/types';
-import {Head} from '@inertiajs/react';
+import {Head, router} from '@inertiajs/react';
+import axios from 'axios';
 import {Edit, Loader2, Plus, Save, Search, Trash2, User, X} from 'lucide-react';
 import {useCallback, useEffect, useState} from 'react';
 import {toast} from 'sonner';
@@ -124,37 +125,6 @@ const initialFormData: FormData = {
     user_id: '',
 };
 
-// Helper function to get CSRF token
-const getCsrfToken = (): string => {
-    const metaTag = document.querySelector('meta[name="csrf-token"]') as HTMLMetaElement;
-    return metaTag?.content || '';
-};
-
-// Helper function to make API requests
-const apiRequest = async (url: string, options: RequestInit = {}) => {
-    const defaultHeaders = {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-        'X-CSRF-TOKEN': getCsrfToken(),
-        'X-Requested-With': 'XMLHttpRequest',
-    };
-
-    const response = await fetch(url, {
-        ...options,
-        headers: {
-            ...defaultHeaders,
-            ...options.headers,
-        },
-    });
-
-    if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ error: 'Request failed' }));
-        throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`);
-    }
-
-    return response.json();
-};
-
 export default function PtoPoliciesView() {
     const [ptoPolicies, setPtoPolicies] = useState<PtoPolicy[]>([]);
     const [users, setUsers] = useState<User[]>([]);
@@ -185,14 +155,14 @@ export default function PtoPoliciesView() {
             setLoading(true);
 
             const [policiesResponse, usersResponse, typesResponse] = await Promise.all([
-                apiRequest(route('api.pto-policies.index')),
-                apiRequest(route('api.users.index')),
-                apiRequest(`${route('api.pto-types.index')}?active_only=true`),
+                axios.get('/api/pto-policies'),
+                axios.get('/api/users'),
+                axios.get('/api/pto-types?active_only=true'),
             ]);
 
-            const policiesData = policiesResponse.data || policiesResponse;
-            const usersData = usersResponse.data || usersResponse;
-            const typesData = typesResponse.data || typesResponse;
+            const policiesData = policiesResponse.data.data || policiesResponse.data;
+            const usersData = usersResponse.data.data || usersResponse.data;
+            const typesData = typesResponse.data.data || typesResponse.data;
 
             setPtoPolicies(Array.isArray(policiesData) ? policiesData : []);
             setUsers(Array.isArray(usersData) ? usersData : []);
@@ -280,7 +250,7 @@ export default function PtoPoliciesView() {
             years_for_bonus: policy.years_for_bonus,
             accrual_frequency: policy.accrual_frequency,
             prorate_first_year: policy.prorate_first_year,
-            effective_date: policy.effective_date.split('T')[0], // Convert to YYYY-MM-DD format
+            effective_date: policy.effective_date.split('T')[0],
             end_date: policy.end_date ? policy.end_date.split('T')[0] : '',
             is_active: policy.is_active,
             pto_type_id: policy.pto_type_id,
@@ -299,27 +269,30 @@ export default function PtoPoliciesView() {
     }, []);
 
     // Confirm delete
-    const confirmDelete = useCallback(async () => {
+    const confirmDelete = useCallback(() => {
         if (!policyToDelete) return;
 
-        try {
-            await apiRequest(route('api.pto-policies.destroy', policyToDelete.id), {
-                method: 'DELETE',
-            });
-            setPtoPolicies((prev) => prev.filter((policy) => policy.id !== policyToDelete.id));
-            toast.success(`PTO policy "${policyToDelete.name}" deleted successfully.`);
-        } catch (error: any) {
-            console.error('Error deleting policy:', error);
-            toast.error(error.message || 'Failed to delete PTO policy.');
-        } finally {
-            setShowDeleteAlert(false);
-            setPolicyToDelete(null);
-        }
+        router.delete(`/api/pto-policies/${policyToDelete.id}`, {
+            onSuccess: () => {
+                setPtoPolicies((prev) => prev.filter((policy) => policy.id !== policyToDelete.id));
+                toast.success(`PTO policy "${policyToDelete.name}" deleted successfully.`);
+            },
+            onError: (errors) => {
+                console.error('Error deleting policy:', errors);
+                toast.error('Failed to delete PTO policy.');
+            },
+            onFinish: () => {
+                setShowDeleteAlert(false);
+                setPolicyToDelete(null);
+            },
+            preserveScroll: true,
+            preserveState: true,
+        });
     }, [policyToDelete]);
 
     // Submit form
     const handleSubmit = useCallback(
-        async (e: React.FormEvent) => {
+        (e: React.FormEvent) => {
             e.preventDefault();
 
             if (!formData.pto_type_id || !formData.user_id) {
@@ -327,42 +300,52 @@ export default function PtoPoliciesView() {
                 return;
             }
 
-            try {
-                setSubmitting(true);
+            setSubmitting(true);
 
-                const submitData = {
-                    ...formData,
-                    max_rollover_days: formData.max_rollover_days === '' ? null : formData.max_rollover_days,
-                    end_date: formData.end_date === '' ? null : formData.end_date,
-                };
+            const submitData = {
+                ...formData,
+                max_rollover_days: formData.max_rollover_days === '' ? null : formData.max_rollover_days,
+                end_date: formData.end_date === '' ? null : formData.end_date,
+            };
 
-                if (isEditing && currentPolicy) {
-                    const response = await apiRequest(route('api.pto-policies.update', currentPolicy.id), {
-                        method: 'PUT',
-                        body: JSON.stringify(submitData),
-                    });
-                    const updatedPolicy = response.data;
-
-                    setPtoPolicies((prev) => prev.map((policy) => (policy.id === currentPolicy.id ? updatedPolicy : policy)));
-
-                    toast.success(`PTO policy "${updatedPolicy.name}" updated successfully.`);
-                } else {
-                    const response = await apiRequest(route('api.pto-policies.store'), {
-                        method: 'POST',
-                        body: JSON.stringify(submitData),
-                    });
-                    const newPolicy = response.data;
-
-                    setPtoPolicies((prev) => [...prev, newPolicy]);
-                    toast.success(`PTO policy "${newPolicy.name}" created successfully.`);
-                }
-
-                resetForm();
-            } catch (error: any) {
-                console.error('Error saving policy:', error);
-                toast.error(error.message || 'Failed to save PTO policy.');
-            } finally {
-                setSubmitting(false);
+            if (isEditing && currentPolicy) {
+                router.put(`/api/pto-policies/${currentPolicy.id}`, submitData, {
+                    onSuccess: (page: any) => {
+                        const updatedPolicy = page.props.data;
+                        setPtoPolicies((prev) =>
+                            prev.map((policy) => (policy.id === currentPolicy.id ? updatedPolicy : policy))
+                        );
+                        toast.success(`PTO policy "${updatedPolicy.name}" updated successfully.`);
+                        resetForm();
+                    },
+                    onError: (errors) => {
+                        console.error('Error updating policy:', errors);
+                        toast.error('Failed to update PTO policy.');
+                    },
+                    onFinish: () => {
+                        setSubmitting(false);
+                    },
+                    preserveScroll: true,
+                    preserveState: true,
+                });
+            } else {
+                router.post('/api/pto-policies', submitData, {
+                    onSuccess: (page: any) => {
+                        const newPolicy = page.props.data;
+                        setPtoPolicies((prev) => [...prev, newPolicy]);
+                        toast.success(`PTO policy "${newPolicy.name}" created successfully.`);
+                        resetForm();
+                    },
+                    onError: (errors) => {
+                        console.error('Error creating policy:', errors);
+                        toast.error('Failed to create PTO policy.');
+                    },
+                    onFinish: () => {
+                        setSubmitting(false);
+                    },
+                    preserveScroll: true,
+                    preserveState: true,
+                });
             }
         },
         [formData, isEditing, currentPolicy, resetForm],
@@ -390,7 +373,6 @@ export default function PtoPoliciesView() {
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
-
             <Head title="Manage PTO Policies" />
             <HrLayout>
                 <div className="flex h-full flex-1 flex-col gap-6 p-4">

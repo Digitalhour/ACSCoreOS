@@ -28,15 +28,6 @@ class PtoAdminController extends Controller
         ]);
     }
 
-    /**
-     * Display the PTO policies admin page.
-     */
-    public function policies()
-    {
-        return Inertia::render('human-resources/PtoPoliciesView', [
-            'title' => 'PTO Policies Administration',
-        ]);
-    }
 
     /**
      * Display the PTO requests admin page.
