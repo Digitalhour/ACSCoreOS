@@ -569,6 +569,7 @@ export default function PtoTypesView() {
                                 <DialogHeader>
                                     <DialogTitle className="text-2xl">{isEditing ? 'Edit PTO Type' : 'Create New PTO Type'}</DialogTitle>
                                     <DialogDescription>
+                                        w
                                         {isEditing ? `Update the details for "${currentPtoType?.name}".` : 'Fill out the form to add a new PTO type.'}
                                     </DialogDescription>
                                 </DialogHeader>
