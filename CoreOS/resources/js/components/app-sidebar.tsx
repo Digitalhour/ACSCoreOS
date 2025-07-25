@@ -34,11 +34,11 @@ const mainNavItems: NavItem[] = [
     { title: 'Your PTO', href: '/employee/pto', icon: ShipWheel, description:null },
     { title: 'Billy The AI', href: '/billy', icon: BotMessageSquareIcon, description:null },
     { title: 'Product Picture Manager', href: '/product-picture-manager', icon: ImageUp, permission: '', description:null }, // Shows if permission is empty string
-    { title: 'ACS Organization', href: '/acs-org', icon: Users, permission: '', description:null}, // Shows if permission is empty string
+    // { title: 'ACS Organization', href: '/acs-org', icon: Users, permission: '', description:null}, // Shows if permission is empty string
     // { title: 'ACS PermissionTest', href: '/test', icon: Users, permission: 'AdminMenu', description:null },
     // { title: 'ACS RoleTest', href: '/Roletest', icon: Users, roles: '', description:null},
     { title: 'ACS Parts Database', href: '/parts-catalog', icon: Users, roles: '', description:null },
-    // { title: 'ACS Org', href: '/organization-chart', icon: Users, roles: '',description:null },
+    { title: 'ACS Org', href: '/organization-chart', icon: Users, roles: '',description:null },
 
     { title: 'Department PTO', href: '/department-pto', icon: Users, description:null },
     { title: 'holiday', href: '/holidays', icon: Users, description:null },
