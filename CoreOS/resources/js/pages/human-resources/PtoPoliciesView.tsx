@@ -29,7 +29,6 @@ import AppLayout from '@/layouts/app-layout';
 import HrLayout from "@/layouts/settings/hr-layout";
 import {type BreadcrumbItem} from '@/types';
 import {Head, router} from '@inertiajs/react';
-import axios from 'axios';
 import {Edit, Loader2, Plus, Save, Search, Trash2, User, X} from 'lucide-react';
 import {useCallback, useEffect, useState} from 'react';
 import {toast} from 'sonner';
@@ -125,11 +124,17 @@ const initialFormData: FormData = {
     user_id: '',
 };
 
-export default function PtoPoliciesView() {
-    const [ptoPolicies, setPtoPolicies] = useState<PtoPolicy[]>([]);
-    const [users, setUsers] = useState<User[]>([]);
-    const [ptoTypes, setPtoTypes] = useState<PtoType[]>([]);
-    const [loading, setLoading] = useState(true);
+interface Props {
+    ptoPolicies: PtoPolicy[];
+    users: User[];
+    ptoTypes: PtoType[];
+}
+
+export default function PtoPoliciesView({ ptoPolicies: initialPolicies, users: initialUsers, ptoTypes: initialPtoTypes }: Props) {
+    const [ptoPolicies, setPtoPolicies] = useState<PtoPolicy[]>(initialPolicies || []);
+    const [users] = useState<User[]>(initialUsers || []);
+    const [ptoTypes] = useState<PtoType[]>(initialPtoTypes || []);
+    const [loading] = useState(false);
     const [submitting, setSubmitting] = useState(false);
 
     // Form state
@@ -148,36 +153,6 @@ export default function PtoPoliciesView() {
     const [selectedPtoType, setSelectedPtoType] = useState<string>('');
     const [selectedUser, setSelectedUser] = useState<string>('');
     const [showActiveOnly, setShowActiveOnly] = useState(false);
-
-    // Fetch data
-    const fetchData = useCallback(async () => {
-        try {
-            setLoading(true);
-
-            const [policiesResponse, usersResponse, typesResponse] = await Promise.all([
-                axios.get('/api/pto-policies'),
-                axios.get('/api/users'),
-                axios.get('/api/pto-types?active_only=true'),
-            ]);
-
-            const policiesData = policiesResponse.data.data || policiesResponse.data;
-            const usersData = usersResponse.data.data || usersResponse.data;
-            const typesData = typesResponse.data.data || typesResponse.data;
-
-            setPtoPolicies(Array.isArray(policiesData) ? policiesData : []);
-            setUsers(Array.isArray(usersData) ? usersData : []);
-            setPtoTypes(Array.isArray(typesData) ? typesData : []);
-        } catch (error) {
-            console.error('Error fetching data:', error);
-            toast.error('Failed to load data. Please try again.');
-        } finally {
-            setLoading(false);
-        }
-    }, []);
-
-    useEffect(() => {
-        fetchData();
-    }, [fetchData]);
 
     // Filter policies
     useEffect(() => {
@@ -286,7 +261,6 @@ export default function PtoPoliciesView() {
                 setPolicyToDelete(null);
             },
             preserveScroll: true,
-            preserveState: true,
         });
     }, [policyToDelete]);
 
@@ -326,7 +300,6 @@ export default function PtoPoliciesView() {
                         setSubmitting(false);
                     },
                     preserveScroll: true,
-                    preserveState: true,
                 });
             } else {
                 router.post('/api/pto-policies', submitData, {
@@ -344,7 +317,6 @@ export default function PtoPoliciesView() {
                         setSubmitting(false);
                     },
                     preserveScroll: true,
-                    preserveState: true,
                 });
             }
         },

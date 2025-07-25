@@ -25,6 +25,9 @@ class PtoPolicyController extends Controller
     {
         return Inertia::render('human-resources/PtoPoliciesView', [
             'title' => 'PTO Policies Administration',
+            'ptoPolicies' => PtoPolicy::with(['ptoType', 'user'])->get(),
+            'users' => User::select('id', 'name', 'email')->get(),
+            'ptoTypes' => PtoType::where('is_active', true)->get(),
         ]);
     }
     public function index(Request $request): JsonResponse
