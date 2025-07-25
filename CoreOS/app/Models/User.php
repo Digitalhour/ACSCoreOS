@@ -536,6 +536,34 @@ class User extends Authenticatable
 
         return array_unique($managerIds);
     }
+    /*
+        |--------------------------------------------------------------------------
+        | Engagement System Relationships
+        |--------------------------------------------------------------------------
+        */
 
+    /**
+     * Get the reactions created by this user.
+     */
+    public function reactions(): HasMany
+    {
+        return $this->hasMany(Reaction::class);
+    }
+
+    /**
+     * Get the comments created by this user.
+     */
+    public function comments(): HasMany
+    {
+        return $this->hasMany(Comment::class);
+    }
+
+    /**
+     * Get the articles created by this user.
+     */
+    public function articles(): HasMany
+    {
+        return $this->hasMany(Article::class);
+    }
 
 }

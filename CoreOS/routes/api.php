@@ -234,8 +234,6 @@ ValidateSessionWithWorkOS::class,
             Route::get('/{user}/assignable-managers',
                 [UserHierarchyController::class, 'getAssignableManagers'])->name('assignable-managers');
         });
-        Route::get('/user-by-email', [UserManagementController::class, 'getUserByEmail']);
-
 
 //        Route::get('/positions', [PositionController::class, 'index']);
 //        Route::get('/managers', [UserManagementController::class, 'getManagers']);

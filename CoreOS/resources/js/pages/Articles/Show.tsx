@@ -1,163 +1,370 @@
-import AppLayout from '@/layouts/app-layout';
-import {type BreadcrumbItem} from '@/types';
-import {Head, Link, router} from '@inertiajs/react';
-import {ArrowLeft, Edit, Trash2} from 'lucide-react';
-import 'quill/dist/quill.snow.css';
+import React, {useEffect, useState} from 'react';
+import {Head, Link, router, usePage} from '@inertiajs/react';
+import {ArrowLeft, Clock, Edit, Share2, User} from 'lucide-react';
+import {Card, CardContent, CardHeader} from '@/components/ui/card';
+import {Avatar, AvatarFallback, AvatarImage} from '@/components/ui/avatar';
+import {Button} from '@/components/ui/button';
+import {Badge} from '@/components/ui/badge';
+import {Separator} from '@/components/ui/separator';
+import ReactionPicker from '@/components/ReactionPicker';
+import ReactionSummary from '@/components/ReactionSummary';
+import CommentSection from '@/components/CommentSection';
+import AppLayout from "@/layouts/app-layout";
+import {BreadcrumbItem} from "@/types";
 
 interface User {
     id: number;
     name: string;
     email: string;
+    avatar?: string;
+}
+
+interface UserReaction {
+    type: string;
+    emoji: string;
+}
+
+interface ReactionSummaryItem {
+    type: string;
+    emoji: string;
+    count: number;
+}
+
+interface Comment {
+    id: number;
+    content: string;
+    user: User;
+    parent_id?: number;
+    created_at: string;
+    updated_at: string;
+    edited_at?: string;
+    replies?: Comment[];
+    reactions_count?: number;
+    replies_count?: number;
 }
 
 interface Article {
     id: number;
     title: string;
     slug: string;
-    excerpt: string;
+    excerpt?: string;
     content: string;
     status: 'draft' | 'published';
     user: User;
-    published_at: string | null;
+    published_at?: string;
     created_at: string;
     updated_at: string;
+    reactions_count?: number;
+    comments_count?: number;
+    reactions_summary?: ReactionSummaryItem[];
+    user_reaction?: UserReaction | null;
+    comments?: Comment[];
 }
 
 interface Props {
     article: Article;
 }
 
-export default function ArticlesShow({ article }: Props) {
+interface PageProps {
+    auth: {
+        user?: User;
+    };
+    reactionUpdate?: {
+        action: string;
+        reactable_id: number;
+        reactable_type: string;
+        reactions_summary: ReactionSummaryItem[];
+        user_reaction: UserReaction | null;
+        total_reactions: number;
+    };
+    commentData?: {
+        action: string;
+        comment?: Comment;
+        commentId?: number;
+    };
+}
+
+export default function Show({ article: initialArticle }: Props) {
+    const { props } = usePage<PageProps>();
+    const { auth, reactionData, commentData } = props;
+    const [article, setArticle] = useState(initialArticle);
+    const [comments, setComments] = useState<Comment[]>(initialArticle.comments || []);
+
+    // Handle comment responses from Inertia flash data
+    useEffect(() => {
+        if (commentData) {
+            if (commentData.action === 'added' && commentData.comment) {
+                handleCommentAdded(commentData.comment);
+            } else if (commentData.action === 'updated' && commentData.comment) {
+                handleCommentUpdated(commentData.comment);
+            } else if (commentData.action === 'deleted' && commentData.commentId) {
+                handleCommentDeleted(commentData.commentId);
+            }
+        }
+    }, [commentData]);
+
+    const handleReaction = (reactionType: string) => {
+        router.post('/reactions/toggle', {
+            reactable_type: 'App\\Models\\Article',
+            reactable_id: article.id,
+            type: reactionType,
+        }, {
+            preserveState: true,
+            preserveScroll: true,
+            onSuccess: (page) => {
+                // Handle the response directly in the success callback
+                const reactionData = (page.props as PageProps).reactionData;
+                if (reactionData) {
+                    console.log('Success callback - updating article:', reactionData);
+                    setArticle(prev => ({
+                        ...prev,
+                        reactions_summary: reactionData.reactions_summary,
+                        user_reaction: reactionData.user_reaction,
+                        reactions_count: reactionData.total_reactions,
+                    }));
+                }
+            },
+            onError: (errors) => {
+                console.error('Reaction toggle failed:', errors);
+            }
+        });
+    };
+
+    const handleCommentAdded = (comment: Comment) => {
+        if (comment.parent_id) {
+            // It's a reply - find the parent and add to its replies
+            setComments(prev => prev.map(c => {
+                if (c.id === comment.parent_id) {
+                    return {
+                        ...c,
+                        replies: [...(c.replies || []), comment],
+                        replies_count: (c.replies_count || 0) + 1,
+                    };
+                }
+                return c;
+            }));
+        } else {
+            // It's a top-level comment
+            setComments(prev => [comment, ...prev]);
+        }
+
+        setArticle(prev => ({
+            ...prev,
+            comments_count: (prev.comments_count || 0) + 1,
+        }));
+    };
+
+    const handleCommentUpdated = (updatedComment: Comment) => {
+        const updateCommentInList = (commentList: Comment[]): Comment[] => {
+            return commentList.map(comment => {
+                if (comment.id === updatedComment.id) {
+                    return updatedComment;
+                }
+                if (comment.replies) {
+                    return {
+                        ...comment,
+                        replies: updateCommentInList(comment.replies),
+                    };
+                }
+                return comment;
+            });
+        };
+
+        setComments(prev => updateCommentInList(prev));
+    };
+
+    const handleCommentDeleted = (commentId: number) => {
+        const removeCommentFromList = (commentList: Comment[]): Comment[] => {
+            return commentList.filter(comment => {
+                if (comment.id === commentId) {
+                    return false;
+                }
+                if (comment.replies) {
+                    comment.replies = removeCommentFromList(comment.replies);
+                }
+                return true;
+            });
+        };
+
+        setComments(prev => removeCommentFromList(prev));
+        setArticle(prev => ({
+            ...prev,
+            comments_count: Math.max((prev.comments_count || 1) - 1, 0),
+        }));
+    };
+
+    const getTimeAgo = (date: string) => {
+        const now = new Date();
+        const articleDate = new Date(date);
+        const diffInSeconds = Math.floor((now.getTime() - articleDate.getTime()) / 1000);
+
+        if (diffInSeconds < 60) return 'Just now';
+        if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)}m`;
+        if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)}h`;
+        if (diffInSeconds < 604800) return `${Math.floor(diffInSeconds / 86400)}d`;
+
+        return articleDate.toLocaleDateString();
+    };
+
+    const getInitials = (name: string) => {
+        return name.split(' ').map(n => n[0]).join('').toUpperCase();
+    };
+
+    const getAvatar = (avatar?: string) => {
+        if (!avatar) return undefined;
+        if (avatar.startsWith('/')) return avatar;
+        if (avatar.startsWith('http')) return avatar;
+        return `/storage/${avatar}`;
+    };
+
+    const formatContent = (content: string) => {
+        // Simple content formatting - replace line breaks with paragraphs
+        return content.split('\n\n').map((paragraph, index) => (
+            <p key={index} className="mb-4 leading-relaxed">
+                {paragraph}
+            </p>
+        ));
+    };
+
     const breadcrumbs: BreadcrumbItem[] = [
         {
             title: 'Dashboard',
             href: '/dashboard',
         },
-        {
-            title: 'Articles',
-            href: '/articles',
-        },
-        {
-            title: article.title,
-            href: `/articles/${article.id}`,
-        },
     ];
-
-    const handleDelete = () => {
-        if (confirm('Are you sure you want to delete this article?')) {
-            router.delete(`/articles/${article.id}`);
-        }
-    };
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title={article.title} />
 
-            <div className="flex h-full max-h-screen flex-1 flex-col gap-4 rounded-xl p-4">
-                <div className="flex items-center justify-between">
-                    <Link
-                        href="/articles"
-                        className="inline-flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100"
-                    >
-                        <ArrowLeft className="h-4 w-4" />
+            <div className="max-w-4xl mx-auto space-y-6">
+                {/* Back button */}
+                <Button variant="ghost" asChild className="mb-4">
+                    <Link href="/articles" className="flex items-center gap-2">
+                        <ArrowLeft className="w-4 h-4" />
                         Back to Articles
                     </Link>
+                </Button>
 
-                    <div className="flex items-center gap-2">
-                        <Link
-                            href={`/articles/${article.id}/edit`}
-                            className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
-                        >
-                            <Edit className="h-4 w-4" />
-                            Edit
-                        </Link>
-                        <button
-                            onClick={handleDelete}
-                            className="inline-flex items-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700"
-                        >
-                            <Trash2 className="h-4 w-4" />
-                            Delete
-                        </button>
-                    </div>
-                </div>
-
-                <div className="border-sidebar-border/70 dark:border-sidebar-border overflow-hidden rounded-xl border bg-white dark:bg-gray-800">
-                    <div className="p-8">
-                        <div className="mb-6">
-                            <div className="mb-4 flex items-center gap-4">
-                                <span
-                                    className={`inline-flex rounded-full px-3 py-1 text-sm font-semibold ${
-                                        article.status === 'published'
-                                            ? 'bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-100'
-                                            : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-800 dark:text-yellow-100'
-                                    }`}
-                                >
-                                    {article.status}
-                                </span>
-                                <span className="text-sm text-gray-500 dark:text-gray-400">
-                                    Slug: {article.slug}
-                                </span>
+                {/* Article content */}
+                <Card>
+                    <CardHeader className="space-y-4">
+                        {/* Author info */}
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                                <Avatar className="h-12 w-12">
+                                    <AvatarImage src={getAvatar(article.user.avatar)} />
+                                    <AvatarFallback className="bg-gradient-to-br from-blue-500 to-purple-600 text-white font-semibold">
+                                        {getInitials(article.user.name)}
+                                    </AvatarFallback>
+                                </Avatar>
+                                <div>
+                                    <h4 className="font-semibold">{article.user.name}</h4>
+                                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                        <Clock className="w-4 h-4" />
+                                        <span>{getTimeAgo(article.published_at || article.created_at)}</span>
+                                        {article.status === 'published' && (
+                                            <>
+                                                <span>•</span>
+                                                <Badge variant="secondary" className="bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300">
+                                                    Published
+                                                </Badge>
+                                            </>
+                                        )}
+                                    </div>
+                                </div>
                             </div>
 
-                            <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
+                            <div className="flex items-center gap-2">
+                                {auth.user?.id === article.user.id && (
+                                    <Button variant="outline" size="sm" asChild>
+                                        <Link href={`/articles/${article.id}/edit`}>
+                                            <Edit className="w-4 h-4 mr-2" />
+                                            Edit
+                                        </Link>
+                                    </Button>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Title */}
+                        <div>
+                            <h1 className="text-3xl font-bold leading-tight mb-2">
                                 {article.title}
                             </h1>
-
                             {article.excerpt && (
-                                <p className="mt-4 text-lg text-gray-600 dark:text-gray-300">
+                                <p className="text-lg text-muted-foreground leading-relaxed">
                                     {article.excerpt}
                                 </p>
                             )}
                         </div>
+                    </CardHeader>
 
-                        <div className="mb-6 flex items-center gap-4 text-sm text-gray-500 dark:text-gray-400">
-                            <span>By {article.user.name}</span>
-                            <span>•</span>
-                            <span>
-                                Created {new Date(article.created_at).toLocaleDateString()}
-                            </span>
-                            {article.published_at && (
-                                <>
-                                    <span>•</span>
-                                    <span>
-                                        Published {new Date(article.published_at).toLocaleDateString()}
-                                    </span>
-                                </>
+                    <CardContent className="space-y-6">
+                        {/* Article content */}
+                        <div className="prose prose-lg max-w-none">
+                            {formatContent(article.content)}
+                        </div>
+
+                        <Separator />
+
+                        {/* Engagement section */}
+                        <div className="space-y-4">
+                            {/* Reaction and comment stats */}
+                            {((article.reactions_summary && article.reactions_summary.length > 0) || (article.comments_count && article.comments_count > 0)) && (
+                                <div className="flex items-center justify-between text-sm text-muted-foreground">
+                                    <div className="flex items-center gap-4">
+                                        {article.reactions_summary && article.reactions_summary.length > 0 && (
+                                            <ReactionSummary
+                                                reactions={article.reactions_summary}
+                                                total={article.reactions_count || 0}
+                                                reactableType="App\\Models\\Article"
+                                                reactableId={article.id}
+                                            />
+                                        )}
+                                    </div>
+                                    <div className="flex items-center gap-4">
+                                        {article.comments_count && article.comments_count > 0 && (
+                                            <span>{article.comments_count} comment{article.comments_count !== 1 ? 's' : ''}</span>
+                                        )}
+                                    </div>
+                                </div>
                             )}
-                        </div>
 
-                        <div className="border-t border-gray-200 pt-6 dark:border-gray-700">
-                            <div
-                                className="quill-content prose prose-gray max-w-none dark:prose-invert prose-headings:text-gray-900 dark:prose-headings:text-white prose-p:text-gray-700 dark:prose-p:text-gray-300 prose-ul:list-disc prose-ol:list-decimal prose-li:list-item [&_ul]:list-disc [&_ol]:list-decimal [&_li]:list-item [&_ul]:ml-6 [&_ol]:ml-6 [&_li]:ml-0"
-                                dangerouslySetInnerHTML={{ __html: article.content }}
-                            />
-                        </div>
+                            {/* Action buttons */}
+                            <div className="grid grid-cols-3 gap-4">
+                                <ReactionPicker
+                                    onReaction={handleReaction}
+                                    userReaction={article.user_reaction}
+                                />
 
-                        <style >{`
-                            .quill-content ul {
-                                list-style-type: disc;
-                                margin-left: 1.5rem;
-                                padding-left: 0;
-                            }
-                            .quill-content ol {
-                                list-style-type: decimal;
-                                margin-left: 1.5rem;
-                                padding-left: 0;
-                            }
-                            .quill-content li {
-                                display: list-item;
-                                margin-bottom: 0.5rem;
-                            }
-                            .quill-content ul ul {
-                                list-style-type: circle;
-                                margin-top: 0.5rem;
-                            }
-                            .quill-content ul ul ul {
-                                list-style-type: square;
-                            }
-                        `}</style>
-                    </div>
-                </div>
+                                <Button
+                                    variant="ghost"
+                                    className="flex items-center gap-2 text-muted-foreground hover:text-blue-500"
+                                    onClick={() => document.getElementById('comments')?.scrollIntoView({ behavior: 'smooth' })}
+                                >
+                                    <User className="w-4 h-4" />
+                                    <span>Comment</span>
+                                </Button>
+
+                                <Button variant="ghost" className="flex items-center gap-2 text-muted-foreground hover:text-green-500">
+                                    <Share2 className="w-4 h-4" />
+                                    <span>Share</span>
+                                </Button>
+                            </div>
+                        </div>
+                    </CardContent>
+                </Card>
+
+                {/* Comments section */}
+                <CommentSection
+                    articleId={article.id}
+                    comments={comments}
+                    currentUserId={auth.user?.id}
+                    onCommentAdded={handleCommentAdded}
+                    onCommentUpdated={handleCommentUpdated}
+                    onCommentDeleted={handleCommentDeleted}
+                />
             </div>
         </AppLayout>
     );

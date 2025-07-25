@@ -51,7 +51,9 @@ const mainNavItems: NavItem[] = [
     // { title: 'Your Training', href: '/training', icon:BookOpenText , description:null },
     // { title: 'Training Dashboard', href: '/admin/reports', icon:BookOpenText , description:null },
     { title: 'Old Training Dashboard', href: route('old-style-training-tracking.index'), icon:BookOpenText , description:null },
-    { title: 'My Timesheet', href: route('time-clock.employee'), icon:BookOpenText , description:null },
+    // { title: 'My Timesheet', href: route('time-clock.employee'), icon:BookOpenText , description:null },
+    { title: 'My Timesheet', href: '/time-clock/employee', icon:BookOpenText , description:null },
+
     { title: 'Timesheet Manager Dash', href: route('time-clock.manager.dashboard'), icon:BookOpenText , description:null },
     { title: 'Timesheet Payroll Dash', href: route('time-clock.payroll.dashboard'), icon:BookOpenText , description:null },
 
@@ -62,6 +64,7 @@ const footerNavItems: NavItem[] = [
     // { title: 'Documentation', href: 'https://laravel.com/docs/starter-kits#react', icon: BookOpen, external: true, description:null },
     // { title: 'Shadcn Component explore', href: 'https://shipixen.com/component-explorer-shadcn', icon: BookOpen, external: true, description:null },
     { title: 'Admin Dashboard', href: '/admin', icon: ShieldCheck, roles: '', description:null },
+    { title: 'article Dashboard', href: '/article', icon: ShieldCheck, roles: '', description:null },
 ];
 
 export function AppSidebar() {

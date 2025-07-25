@@ -9,9 +9,11 @@ use App\Http\Controllers\Api\PtoApi\PtoOverviewController;
 use App\Http\Controllers\Api\UserPtoController;
 use App\Http\Controllers\ArticleController;
 use App\Http\Controllers\BillyAIController;
+use App\Http\Controllers\CommentController;
 use App\Http\Controllers\DepartmentTimeOffController;
 use App\Http\Controllers\HolidayController;
 use App\Http\Controllers\ProductPictureManagerController;
+use App\Http\Controllers\ReactionController;
 use App\Http\Controllers\RolePermissionController;
 use App\Http\Controllers\UserManagementController;
 use App\Http\Controllers\WidgetController;
@@ -45,6 +47,17 @@ Route::middleware([
     Route::middleware(['auth', 'verified'])->group(function () {
 
         Route::resource('articles', ArticleController::class);
+        Route::post('/reactions/toggle', [ReactionController::class, 'toggle'])->name('reactions.toggle');
+        Route::get('/reactions', [ReactionController::class, 'getReactions'])->name('reactions.index');
+
+        // Comment routes
+        Route::post('/comments', [CommentController::class, 'store'])->name('comments.store');
+        Route::get('/comments', [CommentController::class, 'index'])->name('comments.index');
+        Route::put('/comments/{comment}', [CommentController::class, 'update'])->name('comments.update');
+        Route::delete('/comments/{comment}', [CommentController::class, 'destroy'])->name('comments.destroy');
+        Route::get('/comments/{comment}/replies', [CommentController::class, 'getReplies'])->name('comments.replies');
+    
+
 
 
         Route::get('/user-management', [UserManagementController::class, 'index'])->name('user-management');

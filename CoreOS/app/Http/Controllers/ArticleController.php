@@ -13,9 +13,17 @@ class ArticleController extends Controller
 {
     public function index(): Response
     {
-        $articles = Article::with(['user:id,name,email,avatar']) // ← Add avatar here
-        ->latest()
+        $articles = Article::with(['user:id,name,email,avatar'])
+            ->withEngagementCounts()
+            ->latest()
             ->paginate(10);
+
+        // Add engagement data for each article
+        $articles->getCollection()->transform(function ($article) {
+            $article->reactions_summary = $article->getReactionsSummary();
+            $article->user_reaction = auth()->check() ? $article->getUserReaction(auth()->id()) : null;
+            return $article;
+        });
 
         return Inertia::render('Articles/Index', [
             'articles' => $articles,
@@ -24,7 +32,17 @@ class ArticleController extends Controller
 
     public function show(Article $article): Response
     {
-        $article->load(['user:id,name,email,avatar']); // ← Add avatar here
+        $article->load([
+            'user:id,name,email,avatar',
+            'comments.user:id,name,email,avatar',
+            'comments.replies.user:id,name,email,avatar',
+        ]);
+
+        $article->loadCount(['reactions', 'allComments as comments_count']);
+
+        // Add engagement data
+        $article->reactions_summary = $article->getReactionsSummary();
+        $article->user_reaction = auth()->check() ? $article->getUserReaction(auth()->id()) : null;
 
         return Inertia::render('Articles/Show', [
             'article' => $article,
@@ -59,7 +77,7 @@ class ArticleController extends Controller
         $article = Article::create($validated);
 
         return redirect()->route('articles.show', $article)
-            ->with('success', 'Articles created successfully.');
+            ->with('success', 'Article created successfully.');
     }
 
     public function edit(Article $article): Response
@@ -90,7 +108,7 @@ class ArticleController extends Controller
         $article->update($validated);
 
         return redirect()->route('articles.show', $article)
-            ->with('success', 'Articles updated successfully.');
+            ->with('success', 'Article updated successfully.');
     }
 
     public function destroy(Article $article): RedirectResponse
@@ -98,6 +116,6 @@ class ArticleController extends Controller
         $article->delete();
 
         return redirect()->route('articles.index')
-            ->with('success', 'Articles deleted successfully.');
+            ->with('success', 'Article deleted successfully.');
     }
 }

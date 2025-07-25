@@ -1,16 +1,30 @@
-import {Link} from '@inertiajs/react';
-import {Bookmark, Clock, Heart, MessageCircle, MoreHorizontal, Share2} from 'lucide-react';
+import React, {useEffect, useState} from 'react';
+import {Link, router, usePage} from '@inertiajs/react';
+import {Bookmark, Clock, MessageCircle, MoreHorizontal, Share2} from 'lucide-react';
 import {Card, CardContent, CardHeader} from '@/components/ui/card';
 import {Avatar, AvatarFallback, AvatarImage} from '@/components/ui/avatar';
 import {Button} from '@/components/ui/button';
 import {Badge} from '@/components/ui/badge';
 import {Separator} from '@/components/ui/separator';
+import ReactionPicker from './ReactionPicker';
+import ReactionSummary from './ReactionSummary';
 
 interface User {
     id: number;
     name: string;
     email: string;
     avatar: string | null;
+}
+
+interface UserReaction {
+    type: string;
+    emoji: string;
+}
+
+interface ReactionSummaryItem {
+    type: string;
+    emoji: string;
+    count: number;
 }
 
 interface Article {
@@ -24,6 +38,10 @@ interface Article {
     published_at: string | null;
     created_at: string;
     updated_at: string;
+    reactions_count?: number;
+    comments_count?: number;
+    reactions_summary?: ReactionSummaryItem[];
+    user_reaction?: UserReaction | null;
 }
 
 interface Props {
@@ -32,6 +50,58 @@ interface Props {
 }
 
 export default function Feed({ articles = [], limit = 10 }: Props) {
+    const { props } = usePage();
+    const [articleStates, setArticleStates] = useState(() => {
+        const initialStates: Record<number, {
+            reactions_summary: ReactionSummaryItem[];
+            user_reaction: UserReaction | null;
+            reactions_count: number;
+            comments_count: number;
+        }> = {};
+
+        articles.forEach(article => {
+            initialStates[article.id] = {
+                reactions_summary: article.reactions_summary || [],
+                user_reaction: article.user_reaction || null,
+                reactions_count: article.reactions_count || 0,
+                comments_count: article.comments_count || 0,
+            };
+        });
+
+        return initialStates;
+    });
+
+    // Handle Inertia reaction responses
+    useEffect(() => {
+        const reactionData = (props as any).reactionData;
+        if (reactionData && reactionData.reactable_id) {
+            const articleId = reactionData.reactable_id;
+            setArticleStates(prev => ({
+                ...prev,
+                [articleId]: {
+                    ...prev[articleId],
+                    reactions_summary: reactionData.reactions_summary,
+                    user_reaction: reactionData.user_reaction,
+                    reactions_count: reactionData.total_reactions,
+                }
+            }));
+        }
+    }, [(props as any).reactionData]);
+
+    const handleReaction = (articleId: number, reactionType: string) => {
+        router.post('/reactions/toggle', {
+            reactable_type: 'App\\Models\\Article',
+            reactable_id: articleId,
+            type: reactionType,
+        }, {
+            preserveState: true,
+            preserveScroll: true,
+            onError: (errors) => {
+                console.error('Error toggling reaction:', errors);
+            }
+        });
+    };
+
     const getTimeAgo = (date: string) => {
         const now = new Date();
         const articleDate = new Date(date);
@@ -64,112 +134,121 @@ export default function Feed({ articles = [], limit = 10 }: Props) {
     const displayArticles = articles.slice(0, limit);
 
     return (
-        <div >
-            {displayArticles.map((article) => (
-                <Card key={article.id} className="overflow-hidden">
-                    <CardHeader className="">
-                        <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                                <Avatar className="h-12 w-12">
-                                    <AvatarImage
-                                        src={getAvatar(article.user.avatar || undefined)}
-                                        alt={article.user.name}
-                                    />
-                                    <AvatarFallback className="bg-gradient-to-br from-blue-500 to-purple-600 text-white font-semibold">
-                                        {getInitials(article.user.name)}
-                                    </AvatarFallback>
-                                </Avatar>
-                                <div>
-                                    <h4 className="font-semibold hover:text-primary cursor-pointer transition-colors">
-                                        {article.user.name}
-                                    </h4>
-                                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                                        <Clock className="w-4 h-4" />
-                                        <span>{getTimeAgo(article.published_at || article.created_at)}</span>
-                                        {article.status === 'published' && (
-                                            <>
-                                                <span>•</span>
-                                                <Badge variant="secondary" className="text-xs bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300">
-                                                    Published
-                                                </Badge>
-                                            </>
-                                        )}
+        <div className="space-y-6">
+            {displayArticles.map((article) => {
+                const articleState = articleStates[article.id] || {
+                    reactions_summary: [],
+                    user_reaction: null,
+                    reactions_count: 0,
+                    comments_count: 0,
+                };
+
+                return (
+                    <Card key={article.id} className="overflow-hidden">
+                        <CardHeader>
+                            <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                    <Avatar className="h-12 w-12">
+                                        <AvatarImage
+                                            src={getAvatar(article.user.avatar || undefined)}
+                                            alt={article.user.name}
+                                        />
+                                        <AvatarFallback className="bg-gradient-to-br from-blue-500 to-purple-600 text-white font-semibold">
+                                            {getInitials(article.user.name)}
+                                        </AvatarFallback>
+                                    </Avatar>
+                                    <div>
+                                        <h4 className="font-semibold hover:text-primary cursor-pointer transition-colors">
+                                            {article.user.name}
+                                        </h4>
+                                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                            <Clock className="w-4 h-4" />
+                                            <span>{getTimeAgo(article.published_at || article.created_at)}</span>
+                                            {article.status === 'published' && (
+                                                <>
+                                                    <span>•</span>
+                                                    <Badge variant="secondary" className="text-xs bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300">
+                                                        Published
+                                                    </Badge>
+                                                </>
+                                            )}
+                                        </div>
                                     </div>
                                 </div>
+                                <Button variant="ghost" size="icon" className="h-8 w-8">
+                                    <MoreHorizontal className="h-4 w-4" />
+                                </Button>
                             </div>
-                            <Button variant="ghost" size="icon" className="h-8 w-8">
-                                <MoreHorizontal className="h-4 w-4" />
-                            </Button>
-                        </div>
-                    </CardHeader>
+                        </CardHeader>
 
-                    <CardContent className="space-y-2">
-                        <Link href={`/articles/${article.id}`} className="block group">
-                            <h3 className="text-xl font-bold mb-1 group-hover:text-primary transition-colors leading-tight">
-                                {article.title}
-                            </h3>
-                            {/*{article.excerpt && (*/}
-                            {/*    <p className="text-muted-foreground mb-3 leading-relaxed">*/}
-                            {/*        {article.excerpt}*/}
-                            {/*    </p>*/}
-                            {/*)}*/}
-                            <p className="text-muted-foreground leading-relaxed line-clamp-3">
-                                {stripHtml(article.content)}
-                            </p>
-                        </Link>
+                        <CardContent className="space-y-4">
+                            <Link href={`/articles/${article.id}`} className="block group">
+                                <h3 className="text-xl font-bold mb-2 group-hover:text-primary transition-colors leading-tight">
+                                    {article.title}
+                                </h3>
+                                <p className="text-muted-foreground leading-relaxed line-clamp-3">
+                                    {stripHtml(article.content)}
+                                </p>
+                            </Link>
 
-                        {/* Media placeholder */}
-                        <div className="bg-gradient-to-r from-muted/50 to-muted rounded-lg h-48 flex items-center justify-center">
-                            <span className="text-muted-foreground font-medium">📄 Article Preview</span>
-                        </div>
+                            {/* Media placeholder */}
+                            <div className="bg-gradient-to-r from-muted/50 to-muted rounded-lg h-48 flex items-center justify-center">
+                                <span className="text-muted-foreground font-medium">📄 Article Preview</span>
+                            </div>
 
-                        {/* Engagement Stats */}
-                        <div className="space-y-3">
-                            <div className="flex items-center justify-between text-sm text-muted-foreground">
-                                <div className="flex items-center gap-4">
-                                    <span className="flex items-center gap-2">
-                                        <div className="flex -space-x-1">
-                                            <div className="w-5 h-5 bg-red-500 rounded-full flex items-center justify-center">
-                                                <Heart className="w-3 h-3 text-white fill-current" />
-                                            </div>
-                                            <div className="w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center">
-                                                <span className="text-white text-xs">👍</span>
-                                            </div>
+                            {/* Engagement Stats */}
+                            <div className="space-y-3">
+                                {(articleState.reactions_summary.length > 0 || articleState.comments_count > 0) && (
+                                    <div className="flex items-center justify-between text-sm text-muted-foreground">
+                                        <div className="flex items-center gap-4">
+                                            {articleState.reactions_summary.length > 0 && (
+                                                <ReactionSummary
+                                                    reactions={articleState.reactions_summary}
+                                                    total={articleState.reactions_count}
+                                                />
+                                            )}
                                         </div>
-                                        <span>{Math.floor(Math.random() * 50) + 5}</span>
-                                    </span>
-                                </div>
-                                <div className="flex items-center gap-4">
-                                    <span>{Math.floor(Math.random() * 20) + 1} comments</span>
-                                    <span>{Math.floor(Math.random() * 10) + 1} shares</span>
+                                        <div className="flex items-center gap-4">
+                                            {articleState.comments_count > 0 && (
+                                                <span>{articleState.comments_count} comment{articleState.comments_count !== 1 ? 's' : ''}</span>
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
+
+                                <Separator />
+
+                                {/* Actions */}
+                                <div className="grid grid-cols-4 gap-2">
+                                    <ReactionPicker
+                                        onReaction={(type) => handleReaction(article.id, type)}
+                                        userReaction={articleState.user_reaction}
+                                    />
+
+                                    <Button
+                                        variant="ghost"
+                                        className="flex items-center gap-2 text-muted-foreground hover:text-blue-500"
+                                        onClick={() => router.visit(`/articles/${article.id}#comments`)}
+                                    >
+                                        <MessageCircle className="w-4 h-4" />
+                                        <span className="hidden sm:inline">Comment</span>
+                                    </Button>
+
+                                    <Button variant="ghost" className="flex items-center gap-2 text-muted-foreground hover:text-green-500">
+                                        <Share2 className="w-4 h-4" />
+                                        <span className="hidden sm:inline">Share</span>
+                                    </Button>
+
+                                    <Button variant="ghost" className="flex items-center gap-2 text-muted-foreground hover:text-yellow-500">
+                                        <Bookmark className="w-4 h-4" />
+                                        <span className="hidden sm:inline">Save</span>
+                                    </Button>
                                 </div>
                             </div>
-
-                            <Separator />
-
-                            {/* Actions */}
-                            <div className="grid grid-cols-4 gap-2">
-                                <Button variant="ghost" className="flex items-center gap-2 text-muted-foreground hover:text-red-500">
-                                    <Heart className="w-4 h-4" />
-                                    <span className="hidden sm:inline">Like</span>
-                                </Button>
-                                <Button variant="ghost" className="flex items-center gap-2 text-muted-foreground hover:text-blue-500">
-                                    <MessageCircle className="w-4 h-4" />
-                                    <span className="hidden sm:inline">Comment</span>
-                                </Button>
-                                <Button variant="ghost" className="flex items-center gap-2 text-muted-foreground hover:text-green-500">
-                                    <Share2 className="w-4 h-4" />
-                                    <span className="hidden sm:inline">Share</span>
-                                </Button>
-                                <Button variant="ghost" className="flex items-center gap-2 text-muted-foreground hover:text-yellow-500">
-                                    <Bookmark className="w-4 h-4" />
-                                    <span className="hidden sm:inline">Save</span>
-                                </Button>
-                            </div>
-                        </div>
-                    </CardContent>
-                </Card>
-            ))}
+                        </CardContent>
+                    </Card>
+                );
+            })}
 
             {displayArticles.length === 0 && (
                 <Card className="p-12 text-center">
