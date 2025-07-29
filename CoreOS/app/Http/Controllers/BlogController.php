@@ -50,7 +50,7 @@ class BlogController extends Controller
                 ];
             });
 
-        return Inertia::render('Blog/Index', [
+        return Inertia::render('blog/Index', [
             'articles' => $articles,
             'filters' => $request->only(['search', 'author']),
         ]);
@@ -78,7 +78,7 @@ class BlogController extends Controller
             ->limit(3)
             ->get();
 
-        return Inertia::render('Blog/Show', [
+        return Inertia::render('blog/Show', [
             'article' => $blogArticle,
             'comments' => $comments,
             'relatedArticles' => $relatedArticles,
@@ -87,7 +87,7 @@ class BlogController extends Controller
 
     public function create()
     {
-        return Inertia::render('Blog/Create');
+        return Inertia::render('blog/Create');
     }
 
     public function store(Request $request)
@@ -130,7 +130,7 @@ class BlogController extends Controller
             abort(403);
         }
 
-        return Inertia::render('Blog/Edit', [
+        return Inertia::render('blog/Edit', [
             'article' => $blogArticle,
         ]);
     }
@@ -268,7 +268,7 @@ class BlogController extends Controller
                 ];
             });
 
-        return Inertia::render('Blog/Manage', [
+        return Inertia::render('blog/Manage', [
             'articles' => $articles,
             'filters' => $request->only(['search', 'status']),
         ]);

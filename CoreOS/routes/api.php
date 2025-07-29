@@ -17,6 +17,7 @@ use App\Http\Controllers\DepartmentTimeOffController;
 use App\Http\Controllers\PartsCatalogController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\UserManagementController;
+use App\Http\Controllers\VibetrackController;
 use App\Models\User;
 use Illuminate\Support\Facades\Route;
 use Laravel\WorkOS\Http\Middleware\ValidateSessionWithWorkOS;
@@ -26,6 +27,8 @@ Route::middleware([
 ValidateSessionWithWorkOS::class,
 ])->group(function () {
     Route::prefix('api')->name('api.')->group(function () {
+        Route::get('/vibetrack/device/{vibetrack}', [VibetrackController::class, 'getVibetrackDeviceData'])->name('getVibetrackDeviceData');
+
 
         Route::middleware('auth')
             ->get('/workos/user-management-url', [UserManagementController::class, 'generateUserManagementUrl'])

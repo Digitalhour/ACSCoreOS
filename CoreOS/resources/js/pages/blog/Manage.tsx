@@ -73,7 +73,7 @@ const breadcrumbs: BreadcrumbItem[] = [
         href: '/admin',
     },
     {
-        title: 'Blog Management',
+        title: 'blog Management',
         href: '/admin/blog',
     },
 ];

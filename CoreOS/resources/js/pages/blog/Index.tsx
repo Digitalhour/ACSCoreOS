@@ -61,7 +61,7 @@ interface Props {
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
-        title: 'Blog',
+        title: 'blog',
         href: '/blog',
     },
 ];

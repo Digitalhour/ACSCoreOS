@@ -10,10 +10,12 @@ use App\Http\Controllers\Api\UserPtoController;
 use App\Http\Controllers\BillyAIController;
 use App\Http\Controllers\BlogController;
 use App\Http\Controllers\DepartmentTimeOffController;
+use App\Http\Controllers\DeviceAliasController;
 use App\Http\Controllers\HolidayController;
 use App\Http\Controllers\ProductPictureManagerController;
 use App\Http\Controllers\RolePermissionController;
 use App\Http\Controllers\UserManagementController;
+use App\Http\Controllers\VibetrackController;
 use App\Http\Controllers\WidgetController;
 use App\Models\BlogArticle;
 use App\Models\User;
@@ -42,16 +44,34 @@ Route::middleware([
         ]);
     })->name('dashboard');
 
+    Route::prefix('vibetrack')->name('vibetrack.')->group(function () {
+        Route::get('/', [VibetrackController::class, 'index'])->name('index');
+        Route::get('/admin', [DeviceAliasController::class, 'index'])->name('admin.index');
+        Route::post('/admin', [DeviceAliasController::class, 'store'])->name('admin.store');
+        Route::delete('/admin/{alias}', [DeviceAliasController::class, 'destroy'])->name('admin.destroy');
+        Route::get('/charts/data', [VibetrackController::class, 'charts'])->name('charts');
+        // NOTE: The dynamic route '{vibetrack}' is placed last to avoid conflicts with static routes like '/admin'.
+        Route::get('/{vibetrack}', [VibetrackController::class, 'show'])->name('show');
+
+    });
 
 
     Route::middleware(['auth', 'verified'])->group(function () {
 
-        // Blog routes (public)
+
+
+
+
+
+
+
+
+        // blog routes (public)
         Route::get('/blog', [BlogController::class, 'index'])->name('blog.index');
 
 
 
-            // Blog management routes
+            // blog management routes
             Route::get('/blog/create', [BlogController::class, 'create'])->name('blog.create');
             Route::post('/blog', [BlogController::class, 'store'])->name('blog.store');
             Route::get('/blog/{blogArticle}/edit', [BlogController::class, 'edit'])->name('blog.edit');
@@ -59,7 +79,7 @@ Route::middleware([
             Route::delete('/blog/{blogArticle}', [BlogController::class, 'destroy'])->name('blog.destroy');
         Route::post('/blog/upload-image', [BlogController::class, 'uploadEditorImage'])->name('blog.upload-image');
 
-            // Blog comment routes
+            // blog comment routes
             Route::post('/blog/{blogArticle}/comments', [BlogController::class, 'storeComment'])->name('blog.comments.store');
             Route::put('/blog-comments/{blogComment}', [BlogController::class, 'updateComment'])->name('blog.comments.update');
             Route::delete('/blog-comments/{blogComment}', [BlogController::class, 'destroyComment'])->name('blog.comments.destroy');

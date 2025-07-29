@@ -1,4 +1,4 @@
-//employee/index.tsx
+//employee/Index.tsx
 import {useEffect, useState} from 'react';
 import {Head, router} from '@inertiajs/react';
 import AppLayout from '@/layouts/app-layout';
@@ -534,7 +534,7 @@ export default function EmployeeTimeClock({
                         <h1 className="text-3xl font-bold">TimeSheet</h1>
                         <p className="text-muted-foreground">
                             Welcome, {User.name} you are currently  {currentStatus.is_on_break ? "on Break" : currentStatus.is_clocked_in ? "Working" : "Clocked Out"}
-                  
+
 
                         </p>
                     </div>

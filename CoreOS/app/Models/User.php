@@ -570,7 +570,7 @@ class User extends Authenticatable
 
 
     /**
-     * Blog relationships
+     * blog relationships
      */
     public function blogArticles(): HasMany
     {
