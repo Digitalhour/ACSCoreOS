@@ -15,7 +15,7 @@ class DeviceAlias extends Model
      *
      * @var array<int, string>
      */
-    protected $connection = 'sqlite';
+//    protected $connection = 'sqlite';
     protected $fillable = [
         'device_id',
         'name',
