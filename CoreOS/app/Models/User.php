@@ -16,7 +16,6 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Collection;
 use Lab404\Impersonate\Models\Impersonate;
-use LakM\Commenter\Concerns\Commenter;
 use Spatie\Activitylog\LogOptions;
 use Spatie\Activitylog\Traits\LogsActivity;
 use Spatie\Permission\Traits\HasRoles;
@@ -24,7 +23,7 @@ use Spatie\Permission\Traits\HasRoles;
 class User extends Authenticatable
 {
     /** @use HasFactory<\Database\Factories\UserFactory> */
-    use HasFactory, Notifiable, HasRoles, LogsActivity, Impersonate, softDeletes, Commenter;
+    use HasFactory, Notifiable, HasRoles, LogsActivity, Impersonate, softDeletes;
 
 
     /**
