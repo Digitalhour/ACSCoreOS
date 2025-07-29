@@ -16,6 +16,7 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Collection;
 use Lab404\Impersonate\Models\Impersonate;
+use LakM\Commenter\Concerns\Commenter;
 use Spatie\Activitylog\LogOptions;
 use Spatie\Activitylog\Traits\LogsActivity;
 use Spatie\Permission\Traits\HasRoles;
@@ -23,7 +24,7 @@ use Spatie\Permission\Traits\HasRoles;
 class User extends Authenticatable
 {
     /** @use HasFactory<\Database\Factories\UserFactory> */
-    use HasFactory, Notifiable, HasRoles, LogsActivity, Impersonate, softDeletes;
+    use HasFactory, Notifiable, HasRoles, LogsActivity, Impersonate, softDeletes, Commenter;
 
 
     /**
@@ -566,4 +567,39 @@ class User extends Authenticatable
         return $this->hasMany(Article::class);
     }
 
+
+
+    /**
+     * Blog relationships
+     */
+    public function blogArticles(): HasMany
+    {
+        return $this->hasMany(BlogArticle::class);
+    }
+
+    public function publishedBlogArticles(): HasMany
+    {
+        return $this->hasMany(BlogArticle::class)->published();
+    }
+
+    public function blogComments(): HasMany
+    {
+        return $this->hasMany(BlogComment::class);
+    }
+
+    /**
+     * Check if user can manage blog
+     */
+    public function canManageBlog(): bool
+    {
+        return $this->hasRole('admin') || $this->hasPermissionTo('manage blog');
+    }
+
+    /**
+     * Check if user can create blog articles
+     */
+    public function canCreateBlogArticles(): bool
+    {
+        return $this->hasRole('admin') || $this->hasPermissionTo('create blog articles');
+    }
 }

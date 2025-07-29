@@ -7,17 +7,15 @@ use App\Http\Controllers\Api\PtoApi\HRDashboardController;
 use App\Http\Controllers\Api\PtoApi\PtoApprovalRuleController;
 use App\Http\Controllers\Api\PtoApi\PtoOverviewController;
 use App\Http\Controllers\Api\UserPtoController;
-use App\Http\Controllers\ArticleController;
 use App\Http\Controllers\BillyAIController;
-use App\Http\Controllers\CommentController;
+use App\Http\Controllers\BlogController;
 use App\Http\Controllers\DepartmentTimeOffController;
 use App\Http\Controllers\HolidayController;
 use App\Http\Controllers\ProductPictureManagerController;
-use App\Http\Controllers\ReactionController;
 use App\Http\Controllers\RolePermissionController;
 use App\Http\Controllers\UserManagementController;
 use App\Http\Controllers\WidgetController;
-use App\Models\Article;
+use App\Models\BlogArticle;
 use App\Models\User;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -31,8 +29,10 @@ Route::middleware([
     'auth',
     ValidateSessionWithWorkOS::class,
 ])->group(function () {
+
     Route::get('dashboard', function () {
-        $articles = Article::with(['user:id,name,email,avatar'])
+        $articles = BlogArticle::with(['user:id,name,email,avatar'])
+            ->withCount('approvedComments')
             ->published()
             ->latest()
             ->limit(10)
@@ -46,17 +46,44 @@ Route::middleware([
 
     Route::middleware(['auth', 'verified'])->group(function () {
 
-        Route::resource('articles', ArticleController::class);
-        Route::post('/reactions/toggle', [ReactionController::class, 'toggle'])->name('reactions.toggle');
-        Route::get('/reactions', [ReactionController::class, 'getReactions'])->name('reactions.index');
+        // Blog routes (public)
+        Route::get('/blog', [BlogController::class, 'index'])->name('blog.index');
 
-        // Comment routes
-        Route::post('/comments', [CommentController::class, 'store'])->name('comments.store');
-        Route::get('/comments', [CommentController::class, 'index'])->name('comments.index');
-        Route::put('/comments/{comment}', [CommentController::class, 'update'])->name('comments.update');
-        Route::delete('/comments/{comment}', [CommentController::class, 'destroy'])->name('comments.destroy');
-        Route::get('/comments/{comment}/replies', [CommentController::class, 'getReplies'])->name('comments.replies');
 
+
+            // Blog management routes
+            Route::get('/blog/create', [BlogController::class, 'create'])->name('blog.create');
+            Route::post('/blog', [BlogController::class, 'store'])->name('blog.store');
+            Route::get('/blog/{blogArticle}/edit', [BlogController::class, 'edit'])->name('blog.edit');
+            Route::put('/blog/{blogArticle}', [BlogController::class, 'update'])->name('blog.update');
+            Route::delete('/blog/{blogArticle}', [BlogController::class, 'destroy'])->name('blog.destroy');
+        Route::post('/blog/upload-image', [BlogController::class, 'uploadEditorImage'])->name('blog.upload-image');
+
+            // Blog comment routes
+            Route::post('/blog/{blogArticle}/comments', [BlogController::class, 'storeComment'])->name('blog.comments.store');
+            Route::put('/blog-comments/{blogComment}', [BlogController::class, 'updateComment'])->name('blog.comments.update');
+            Route::delete('/blog-comments/{blogComment}', [BlogController::class, 'destroyComment'])->name('blog.comments.destroy');
+
+            // Admin blog management
+            Route::get('/admin/blog', [BlogController::class, 'manage'])->name('admin.blog.manage');
+
+        Route::get('/blog/{blogArticle}', [BlogController::class, 'show'])->name('blog.show');
+
+
+
+
+//
+//        Route::resource('articles', ArticleController::class);
+//        Route::post('/reactions/toggle', [ReactionController::class, 'toggle'])->name('reactions.toggle');
+//        Route::get('/reactions', [ReactionController::class, 'getReactions'])->name('reactions.index');
+//
+//        // Comment routes
+//        Route::post('/comments', [CommentController::class, 'store'])->name('comments.store');
+//        Route::get('/comments', [CommentController::class, 'index'])->name('comments.index');
+//        Route::put('/comments/{comment}', [CommentController::class, 'update'])->name('comments.update');
+//        Route::delete('/comments/{comment}', [CommentController::class, 'destroy'])->name('comments.destroy');
+//        Route::get('/comments/{comment}/replies', [CommentController::class, 'getReplies'])->name('comments.replies');
+//
 
 
 

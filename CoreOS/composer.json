@@ -14,6 +14,7 @@
         "inertiajs/inertia-laravel": "^2.0",
         "intervention/image": "^3.11",
         "lab404/laravel-impersonate": "^1.7",
+        "lakm/laravel-comments": "^3.0",
         "laravel/framework": "^12.0",
         "laravel/reverb": "^1.5",
         "laravel/tinker": "^2.10.1",

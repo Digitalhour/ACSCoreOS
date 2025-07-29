@@ -185,6 +185,12 @@
       <path value="$PROJECT_DIR$/CoreOS/vendor/paragonie/random_compat" />
       <path value="$PROJECT_DIR$/CoreOS/vendor/intervention/image" />
       <path value="$PROJECT_DIR$/CoreOS/vendor/intervention/gif" />
+      <path value="$PROJECT_DIR$/CoreOS/vendor/lakm/laravel-comments" />
+      <path value="$PROJECT_DIR$/CoreOS/vendor/livewire/livewire" />
+      <path value="$PROJECT_DIR$/CoreOS/vendor/mews/purifier" />
+      <path value="$PROJECT_DIR$/CoreOS/vendor/ezyang/htmlpurifier" />
+      <path value="$PROJECT_DIR$/CoreOS/vendor/lakm/nopass" />
+      <path value="$PROJECT_DIR$/CoreOS/vendor/spatie/laravel-honeypot" />
     </include_path>
   </component>
   <component name="PhpProjectSharedConfiguration" php_language_level="8.2" />
