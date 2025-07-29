@@ -8,11 +8,10 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Str;
-use LakM\Commenter\Concerns\Commentable;
 
 class BlogArticle extends Model
 {
-    use HasFactory, SoftDeletes, Commentable;
+    use HasFactory, SoftDeletes;
 
     protected $fillable = [
         'title',
