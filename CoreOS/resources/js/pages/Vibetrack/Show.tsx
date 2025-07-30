@@ -25,7 +25,7 @@ import {
     WifiIcon
 } from 'lucide-react';
 import {format, isWithinInterval, subDays} from 'date-fns';
-import {Area, AreaChart, CartesianGrid, ResponsiveContainer, XAxis} from 'recharts';
+import {CartesianGrid, Line, LineChart, XAxis, YAxis} from 'recharts';
 import {Table, TableBody, TableCell, TableHead, TableHeader, TableRow} from '@/components/ui/table';
 import {cn} from '@/lib/utils';
 import {route} from "ziggy-js";
@@ -187,17 +187,17 @@ export default function VibetrackShow({ vibetrack, runtimeHistory, statusHistory
             label: "Ambient Temp",
             color: "var(--chart-1)",
         },
-        sht4x_humidity: {
-            label: "Humidity",
-            color: "var(--chart-2)",
-        },
         modem_temp: {
             label: "Device Temp",
+            color: "var(--chart-2)",
+        },
+        sht4x_humidity: {
+            label: "Humidity",
             color: "var(--chart-3)",
         },
         battery_soc: {
             label: "Battery",
-            color: "var(--chart-2)",
+            color: "var(--chart-4)",
         },
         runtime_sec: {
             label: "Runtime",
@@ -313,9 +313,9 @@ export default function VibetrackShow({ vibetrack, runtimeHistory, statusHistory
                                         <Braces className="h-8 w-8 " />
                                         <div>
                                             <a className={"text-sm font-bold"} target="_blank" href={route('api.getVibetrackDeviceData', vibetrack.device_id)}>
-                                            <div className="text-xs text-muted-foreground">Device API</div>
-                                                 Link
-                                            <div className="text-xs text-muted-foreground">API</div>
+                                                <div className="text-xs text-muted-foreground">Device API</div>
+                                                Link
+                                                <div className="text-xs text-muted-foreground">API</div>
                                             </a>
                                         </div>
                                     </div>
@@ -347,88 +347,146 @@ export default function VibetrackShow({ vibetrack, runtimeHistory, statusHistory
 
                         </div>
 
+
                         {/* Metrics Cards Section */}
                         <div className="grid gap-4 px-4 md:grid-cols-2 lg:grid-cols-4 lg:px-6">
                             <Card>
-                                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                                <CardHeader className="flex flex-row items-center justify-between space-y-0 ">
                                     <CardTitle className="text-sm font-medium">Total Runtime</CardTitle>
                                     <ClockArrowUp className="h-4 w-4 text-muted-foreground"/>
                                 </CardHeader>
                                 <CardContent>
                                     <div className="text-2xl font-bold">{formatRuntimeTotal(totalRuntimeSeconds)}</div>
-                                    <p className="text-xs text-muted-foreground mb-3">
+                                    <p className="text-xs text-muted-foreground mb-2">
                                         From {filteredRuntimeHistory.length} sessions
                                     </p>
                                     <div className="h-[60px]">
-                                        <ResponsiveContainer width="100%" height="100%">
-                                            <AreaChart data={[...filteredRuntimeHistory].reverse().slice(-20)}>
-                                                <defs>
-                                                    <linearGradient id="runtimeMini" x1="0" y1="0" x2="0" y2="1">
-                                                        <stop offset="5%" stopColor="var(--primary)" stopOpacity={0.8}/>
-                                                        <stop offset="95%" stopColor="var(--primary)" stopOpacity={0}/>
-                                                    </linearGradient>
-                                                </defs>
-                                                <Area type="monotone" dataKey="runtime_sec" stroke="var(--primary)" fillOpacity={1} fill="url(#runtimeMini)" />
-                                            </AreaChart>
-                                        </ResponsiveContainer>
+                                        <ChartContainer
+                                            config={{
+                                                runtime_sec: {
+                                                    label: "Runtime",
+                                                    color: "var(--chart-1)",
+                                                },
+                                            }}
+                                            className="h-[80px] w-full"
+                                        >
+                                            <LineChart data={[...filteredRuntimeHistory].reverse()}>
+                                                <Line
+                                                    type="monotone"
+                                                    dataKey="runtime_sec"
+                                                    stroke="var(--color-runtime_sec)"
+                                                    strokeWidth={2}
+                                                    dot={false}
+                                                />
+                                                <ChartTooltip
+                                                    cursor={false}
+                                                    content={<ChartTooltipContent
+                                                        labelFormatter={(value, payload) => {
+                                                            if (payload && payload[0] && payload[0].payload) {
+                                                                return format(new Date(payload[0].payload.created_at), 'PPp');
+                                                            }
+                                                            return '';
+                                                        }}
+                                                    />}
+                                                />
+                                            </LineChart>
+                                        </ChartContainer>
                                     </div>
                                 </CardContent>
                             </Card>
 
                             <Card>
-                                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                                <CardHeader className="flex flex-row items-center justify-between space-y-0 ">
                                     <CardTitle className="text-sm font-medium">Battery Level</CardTitle>
                                     <BatteryFullIcon className="h-4 w-4 text-muted-foreground" />
                                 </CardHeader>
                                 <CardContent>
                                     <div className="text-2xl font-bold">{vibetrack.battery_soc?.toFixed(1) ?? 'N/A'}%</div>
-                                    <p className="text-xs text-muted-foreground mb-3">
+                                    <p className="text-xs text-muted-foreground mb-2">
                                         {vibetrack.battery_voltage ?? 'N/A'}V
                                     </p>
                                     <div className="h-[60px]">
-                                        <ResponsiveContainer width="100%" height="100%">
-                                            <AreaChart data={filteredStatusHistory.slice(-20)}>
-                                                <defs>
-                                                    <linearGradient id="batteryMini" x1="0" y1="0" x2="0" y2="1">
-                                                        <stop offset="5%" stopColor="var(--primary)" stopOpacity={0.8}/>
-                                                        <stop offset="95%" stopColor="var(--primary)" stopOpacity={0}/>
-                                                    </linearGradient>
-                                                </defs>
-                                                <Area type="monotone" dataKey="battery_soc" stroke="#82ca9d" fillOpacity={1} fill="url(#batteryMini)" />
-                                            </AreaChart>
-                                        </ResponsiveContainer>
+                                        <ChartContainer
+                                            config={{
+                                                battery_soc: {
+                                                    label: "Battery",
+                                                    color: "var(--chart-2)",
+                                                },
+                                            }}
+                                            className="h-[80px] w-full"
+                                        >
+                                            <LineChart data={filteredStatusHistory}>
+                                                <Line
+                                                    type="monotone"
+                                                    dataKey="battery_soc"
+                                                    stroke="var(--color-battery_soc)"
+                                                    strokeWidth={2}
+                                                    dot={false}
+                                                />
+                                                <ChartTooltip
+                                                    cursor={false}
+                                                    content={<ChartTooltipContent
+                                                        labelFormatter={(value, payload) => {
+                                                            if (payload && payload[0] && payload[0].payload) {
+                                                                return format(new Date(payload[0].payload.created_at), 'PPp');
+                                                            }
+                                                            return '';
+                                                        }}
+                                                    />}
+                                                />
+                                            </LineChart>
+                                        </ChartContainer>
                                     </div>
                                 </CardContent>
                             </Card>
 
                             <Card>
-                                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                                <CardHeader className="flex flex-row items-center justify-between space-y-0 ">
                                     <CardTitle className="text-sm font-medium">Signal Strength</CardTitle>
                                     <WifiIcon className="h-4 w-4 text-muted-foreground" />
                                 </CardHeader>
                                 <CardContent>
                                     <div className="text-2xl font-bold">{vibetrack.signal_strength ?? 'N/A'}</div>
-                                    <p className="text-xs text-muted-foreground mb-3">
+                                    <p className="text-xs text-muted-foreground mb-2">
                                         dBm
                                     </p>
                                     <div className="h-[60px]">
-                                        <ResponsiveContainer width="100%" height="100%">
-                                            <AreaChart data={filteredStatusHistory.slice(-20)}>
-                                                <defs>
-                                                    <linearGradient id="signalMini" x1="0" y1="0" x2="0" y2="1">
-                                                        <stop offset="5%" stopColor="var(--primary)" stopOpacity={0.8}/>
-                                                        <stop offset="95%" stopColor="var(--primary)" stopOpacity={0}/>
-                                                    </linearGradient>
-                                                </defs>
-                                                <Area type="monotone" dataKey="signal_strength" stroke="#ff7300" fillOpacity={1} fill="url(#signalMini)" />
-                                            </AreaChart>
-                                        </ResponsiveContainer>
+                                        <ChartContainer
+                                            config={{
+                                                signal_strength: {
+                                                    label: "Signal",
+                                                    color: "var(--chart-3)",
+                                                },
+                                            }}
+                                            className="h-[80px] w-full"
+                                        >
+                                            <LineChart data={filteredStatusHistory}>
+                                                <Line
+                                                    type="monotone"
+                                                    dataKey="signal_strength"
+                                                    stroke="var(--color-signal_strength)"
+                                                    strokeWidth={2}
+                                                    dot={false}
+                                                />
+                                                <ChartTooltip
+                                                    cursor={false}
+                                                    content={<ChartTooltipContent
+                                                        labelFormatter={(value, payload) => {
+                                                            if (payload && payload[0] && payload[0].payload) {
+                                                                return format(new Date(payload[0].payload.created_at), 'PPp');
+                                                            }
+                                                            return '';
+                                                        }}
+                                                    />}
+                                                />
+                                            </LineChart>
+                                        </ChartContainer>
                                     </div>
                                 </CardContent>
                             </Card>
 
                             <Card>
-                                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                                <CardHeader className="flex flex-row items-center justify-between space-y-0 ">
                                     <CardTitle className="text-sm font-medium">Temperature</CardTitle>
                                     <ThermometerIcon className="h-4 w-4 text-muted-foreground" />
                                 </CardHeader>
@@ -438,22 +496,40 @@ export default function VibetrackShow({ vibetrack, runtimeHistory, statusHistory
                                         °F ambient
                                     </p>
                                     <div className="h-[60px]">
-                                        <ResponsiveContainer width="100%" height="100%">
-                                            <AreaChart data={filteredStatusHistory.slice(-20)}>
-                                                <defs>
-                                                    <linearGradient id="tempMini" x1="0" y1="0" x2="0" y2="1">
-                                                        <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.8}/>
-                                                        <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
-                                                    </linearGradient>
-                                                </defs>
-                                                <Area type="monotone" dataKey="sht4x_temp" stroke="#3b82f6" fillOpacity={1} fill="url(#tempMini)" />
-                                            </AreaChart>
-                                        </ResponsiveContainer>
+                                        <ChartContainer
+                                            config={{
+                                                sht4x_temp: {
+                                                    label: "Temperature",
+                                                    color: "var(--chart-4)",
+                                                },
+                                            }}
+                                            className="h-[80px] w-full"
+                                        >
+                                            <LineChart data={filteredStatusHistory}>
+                                                <Line
+                                                    type="monotone"
+                                                    dataKey="sht4x_temp"
+                                                    stroke="var(--color-sht4x_temp)"
+                                                    strokeWidth={2}
+                                                    dot={false}
+                                                />
+                                                <ChartTooltip
+                                                    cursor={false}
+                                                    content={<ChartTooltipContent
+                                                        labelFormatter={(value, payload) => {
+                                                            if (payload && payload[0] && payload[0].payload) {
+                                                                return format(new Date(payload[0].payload.created_at), 'PPp');
+                                                            }
+                                                            return '';
+                                                        }}
+                                                    />}
+                                                />
+                                            </LineChart>
+                                        </ChartContainer>
                                     </div>
                                 </CardContent>
                             </Card>
                         </div>
-
 
 
                         {/* Interactive Chart Section */}
@@ -471,25 +547,7 @@ export default function VibetrackShow({ vibetrack, runtimeHistory, statusHistory
                                             config={chartConfig}
                                             className="aspect-auto h-[400px] w-full"
                                         >
-                                            <AreaChart data={environmentalData}>
-                                                <defs>
-                                                    <linearGradient id="fillAmbientTemp" x1="0" y1="0" x2="0" y2="1">
-                                                        <stop offset="5%" stopColor="var(--color-sht4x_temp)" stopOpacity={0.8} />
-                                                        <stop offset="95%" stopColor="var(--color-sht4x_temp)" stopOpacity={0.1} />
-                                                    </linearGradient>
-                                                    <linearGradient id="fillHumidity" x1="0" y1="0" x2="0" y2="1">
-                                                        <stop offset="5%" stopColor="var(--color-sht4x_humidity)" stopOpacity={0.8} />
-                                                        <stop offset="95%" stopColor="var(--color-sht4x_humidity)" stopOpacity={0.1} />
-                                                    </linearGradient>
-                                                    <linearGradient id="fillDeviceTemp" x1="0" y1="0" x2="0" y2="1">
-                                                        <stop offset="5%" stopColor="var(--color-modem_temp)" stopOpacity={0.8} />
-                                                        <stop offset="95%" stopColor="var(--color-modem_temp)" stopOpacity={0.1} />
-                                                    </linearGradient>
-                                                    <linearGradient id="fillBattery" x1="0" y1="0" x2="0" y2="1">
-                                                        <stop offset="5%" stopColor="var(--color-battery_soc)" stopOpacity={0.8} />
-                                                        <stop offset="95%" stopColor="var(--color-battery_soc)" stopOpacity={0.1} />
-                                                    </linearGradient>
-                                                </defs>
+                                            <LineChart data={environmentalData}>
                                                 <CartesianGrid vertical={false} />
                                                 <XAxis
                                                     dataKey="date"
@@ -505,56 +563,53 @@ export default function VibetrackShow({ vibetrack, runtimeHistory, statusHistory
                                                         });
                                                     }}
                                                 />
-                                                <ChartTooltip
-                                                    cursor={true}
-                                                    content={
-                                                        <ChartTooltipContent
-                                                            labelFormatter={(value) => {
-                                                                return new Date(value).toLocaleDateString("en-US", {
-                                                                    month: "short",
-                                                                    day: "numeric",
-                                                                    hour: "numeric",
-                                                                    minute: "2-digit",
-                                                                });
-                                                            }}
-                                                            indicator="dot"
-                                                            formatter={(value, name) => [
-                                                                `${value}${name === 'sht4x_humidity' ? '%' : name === 'battery_soc' ? '%' : '°F'}`,
-                                                                chartConfig[name]?.label || name,
-                                                            ]}
-                                                        />
-                                                    }
+                                                {/* Left Y-axis for temperatures (°F) */}
+                                                <YAxis
+                                                    yAxisId="temp"
+                                                    orientation="left"
+                                                    tickFormatter={(value) => `${value}°F`}
                                                 />
-                                                <Area
+                                                {/* Right Y-axis for percentages (%) */}
+                                                <YAxis
+                                                    yAxisId="percent"
+                                                    orientation="right"
+                                                    tickFormatter={(value) => `${value}%`}
+                                                />
+                                                <ChartTooltip cursor={false} content={<ChartTooltipContent />} />
+                                                <Line
+                                                    yAxisId="temp"
+                                                    type="monotone"
                                                     dataKey="sht4x_temp"
-                                                    type="natural"
-                                                    fill="url(#fillAmbientTemp)"
                                                     stroke="var(--color-sht4x_temp)"
-                                                    stackId="a"
+                                                    strokeWidth={2}
+                                                    dot={false}
                                                 />
-                                                <Area
+                                                <Line
+                                                    yAxisId="temp"
+                                                    type="monotone"
                                                     dataKey="modem_temp"
-                                                    type="natural"
-                                                    fill="url(#fillDeviceTemp)"
                                                     stroke="var(--color-modem_temp)"
-                                                    stackId="b"
+                                                    strokeWidth={2}
+                                                    dot={false}
                                                 />
-                                                <Area
+                                                <Line
+                                                    yAxisId="percent"
+                                                    type="monotone"
                                                     dataKey="sht4x_humidity"
-                                                    type="natural"
-                                                    fill="url(#fillHumidity)"
                                                     stroke="var(--color-sht4x_humidity)"
-                                                    stackId="c"
+                                                    strokeWidth={2}
+                                                    dot={false}
                                                 />
-                                                {/*<Area*/}
-                                                {/*    dataKey="battery_soc"*/}
-                                                {/*    type="natural"*/}
-                                                {/*    fill="url(#fillBattery)"*/}
-                                                {/*    stroke="var(--color-battery_soc)"*/}
-                                                {/*    stackId="d"*/}
-                                                {/*/>*/}
+                                                <Line
+                                                    yAxisId="percent"
+                                                    type="monotone"
+                                                    dataKey="battery_soc"
+                                                    stroke="var(--color-battery_soc)"
+                                                    strokeWidth={2}
+                                                    dot={false}
+                                                />
                                                 <ChartLegend content={<ChartLegendContent />} />
-                                            </AreaChart>
+                                            </LineChart>
                                         </ChartContainer>
                                     ) : (
                                         <div className="flex items-center justify-center h-[400px] text-muted-foreground">
