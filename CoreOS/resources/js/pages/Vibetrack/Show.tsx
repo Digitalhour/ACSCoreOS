@@ -185,27 +185,27 @@ export default function VibetrackShow({ vibetrack, runtimeHistory, statusHistory
     const chartConfig = {
         sht4x_temp: {
             label: "Ambient Temp",
-            color: "var(--chart-1)",
+            color: "var(--chart-vibetreck-4)",
         },
         modem_temp: {
             label: "Device Temp",
-            color: "var(--chart-2)",
+            color: "var(--chart-vibetreck-5)",
         },
         sht4x_humidity: {
             label: "Humidity",
-            color: "var(--chart-3)",
+            color: "var(--chart-vibetreck-6)",
         },
         battery_soc: {
             label: "Battery",
-            color: "var(--chart-4)",
+            color: "var(--chart-vibetreck-2)",
         },
         runtime_sec: {
             label: "Runtime",
-            color: "var(--chart-5)",
+            color: "var(--chart-vibetreck-1)",
         },
         signal_strength: {
             label: "Signal",
-            color: "var(--chart-6)",
+            color: "var(--chart-vibetreck-3)",
         },
     } satisfies ChartConfig;
 
@@ -218,7 +218,7 @@ export default function VibetrackShow({ vibetrack, runtimeHistory, statusHistory
     }, [filteredStatusHistory]);
     const formatUTCToLocal = (utcDateString: string) => {
         // Parse as UTC by ensuring 'Z' suffix, then format in local time
-        const utcDate = new Date(utcDateString.endsWith('Z') ? utcDateString : utcDateString + 'Z');
+        const utcDate = new Date(utcDateString ? utcDateString : utcDateString);
         return format(utcDate, 'PPpp');
     };
     return (
@@ -371,7 +371,7 @@ export default function VibetrackShow({ vibetrack, runtimeHistory, statusHistory
                                             config={{
                                                 runtime_sec: {
                                                     label: "Runtime",
-                                                    color: "var(--chart-1)",
+                                                    color: "var(--chart-vibetreck-1)",
                                                 },
                                             }}
                                             className="h-[80px] w-full"
@@ -425,7 +425,7 @@ export default function VibetrackShow({ vibetrack, runtimeHistory, statusHistory
                                                 <Line
                                                     type="monotone"
                                                     dataKey="battery_soc"
-                                                    stroke="var(--color-battery_soc)"
+                                                    stroke="var(--chart-vibetreck-2)"
                                                     strokeWidth={2}
                                                     dot={false}
                                                 />
@@ -461,7 +461,7 @@ export default function VibetrackShow({ vibetrack, runtimeHistory, statusHistory
                                             config={{
                                                 signal_strength: {
                                                     label: "Signal",
-                                                    color: "var(--chart-3)",
+                                                    color: "var(--chart-vibetreck-3)",
                                                 },
                                             }}
                                             className="h-[80px] w-full"
@@ -506,7 +506,7 @@ export default function VibetrackShow({ vibetrack, runtimeHistory, statusHistory
                                             config={{
                                                 sht4x_temp: {
                                                     label: "Temperature",
-                                                    color: "var(--chart-4)",
+                                                    color: "var(--chart-vibetreck-4)",
                                                 },
                                             }}
                                             className="h-[80px] w-full"
@@ -544,7 +544,7 @@ export default function VibetrackShow({ vibetrack, runtimeHistory, statusHistory
                                 <CardHeader>
                                     <CardTitle>Environmental, Device & System Metrics</CardTitle>
                                     <CardDescription>
-                                        Real-time monitoring of temperature, humidity, battery, runtime, and signal strength
+                                       Monitoring of temperature, humidity, battery, runtime, and signal strength
                                     </CardDescription>
                                 </CardHeader>
                                 <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6">
