@@ -124,16 +124,7 @@ export default function VibetrackIndex({ devices, filters }: Props) {
                                 onChange={(e) => setLocalFilters({ ...localFilters, search: e.target.value })}
                                 onKeyDown={(e) => e.key === 'Enter' && applyFilters()}
                             />
-                            <Input
-                                type="date"
-                                value={localFilters.date_from || ''}
-                                onChange={(e) => setLocalFilters({ ...localFilters, date_from: e.target.value || undefined })}
-                            />
-                            <Input
-                                type="date"
-                                value={localFilters.date_to || ''}
-                                onChange={(e) => setLocalFilters({ ...localFilters, date_to: e.target.value || undefined })}
-                            />
+
                         </div>
                         <div className="flex gap-2 mt-4">
                             <Button onClick={applyFilters}>Apply Filters</Button>

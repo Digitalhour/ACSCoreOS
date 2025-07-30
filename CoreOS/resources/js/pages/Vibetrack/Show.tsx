@@ -320,7 +320,7 @@ export default function VibetrackShow({ vibetrack, runtimeHistory, statusHistory
                                         <ThermometerIcon className="h-8 w-8 " />
                                         <div>
                                             <div className="text-xs text-muted-foreground">Device Temperature</div>
-                                            <div className="text-sm font-bold">{vibetrack.json?.modem?.temp ?? 'N/A'} °F</div>
+                                            <div className="text-sm font-bold">{vibetrack.json?.modem?.temp ? vibetrack.json.modem.temp.toFixed(1) : 'N/A'} °F</div>
                                             <div className="text-xs text-muted-foreground">Modem</div>
                                         </div>
                                     </div>
@@ -345,7 +345,7 @@ export default function VibetrackShow({ vibetrack, runtimeHistory, statusHistory
                                         <ThermometerIcon className="h-6 w-6 " />
                                         <div>
                                             <div className="text-xs text-muted-foreground">Ambient Temperature</div>
-                                            <div className="text-md font-bold">{vibetrack.json?.sht4x?.temp ?? 'N/A'} °F</div>
+                                            <div className="text-md font-bold">{vibetrack.json?.sht4x?.temp?.toFixed(1) ?? 'N/A'} °F</div>
                                             <div className="text-xs text-muted-foreground">SHT4x Sensor</div>
                                         </div>
                                     </div>
@@ -353,7 +353,7 @@ export default function VibetrackShow({ vibetrack, runtimeHistory, statusHistory
                                         <Droplets className="h-6 w-6"/>
                                         <div>
                                             <div className="text-xs text-muted-foreground">Humidity</div>
-                                            <div className="text-md font-bold">{vibetrack.json?.sht4x?.hum ?? 'N/A'}%</div>
+                                            <div className="text-md font-bold">{vibetrack.json?.sht4x?.hum?.toFixed(1) ?? 'N/A'}%</div>
                                             <div className="text-xs text-muted-foreground">SHT4x Sensor</div>
                                         </div>
                                     </div>
