@@ -19,6 +19,7 @@ import {
     Braces,
     CalendarIcon,
     ClockArrowUp,
+    Cpu,
     Droplets,
     RefreshCwIcon,
     ThermometerIcon,
@@ -233,7 +234,15 @@ export default function VibetrackShow({ vibetrack, runtimeHistory, statusHistory
                             <div className="flex items-center gap-4">
                                 <div>
                                     <h1 className="text-3xl font-bold tracking-tight">{pageTitle}</h1>
-                                    {vibetrack.name && <p className="text-muted-foreground font-mono text-sm">{vibetrack.device_id}</p>}
+                                    {vibetrack.name && <p className=" flex px-1 text-muted-foreground font-mono text-sm">
+                                        <div className="flex items-center gap-1">
+                                            <Cpu className="h-4 w-4 text-primary" />
+                                            <div>
+                                                <div className="text-sm text-muted-foreground">     {vibetrack.device_id}</div>
+                                            </div>
+                                        </div>
+
+                                    </p>}
 
                                 </div>
                             </div>
