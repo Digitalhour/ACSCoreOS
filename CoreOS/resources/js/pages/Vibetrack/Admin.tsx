@@ -17,6 +17,7 @@ import {
     DialogTitle
 } from '@/components/ui/dialog';
 import {CheckIcon, EditIcon, RotateCcwIcon, TrashIcon, XIcon} from 'lucide-react';
+import {route} from "ziggy-js";
 
 interface Alias {
     id: number;
@@ -167,6 +168,7 @@ export default function VibetrackAdmin({ aliases, deletedAliases, deviceIds }: P
                                 <TableRow>
                                     <TableHead>Name</TableHead>
                                     <TableHead>Device ID</TableHead>
+                                    <TableHead>Device API</TableHead>
                                     <TableHead className="text-right">Actions</TableHead>
                                 </TableRow>
                             </TableHeader>
@@ -194,6 +196,9 @@ export default function VibetrackAdmin({ aliases, deletedAliases, deviceIds }: P
                                                 )}
                                             </TableCell>
                                             <TableCell className="font-mono">{alias.device_id}</TableCell>
+                                            <TableCell className="font-mono">
+                                                <a className={"text-xs "} target="_blank" href={route('api.getVibetrackDeviceData', alias.device_id)}>Device API Link</a>
+                                            </TableCell>
                                             <TableCell className="text-right">
                                                 <div className="flex justify-end gap-2">
                                                     {editingId === alias.id ? (

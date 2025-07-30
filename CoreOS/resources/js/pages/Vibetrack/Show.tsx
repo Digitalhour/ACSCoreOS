@@ -14,11 +14,21 @@ import {
     ChartTooltip,
     ChartTooltipContent,
 } from '@/components/ui/chart';
-import {BatteryFullIcon, CalendarIcon, Droplets, RefreshCwIcon, ThermometerIcon, WifiIcon} from 'lucide-react';
+import {
+    BatteryFullIcon,
+    Braces,
+    CalendarIcon,
+    ClockArrowUp,
+    Droplets,
+    RefreshCwIcon,
+    ThermometerIcon,
+    WifiIcon
+} from 'lucide-react';
 import {format, isWithinInterval, subDays} from 'date-fns';
 import {Area, AreaChart, CartesianGrid, ResponsiveContainer, XAxis} from 'recharts';
 import {Table, TableBody, TableCell, TableHead, TableHeader, TableRow} from '@/components/ui/table';
 import {cn} from '@/lib/utils';
+import {route} from "ziggy-js";
 
 // Interface for a single data point in the runtime history chart
 interface RuntimeHistoryPoint {
@@ -274,7 +284,7 @@ export default function VibetrackShow({ vibetrack, runtimeHistory, statusHistory
                             <div>
                                 <h3 className="font-semibold">Device Stats</h3>
                                 <p className="text-muted-foreground text-xs">Latest readings from device sensors - Last updated: {format(new Date(vibetrack.created_at), 'PPpp')}</p>
-                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                                     <div className="flex items-center gap-2">
                                         <WifiIcon className="h-4 w-4 text-primary" />
                                         <div>
@@ -282,6 +292,7 @@ export default function VibetrackShow({ vibetrack, runtimeHistory, statusHistory
                                             <div className="text-md font-bold">{vibetrack.signal_strength ?? 'N/A'} dBm</div>
                                         </div>
                                     </div>
+
                                     <div className="flex items-center gap-2">
                                         <BatteryFullIcon className="h-8 w-8 text-primary" />
                                         <div>
@@ -296,6 +307,16 @@ export default function VibetrackShow({ vibetrack, runtimeHistory, statusHistory
                                             <div className="text-xs text-muted-foreground">Device Temperature</div>
                                             <div className="text-sm font-bold">{vibetrack.json?.modem?.temp ?? 'N/A'} °F</div>
                                             <div className="text-xs text-muted-foreground">Modem</div>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <Braces className="h-8 w-8 " />
+                                        <div>
+                                            <a className={"text-sm font-bold"} target="_blank" href={route('api.getVibetrackDeviceData', vibetrack.device_id)}>
+                                            <div className="text-xs text-muted-foreground">Device API</div>
+                                                 Link
+                                            <div className="text-xs text-muted-foreground">API</div>
+                                            </a>
                                         </div>
                                     </div>
                                 </div>
@@ -331,7 +352,7 @@ export default function VibetrackShow({ vibetrack, runtimeHistory, statusHistory
                             <Card>
                                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                                     <CardTitle className="text-sm font-medium">Total Runtime</CardTitle>
-                                    <div className="h-4 w-4 text-muted-foreground">⏱️</div>
+                                    <ClockArrowUp className="h-4 w-4 text-muted-foreground"/>
                                 </CardHeader>
                                 <CardContent>
                                     <div className="text-2xl font-bold">{formatRuntimeTotal(totalRuntimeSeconds)}</div>
