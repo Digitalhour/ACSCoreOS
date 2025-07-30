@@ -216,7 +216,11 @@ export default function VibetrackShow({ vibetrack, runtimeHistory, statusHistory
             date: item.created_at,
         }));
     }, [filteredStatusHistory]);
-
+    const formatUTCToLocal = (utcDateString: string) => {
+        // Parse as UTC by ensuring 'Z' suffix, then format in local time
+        const utcDate = new Date(utcDateString.endsWith('Z') ? utcDateString : utcDateString + 'Z');
+        return format(utcDate, 'PPpp');
+    };
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title={pageTitle!} />
@@ -283,7 +287,9 @@ export default function VibetrackShow({ vibetrack, runtimeHistory, statusHistory
                         <div className="px-4 lg:px-6">
                             <div>
                                 <h3 className="font-semibold">Device Stats</h3>
-                                <p className="text-muted-foreground text-xs">Latest readings from device sensors - Last updated: {format(new Date(vibetrack.created_at), 'PPpp')}</p>
+                                <p className="text-muted-foreground text-xs">
+                                    Latest readings from device sensors - Last updated: {formatUTCToLocal(vibetrack.created_at)}
+                                </p>
                                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                                     <div className="flex items-center gap-2">
                                         <WifiIcon className="h-4 w-4 text-primary" />
