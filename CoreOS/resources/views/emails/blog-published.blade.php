@@ -28,6 +28,37 @@
             line-height: 1.7;
             color: #334155;
         }
+        /* Fix email client compatibility - override complex layouts */
+        .blog-content div[style*="display: flex"],
+        .blog-content div[style*="flex:"],
+        .blog-content div[style*="float:"] {
+            display: block !important;
+            width: 100% !important;
+            margin-bottom: 20px !important;
+            float: none !important;
+        }
+        .blog-content div[style*="flex: 1"],
+        .blog-content div[style*="flex: 2"],
+        .blog-content div[style*="min-width:"] {
+            display: block !important;
+            width: 100% !important;
+            margin-bottom: 15px !important;
+            float: none !important;
+            min-width: auto !important;
+        }
+        /* Force columns to stack */
+        .blog-content div[style*="columns:"] {
+            columns: 1 !important;
+            column-gap: 0 !important;
+        }
+        /* Override absolute positioning */
+        .blog-content div[style*="position:"] {
+            position: static !important;
+        }
+        /* Ensure proper spacing for nested content */
+        .blog-content div[style*="gap:"] {
+            gap: 0 !important;
+        }
         .blog-content h1, .blog-content h2, .blog-content h3 {
             color: #0f172a;
             margin-top: 30px;
