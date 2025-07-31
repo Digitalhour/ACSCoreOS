@@ -191,6 +191,7 @@
       <path value="$PROJECT_DIR$/CoreOS/vendor/ezyang/htmlpurifier" />
       <path value="$PROJECT_DIR$/CoreOS/vendor/lakm/nopass" />
       <path value="$PROJECT_DIR$/CoreOS/vendor/spatie/laravel-honeypot" />
+      <path value="$PROJECT_DIR$/CoreOS/vendor/predis/predis" />
     </include_path>
   </component>
   <component name="PhpProjectSharedConfiguration" php_language_level="8.2" />
