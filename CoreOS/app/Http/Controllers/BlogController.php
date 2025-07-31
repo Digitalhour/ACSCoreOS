@@ -124,7 +124,7 @@ class BlogController extends Controller
 
         // Send notification if blog is published
         if ($validated['status'] === 'published') {
-            Notification::route('mail', 'caldridge@aircompressorservces.com')
+            Notification::route('mail', 'caldridge@aircompressorservices.com')
                 ->notify(new BlogPublished($article));
         }
 
