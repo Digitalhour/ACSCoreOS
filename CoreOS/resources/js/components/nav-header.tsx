@@ -2,6 +2,7 @@ import {Icon} from '@/components/icon';
 import {
     SidebarGroup,
     SidebarGroupContent,
+    SidebarGroupHeader,
     SidebarMenu,
     SidebarMenuButton,
     SidebarMenuItem
@@ -22,7 +23,7 @@ export function NavHeader({
     const { isImpersonating } = usePage<SharedData>().props;
 
     return (
-        <SidebarGroup {...props} className={`group-data-[collapsible=icon]:p-0 ${className || ''}`}>
+        <SidebarGroupHeader {...props} className={`group-data-[collapsible=icon]:p-0 ${className || ''}`}>
             <SidebarGroupContent>
                 <SidebarMenu>
                     {items.map((item) => (
@@ -50,6 +51,6 @@ export function NavHeader({
                     ))}
                 </SidebarMenu>
             </SidebarGroupContent>
-        </SidebarGroup>
+        </SidebarGroupHeader>
     );
 }

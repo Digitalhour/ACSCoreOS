@@ -19,7 +19,26 @@ import {
 } from '@/components/ui/sidebar';
 import {type NavItem, type User} from '@/types';
 import {Link, usePage} from '@inertiajs/react';
-import {BookOpenText, BotMessageSquareIcon, ImageUp, Minus, Plus, ShieldCheck, ShipWheel, Users} from 'lucide-react';
+import {
+    BookOpenText,
+    BotMessageSquareIcon,
+    ChevronDown,
+    ChevronRight,
+    Clock,
+    Cog,
+    DollarSign,
+    FileText,
+    GraduationCap,
+    Heart,
+    ImageUp,
+    LayoutDashboard,
+    LayoutList,
+    Package,
+    ShieldCheck,
+    ShipWheel,
+    Smartphone,
+    Users,
+} from 'lucide-react';
 import AppLogo from './app-logo';
 import {NavHeader} from "@/components/nav-header";
 
@@ -37,59 +56,95 @@ interface PageProps {
 
 interface NavCategory {
     title: string;
+    icon: any;
     items: NavItem[];
 }
 
+// Header Nav items
+
+const headerNavItems: NavItem[] = [
+    { title: 'Dashboard', href: '/dashboard', icon: LayoutDashboard, roles: '', description: null },
+    { title: 'Billy The AI', href: '/billy', icon: BotMessageSquareIcon, description: null },
+    { title: 'My Time Clock', href: '/time-clock/employee', icon: BookOpenText, description: null },
+    { title: 'My PTO', href: '/employee/pto', icon: ShipWheel, description: null },
+    { title: 'ACS Org', href: '/organization-chart', icon: Users, roles: '', description: null },
+    { title: 'ACS Parts Database', href: '/parts-catalog', icon: Cog, roles: '', description: null },
+];
+
+
 // Organize navigation items into categories
 const navigationCategories: NavCategory[] = [
+
     {
-        title: "Dashboard & Core",
+        title: "Time PTO Management",
+        icon: Clock,
         items: [
 
-            { title: 'Billy The AI', href: '/billy', icon: BotMessageSquareIcon, description: null },
-        ]
-    },
-    {
-        title: "Time & PTO Management",
-        items: [
-            { title: 'My Time Clock', href: '/time-clock/employee', icon: BookOpenText, description: null },
-            { title: 'Your PTO', href: '/employee/pto', icon: ShipWheel, description: null },
+
             { title: 'Department PTO', href: '/department-pto', icon: Users, description: null },
-            { title: 'Holiday', href: '/holidays', icon: Users, description: null },
+
             { title: 'Timesheet Manager Dash', href: route('time-clock.manager.dashboard'), icon: BookOpenText, description: null },
             { title: 'Timesheet Payroll Dash', href: route('time-clock.payroll.dashboard'), icon: BookOpenText, description: null },
         ]
     },
     {
-        title: "Content & Documents",
+        title: "Time & PTO Payroll",
+        icon: DollarSign,
         items: [
-            { title: 'ACS blog Admin', href: '/admin/blog', icon: ShipWheel, description: null },
-            { title: 'Company Documents', href: '/employee/documents', icon: BookOpenText, description: null },
-            { title: 'Admin Documents', href: '/folders', icon: BookOpenText, description: null },
-            { title: 'Product Picture Manager', href: '/product-picture-manager', icon: ImageUp, permission: '', description: null },
+            { title: 'Timesheet Payroll Dash', href: route('time-clock.payroll.dashboard'), icon: BookOpenText, description: null },
         ]
     },
     {
-        title: "Organization & People",
+        title: "Human Resources",
+        icon: Users,
         items: [
-            { title: 'ACS Org', href: '/organization-chart', icon: Users, roles: '', description: null },
             { title: 'HR Dashboard', href: '/hr/dashboard', icon: Users, description: null },
-            { title: 'Vibetrack', href: '/vibetrack', icon: Users, roles: '', description: null },
-            { title: 'Vibetrack Admin', href: '/vibetrack/admin', icon: Users, roles: '', description: null },
+            { title: 'Holiday', href: '/holidays', icon: Users, description: null },
+            { title: 'ACS blog Admin', href: '/admin/blog', icon: ShipWheel, description: null },
+            { title: 'Company Documents', href: '/employee/documents', icon: BookOpenText, description: null },
+            { title: 'Admin Documents', href: '/folders', icon: BookOpenText, description: null },
+
+        ]
+    },
+    {
+        title: "Warehouse",
+        icon: Package,
+        items: [
+            { title: 'Product Picture Manager', href: '/product-picture-manager', icon: ImageUp, permission: '', description: null },
+        ]
+
+    },
+    {
+        title: "Content & Documents",
+        icon: FileText,
+        items: [
+            { title: 'Company Documents', href: '/employee/documents', icon: BookOpenText, description: null },
+            { title: 'Admin Documents', href: '/folders', icon: BookOpenText, description: null },
+
+        ]
+    },
+    {
+        title: "Vibetrack",
+        icon: Heart,
+        items: [
+            { title: 'Vibetrack', href: '/vibetrack', icon: Smartphone, roles: '', description: null },
+            { title: 'Vibetrack Admin', href: '/vibetrack/admin', icon: LayoutList, roles: '', description: null },
         ]
     },
     {
         title: "Training & Learning",
+        icon: GraduationCap,
         items: [
             // { title: 'Your Training', href: '/training', icon: BookOpenText, description: null },
             // { title: 'Training Dashboard', href: '/admin/reports', icon: BookOpenText, description: null },
-            { title: 'Old Training Dashboard', href: route('old-style-training-tracking.index'), icon: BookOpenText, description: null },
+            { title: 'Training Dashboard', href: route('old-style-training-tracking.index'), icon: BookOpenText, description: null },
         ]
     },
     {
         title: "Tools & Resources",
+        icon: Cog,
         items: [
-            { title: 'ACS Parts Database', href: '/parts-catalog', icon: Users, roles: '', description: null },
+
             // { title: 'ACS Organization', href: '/acs-org', icon: Users, permission: '', description: null},
             // { title: 'ACS PermissionTest', href: '/test', icon: Users, permission: 'AdminMenu', description: null },
             // { title: 'ACS RoleTest', href: '/Roletest', icon: Users, roles: '', description: null},
@@ -107,9 +162,7 @@ const footerNavItems: NavItem[] = [
 
 ];
 
-const headerNavItems: NavItem[] = [
-    { title: 'Dashboard', href: '/dashboard', icon: null, roles: '', description: null },
-];
+
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     const page = usePage<PageProps>();
@@ -203,7 +256,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             <SidebarContent>
 
                 <SidebarGroup>
-                    <NavHeader items={filteredHeaderNavItems} className="mt-auto" />
+                    <NavHeader items={filteredHeaderNavItems} currentUrl={currentUrl} className="mt-auto" />
                     <SidebarMenu>
                         {filteredCategories.map((category, index) => (
                             <Collapsible
@@ -214,9 +267,10 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                                 <SidebarMenuItem>
                                     <CollapsibleTrigger asChild>
                                         <SidebarMenuButton>
+                                            {category.icon && <category.icon />}
                                             {category.title}{" "}
-                                            <Plus className="ml-auto group-data-[state=open]/collapsible:hidden" />
-                                            <Minus className="ml-auto group-data-[state=closed]/collapsible:hidden" />
+                                            <ChevronRight className="ml-auto group-data-[state=open]/collapsible:hidden" />
+                                            <ChevronDown className="ml-auto group-data-[state=closed]/collapsible:hidden" />
                                         </SidebarMenuButton>
                                     </CollapsibleTrigger>
                                     {category.items?.length ? (

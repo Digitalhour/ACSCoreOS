@@ -4,8 +4,10 @@ namespace App\Http\Controllers;
 
 use App\Models\BlogArticle;
 use App\Models\BlogComment;
+use App\Notifications\BlogPublished;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
@@ -120,6 +122,12 @@ class BlogController extends Controller
 
         $article = BlogArticle::create($validated);
 
+        // Send notification if blog is published
+        if ($validated['status'] === 'published') {
+            Notification::route('mail', 'caldridge@aircompressorservces.com')
+                ->notify(new BlogPublished($article));
+        }
+
         return redirect()->route('blog.show', $article)
             ->with('success', 'Article created successfully!');
     }
@@ -174,7 +182,17 @@ class BlogController extends Controller
             $validated['published_at'] = now();
         }
 
+        // Check if blog is being published for the first time
+        $wasNotPublished = $blogArticle->status !== 'published';
+        $isNowPublished = $validated['status'] === 'published';
+
         $blogArticle->update($validated);
+
+        // Send notification if blog is being published for the first time
+        if ($wasNotPublished && $isNowPublished) {
+            Notification::route('mail', 'caldridge@aircompressorservces.com')
+                ->notify(new BlogPublished($blogArticle->fresh()));
+        }
 
         return redirect()->route('blog.show', $blogArticle)
             ->with('success', 'Article updated successfully!');
