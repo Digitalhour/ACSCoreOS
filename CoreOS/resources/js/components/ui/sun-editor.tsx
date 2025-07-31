@@ -48,61 +48,15 @@ export default function SunEditorComponent({
             "katex": "window.katex",
             "previewTemplate": "<div style='width:auto; max-width:1080px; margin:auto;'>    <h1>Preview Template</h1>     {{contents}}     <div>_Footer_</div></div>            ",
             templates: [
+
                 {
-                    name: 'ACS Newsletter',
-                    html: '<div style="font-family:\'Arial\', sans-serif; max-width: 700px; margin: auto; padding: 20px; background-color: #ffffff; border: 1px solid #ccc;">\n' +
-                        '  <!-- Header -->\n' +
-                        '  <div style="background-image: url(\'https://yourcdn.com/banner.jpg\'); background-size: cover; background-position: center; padding: 60px 20px; text-align: center; color: white;">\n' +
-                        '    <h1 style="margin: 0; font-size: 36px;">Your Newsletter Title</h1>\n' +
-                        '    <p style="font-size: 16px; margin: 5px 0;">Subtitle or Date</p>\n' +
-                        '  </div>\n' +
-                        '\n' +
-                        '  <!-- Intro Section -->\n' +
-                        '  <div style="padding: 20px 0;">\n' +
-                        '    <h2 style="color: #333;">Welcome to the Latest Issue</h2>\n' +
-                        '    <p style="line-height: 1.6; color: #555;">\n' +
-                        '      Here\'s a quick look at what\'s inside. You can edit this message directly inside SunEditor.\n' +
-                        '    </p>\n' +
-                        '  </div>\n' +
-                        '\n' +
-                        '  <!-- Main Article -->\n' +
-                        '  <div style="padding: 10px 0;">\n' +
-                        '    <h3 style="color: #222;">📰 Feature Story</h3>\n' +
-                        '    <p style="line-height: 1.6; color: #444;">\n' +
-                        '      This is the main article content. Replace this with your own content — text, images, or even embedded video. You can insert images via the editor toolbar.\n' +
-                        '    </p>\n' +
-                        '    <img src="https://yourcdn.com/featured-image.jpg" alt="Feature" style="width: 100%; margin-top: 10px; border-radius: 4px;" />\n' +
-                        '  </div>\n' +
-                        '\n' +
-                        '  <!-- Quote / Highlight -->\n' +
-                        '  <blockquote style="margin: 20px 0; padding: 15px; background-color: #f9f9f9; border-left: 4px solid #007acc;">\n' +
-                        '    <p style="margin: 0; color: #333;">“Insert a highlight or quote here. Keep it relevant and inspiring.”</p>\n' +
-                        '  </blockquote>\n' +
-                        '\n' +
-                        '  <!-- Closing Section -->\n' +
-                        '  <div style="padding: 20px 0;">\n' +
-                        '    <h4 style="color: #222;">📅 Upcoming Events</h4>\n' +
-                        '    <ul style="color: #444;">\n' +
-                        '      <li>Event One – August 5th</li>\n' +
-                        '      <li>Event Two – August 12th</li>\n' +
-                        '    </ul>\n' +
-                        '  </div>\n' +
-                        '\n' +
-                        '  <!-- Footer -->\n' +
-                        '  <div style="text-align: center; font-size: 12px; color: #999; border-top: 1px solid #eee; padding-top: 10px;">\n' +
-                        '    <p>&copy; 2025 Your Company Name. All rights reserved.</p>\n' +
-                        '    <p><a href="#" style="color: #007acc; text-decoration: none;">Unsubscribe</a></p>\n' +
-                        '  </div>\n' +
-                        '</div>\n'
-                },
-                {
-                    name: 'Template-2',
+                    name: 'News Paper 1 page',
                     html: '<div style="max-width: 800px; margin: 0 auto; font-family: \'Times New Roman\', serif; background: white; padding: 20px; box-sizing: border-box;"> \n' +
                         '<!-- Header --> \n' +
                         '<div style="text-align: center; border-bottom: 3px solid #000; padding-bottom: 15px; margin-bottom: 20px;"> \n' +
-                        '<h1 style="font-size: clamp(24px, 4vw, 36px); font-weight: bold; letter-spacing: 2px; margin: 0; padding: 0;">SUNNYDALE NEWSLETTER</h1>\n' +
+                        '<h1 style="font-size: clamp(24px, 4vw, 36px); font-weight: bold; letter-spacing: 2px; margin: 0; padding: 0;">ACS NEWSLETTER</h1>\n' +
                         ' \n' +
-                        '<div style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px; font-size: clamp(12px, 2vw, 14px); flex-wrap: wrap; gap: 10px;"> <span><strong>Date:</strong> 12/11/2024</span> <span><strong>SUNNYDALE HIGH SCHOOL</strong></span> <span><strong>Vol. No.:</strong> 2</span> </div>\n' +
+                        '<div style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px; font-size: clamp(12px, 2vw, 14px); flex-wrap: wrap; gap: 10px;"> <span><strong>Date:</strong> 12/11/2024</span> <span><strong>SCHOOL HOUSE</strong></span> <span><strong>Vol. No.:</strong> 2</span> </div>\n' +
                         ' </div>\n' +
                         ' \n' +
                         '<!-- Main Headline --> \n' +

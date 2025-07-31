@@ -75,17 +75,17 @@ export default function BlogShow({ article, comments, relatedArticles }: Props) 
                 <div className="grid auto-rows-min gap-4 md:grid-cols-4">
 
                     {/* Article Header Card */}
-                    <div className="col-span-3">
-                        <div className="border-sidebar-border/70 dark:border-sidebar-border relative overflow-hidden rounded-xl border">
-                            <div className="p-6">
-                                <div className="flex items-start justify-between mb-4">
+                    <div className="col-span-4">
+                        <div className=" relative overflow-hidden ">
+                            <div className="p-2">
+                                <div className="flex items-start justify-between">
                                     <div className="flex-1">
                                         {article.status === 'draft' && (
                                             <Badge variant="secondary" className="mb-4">
                                                 Draft
                                             </Badge>
                                         )}
-                                        <h1 className="text-4xl font-bold tracking-tight mb-4">
+                                        <h1 className="text-2xl font-bold tracking-tight mb-4">
                                             {article.title}
                                         </h1>
                                     </div>
@@ -101,23 +101,23 @@ export default function BlogShow({ article, comments, relatedArticles }: Props) 
 
                                 <div className="flex items-center gap-6">
                                     <div className="flex items-center gap-3">
-                                        <Avatar className="h-10 w-10">
+                                        <Avatar className="h-8 w-8">
                                             <AvatarImage src={article.user.avatar} />
                                             <AvatarFallback>
                                                 {article.user.name.charAt(0)}
                                             </AvatarFallback>
                                         </Avatar>
                                         <div>
-                                            <p className="font-medium">{article.user.name}</p>
-                                            <p className="text-sm text-muted-foreground">Author</p>
+                                            <p className="text-sm font-medium">{article.user.name}</p>
+                                            <p className="text-xs text-muted-foreground">Author</p>
                                         </div>
                                     </div>
-                                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                                        <Calendar className="h-4 w-4" />
+                                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                        <Calendar className="h-2 w-2" />
                                         {formatDate(article.published_at)}
                                     </div>
-                                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                                        <MessageCircle className="h-4 w-4" />
+                                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                        <MessageCircle className="h-2 w-2" />
                                         {comments.length} comments
                                     </div>
                                 </div>
@@ -126,49 +126,49 @@ export default function BlogShow({ article, comments, relatedArticles }: Props) 
                     </div>
 
                     {/* Related Articles Sidebar */}
-                    <div className="col-span-1">
-                        {relatedArticles.length > 0 && (
-                            <div className="border-sidebar-border/70 dark:border-sidebar-border relative overflow-hidden rounded-xl border">
-                                <div className="p-4">
-                                    <h3 className="font-semibold mb-4">Related Articles</h3>
-                                    <div className="space-y-4">
-                                        {relatedArticles.map((related, index) => (
-                                            <div key={related.id}>
-                                                <Link
-                                                    href={`/blog/${related.slug}`}
-                                                    className="block hover:text-primary transition-colors"
-                                                >
-                                                    <h4 className="font-medium line-clamp-2 mb-2 text-sm">
-                                                        {related.title}
-                                                    </h4>
-                                                    <p className="text-xs text-muted-foreground">
-                                                        by {related.user.name}
-                                                    </p>
-                                                </Link>
-                                                {index < relatedArticles.length - 1 && (
-                                                    <div className="border-t border-border/40 mt-4" />
-                                                )}
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-                            </div>
-                        )}
-                    </div>
+                    {/*<div className="col-span-1">*/}
+                    {/*    {relatedArticles.length > 0 && (*/}
+                    {/*        <div className="border-sidebar-border/70 dark:border-sidebar-border relative overflow-hidden rounded-xl border">*/}
+                    {/*            <div className="p-4">*/}
+                    {/*                <h3 className="font-semibold mb-4">Related Articles</h3>*/}
+                    {/*                <div className="space-y-4">*/}
+                    {/*                    {relatedArticles.map((related, index) => (*/}
+                    {/*                        <div key={related.id}>*/}
+                    {/*                            <Link*/}
+                    {/*                                href={`/blog/${related.slug}`}*/}
+                    {/*                                className="block hover:text-primary transition-colors"*/}
+                    {/*                            >*/}
+                    {/*                                <h4 className="font-medium line-clamp-2 mb-2 text-sm">*/}
+                    {/*                                    {related.title}*/}
+                    {/*                                </h4>*/}
+                    {/*                                <p className="text-xs text-muted-foreground">*/}
+                    {/*                                    by {related.user.name}*/}
+                    {/*                                </p>*/}
+                    {/*                            </Link>*/}
+                    {/*                            {index < relatedArticles.length - 1 && (*/}
+                    {/*                                <div className="border-t border-border/40 mt-4" />*/}
+                    {/*                            )}*/}
+                    {/*                        </div>*/}
+                    {/*                    ))}*/}
+                    {/*                </div>*/}
+                    {/*            </div>*/}
+                    {/*        </div>*/}
+                    {/*    )}*/}
+                    {/*</div>*/}
 
-                    {/* Featured Image */}
-                    {article.featured_image && (
-                        <div className="col-span-4">
-                            <div className="border-sidebar-border/70 dark:border-sidebar-border relative overflow-hidden rounded-xl border">
-                                <img
-                                    src={`/storage/${article.featured_image}`}
-                                    alt={article.title}
-                                    className="w-full h-auto object-cover"
-                                />
-                            </div>
-                        </div>
-                    )}
 
+                    {/*/!* Featured Image *!/*/}
+                    {/*{article.featured_image && (*/}
+                    {/*    <div className="col-span-4">*/}
+                    {/*        <div className="border-sidebar-border/70 dark:border-sidebar-border relative overflow-hidden rounded-xl border">*/}
+                    {/*            <img*/}
+                    {/*                src={`/storage/${article.featured_image}`}*/}
+                    {/*                alt={article.title}*/}
+                    {/*                className="w-full h-auto object-cover"*/}
+                    {/*            />*/}
+                    {/*        </div>*/}
+                    {/*    </div>*/}
+                    {/*)}*/}
                     {/* Article Content */}
                     <div className="col-span-4">
                         <div className="border-sidebar-border/70 dark:border-sidebar-border relative overflow-hidden rounded-xl border">

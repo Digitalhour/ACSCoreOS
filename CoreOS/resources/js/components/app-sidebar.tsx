@@ -1,20 +1,27 @@
+import * as React from "react"
 import AdminCommandDialog from '@/components/admin-command';
 import {NavFooter} from '@/components/nav-footer';
-import {NavMain} from '@/components/nav-main';
 import {NavUser} from '@/components/nav-user';
+import {Collapsible, CollapsibleContent, CollapsibleTrigger,} from "@/components/ui/collapsible"
 import {
     Sidebar,
     SidebarContent,
     SidebarFooter,
+    SidebarGroup,
     SidebarHeader,
     SidebarMenu,
     SidebarMenuButton,
-    SidebarMenuItem
+    SidebarMenuItem,
+    SidebarMenuSub,
+    SidebarMenuSubButton,
+    SidebarMenuSubItem,
+    SidebarRail,
 } from '@/components/ui/sidebar';
-import {type NavItem, type User} from '@/types'; // Ensure NavItem can have 'roles?: string' and 'permission?: string'
+import {type NavItem, type User} from '@/types';
 import {Link, usePage} from '@inertiajs/react';
-import {BookOpenText, BotMessageSquareIcon, ImageUp, LayoutGrid, ShieldCheck, ShipWheel, Users} from 'lucide-react';
+import {BookOpenText, BotMessageSquareIcon, ImageUp, Minus, Plus, ShieldCheck, ShipWheel, Users} from 'lucide-react';
 import AppLogo from './app-logo';
+import {NavHeader} from "@/components/nav-header";
 
 interface AuthenticatedUser extends User {
     permissions?: string[];
@@ -28,51 +35,86 @@ interface PageProps {
     [key: string]: any;
 }
 
-const mainNavItems: NavItem[] = [
+interface NavCategory {
+    title: string;
+    items: NavItem[];
+}
 
-    { title: 'Dashboard', href: '/dashboard', icon: LayoutGrid, description:null },
-    { title: 'Your PTO', href: '/employee/pto', icon: ShipWheel, description:null },
-    { title: 'ACS blog', href: '/admin/blog', icon: ShipWheel, description:null },
-    { title: 'Billy The AI', href: '/billy', icon: BotMessageSquareIcon, description:null },
-    { title: 'Product Picture Manager', href: '/product-picture-manager', icon: ImageUp, permission: '', description:null }, // Shows if permission is empty string
-    // { title: 'ACS Organization', href: '/acs-org', icon: Users, permission: '', description:null}, // Shows if permission is empty string
-    // { title: 'ACS PermissionTest', href: '/test', icon: Users, permission: 'AdminMenu', description:null },
-    // { title: 'ACS RoleTest', href: '/Roletest', icon: Users, roles: '', description:null},
-    {title: 'Vibetrack', href: '/vibetrack', icon: Users, roles: '', description:null},
-    {title: 'Vibetrack Admin', href: '/vibetrack/admin', icon: Users, roles: '', description:null},
-    { title: 'ACS Parts Database', href: '/parts-catalog', icon: Users, roles: '', description:null },
-    { title: 'ACS Org', href: '/organization-chart', icon: Users, roles: '',description:null },
+// Organize navigation items into categories
+const navigationCategories: NavCategory[] = [
+    {
+        title: "Dashboard & Core",
+        items: [
 
-    { title: 'Department PTO', href: '/department-pto', icon: Users, description:null },
-    { title: 'holiday', href: '/holidays', icon: Users, description:null },
-    { title: 'HR Dashboard', href: '/hr/dashboard', icon: Users, description:null },
-    // { title: 'Articles', href: '/articles', icon: Users, description:null },
-    // { title: 'Roles and Permissions', href: '/roles-permissions', icon: Users, description:null },
-    { title: 'Company Documents', href: '/employee/documents', icon:BookOpenText , description:null },
-    { title: 'Admin Documents', href: '/folders', icon:BookOpenText , description:null },
-    // New Training Stuff Not in use right now, Use Old style for right now.
-    // { title: 'Your Training', href: '/training', icon:BookOpenText , description:null },
-    // { title: 'Training Dashboard', href: '/admin/reports', icon:BookOpenText , description:null },
-    { title: 'Old Training Dashboard', href: route('old-style-training-tracking.index'), icon:BookOpenText , description:null },
-    // { title: 'My Timesheet', href: route('time-clock.employee'), icon:BookOpenText , description:null },
-    { title: 'My Timesheet', href: '/time-clock/employee', icon:BookOpenText , description:null },
-
-    { title: 'Timesheet Manager Dash', href: route('time-clock.manager.dashboard'), icon:BookOpenText , description:null },
-    { title: 'Timesheet Payroll Dash', href: route('time-clock.payroll.dashboard'), icon:BookOpenText , description:null },
-
+            { title: 'Billy The AI', href: '/billy', icon: BotMessageSquareIcon, description: null },
+        ]
+    },
+    {
+        title: "Time & PTO Management",
+        items: [
+            { title: 'My Time Clock', href: '/time-clock/employee', icon: BookOpenText, description: null },
+            { title: 'Your PTO', href: '/employee/pto', icon: ShipWheel, description: null },
+            { title: 'Department PTO', href: '/department-pto', icon: Users, description: null },
+            { title: 'Holiday', href: '/holidays', icon: Users, description: null },
+            { title: 'Timesheet Manager Dash', href: route('time-clock.manager.dashboard'), icon: BookOpenText, description: null },
+            { title: 'Timesheet Payroll Dash', href: route('time-clock.payroll.dashboard'), icon: BookOpenText, description: null },
+        ]
+    },
+    {
+        title: "Content & Documents",
+        items: [
+            { title: 'ACS blog Admin', href: '/admin/blog', icon: ShipWheel, description: null },
+            { title: 'Company Documents', href: '/employee/documents', icon: BookOpenText, description: null },
+            { title: 'Admin Documents', href: '/folders', icon: BookOpenText, description: null },
+            { title: 'Product Picture Manager', href: '/product-picture-manager', icon: ImageUp, permission: '', description: null },
+        ]
+    },
+    {
+        title: "Organization & People",
+        items: [
+            { title: 'ACS Org', href: '/organization-chart', icon: Users, roles: '', description: null },
+            { title: 'HR Dashboard', href: '/hr/dashboard', icon: Users, description: null },
+            { title: 'Vibetrack', href: '/vibetrack', icon: Users, roles: '', description: null },
+            { title: 'Vibetrack Admin', href: '/vibetrack/admin', icon: Users, roles: '', description: null },
+        ]
+    },
+    {
+        title: "Training & Learning",
+        items: [
+            // { title: 'Your Training', href: '/training', icon: BookOpenText, description: null },
+            // { title: 'Training Dashboard', href: '/admin/reports', icon: BookOpenText, description: null },
+            { title: 'Old Training Dashboard', href: route('old-style-training-tracking.index'), icon: BookOpenText, description: null },
+        ]
+    },
+    {
+        title: "Tools & Resources",
+        items: [
+            { title: 'ACS Parts Database', href: '/parts-catalog', icon: Users, roles: '', description: null },
+            // { title: 'ACS Organization', href: '/acs-org', icon: Users, permission: '', description: null},
+            // { title: 'ACS PermissionTest', href: '/test', icon: Users, permission: 'AdminMenu', description: null },
+            // { title: 'ACS RoleTest', href: '/Roletest', icon: Users, roles: '', description: null},
+            // { title: 'Articles', href: '/articles', icon: Users, description: null },
+            // { title: 'Roles and Permissions', href: '/roles-permissions', icon: Users, description: null },
+        ]
+    }
 ];
 
 const footerNavItems: NavItem[] = [
-    // { title: 'Repository', href: 'https://github.com/laravel/react-starter-kit', icon: Folder, external: true, description:null },
-    // { title: 'Documentation', href: 'https://laravel.com/docs/starter-kits#react', icon: BookOpen, external: true, description:null },
-    // { title: 'Shadcn Component explore', href: 'https://shipixen.com/component-explorer-shadcn', icon: BookOpen, external: true, description:null },
-    { title: 'Admin Dashboard', href: '/admin', icon: ShieldCheck, roles: '', description:null },
-    { title: 'article Dashboard', href: '/article', icon: ShieldCheck, roles: '', description:null },
+    // { title: 'Repository', href: 'https://github.com/laravel/react-starter-kit', icon: Folder, external: true, description: null },
+    // { title: 'Documentation', href: 'https://laravel.com/docs/starter-kits#react', icon: BookOpen, external: true, description: null },
+    // { title: 'Shadcn Component explore', href: 'https://shipixen.com/component-explorer-shadcn', icon: BookOpen, external: true, description: null },
+    { title: 'Admin Dashboard', href: '/admin', icon: ShieldCheck, roles: '', description: null },
+
 ];
 
-export function AppSidebar() {
-    const { props } = usePage<PageProps>();
-    const user = props.auth?.user;
+const headerNavItems: NavItem[] = [
+    { title: 'Dashboard', href: '/dashboard', icon: null, roles: '', description: null },
+];
+
+export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
+    const page = usePage<PageProps>();
+    const user = page.props.auth?.user;
+    const currentUrl = page.url;
 
     const can = (permissionName: string): boolean => {
         if (!user || !user.permissions) {
@@ -83,38 +125,69 @@ export function AppSidebar() {
 
     const hasRole = (roleName: string): boolean => {
         if (!user || !user.roles) {
-            // console.log(`HASROLE: User or roles undefined for '${roleName}'`);
             return false;
         }
-        // console.log(`HASROLE: Checking for role '${roleName}'. User roles:`, user.roles);
         return user.roles.includes(roleName);
     };
 
-    // Corrected filtering logic
+    // Filter individual nav items
     const filterNavItems = (items: NavItem[]): NavItem[] => {
         return items.filter((item) => {
             if (item.roles) {
-                // 1. Check for roles first
                 return hasRole(item.roles);
             }
             if (item.permission !== undefined) {
-                // 2. Then check for permissions if defined
-                if (item.permission === '') return true; // Explicitly show if permission is an empty string
+                if (item.permission === '') return true; // Explicitly show if permission is empty string
                 return can(item.permission);
             }
-            return true; // 3. Default to show if no specific role or permission property is present
+            return true; // Default to show if no specific role or permission property is present
         });
     };
 
-    const filteredMainNavItems = filterNavItems(mainNavItems);
-    const filteredFooterNavItems = filterNavItems(footerNavItems);
+    // Filter categories and their items
+    const filterCategories = (categories: NavCategory[]): NavCategory[] => {
+        return categories
+            .map(category => ({
+                ...category,
+                items: filterNavItems(category.items)
+            }))
+            .filter(category => category.items.length > 0); // Only show categories that have visible items
+    };
 
-    // For AdminCommandDialog, which you want by role.
-    // The HandleInertiaRequests.php is correctly sending roles and permissions.
+    const filteredCategories = filterCategories(navigationCategories);
+    const filteredFooterNavItems = filterNavItems(footerNavItems);
+    const filteredHeaderNavItems = filterNavItems(headerNavItems);
+
+    // Check if a category contains the active page
+    const categoryContainsActivePage = (category: NavCategory): boolean => {
+        return category.items.some(item => currentUrl.startsWith(item.href));
+    };
+
+    // Check if any footer nav item is active
+    const footerContainsActivePage = (): boolean => {
+        return filteredFooterNavItems.some(item => currentUrl.startsWith(item.href));
+    };
+
+    // Check if any header nav item is active
+    const headerContainsActivePage = (): boolean => {
+        return filteredHeaderNavItems.some(item => currentUrl.startsWith(item.href));
+    };
+
+    // Check if we should expand categories based on active page location
+    const shouldExpandCategory = (category: NavCategory, index: number): boolean => {
+        // Always expand first category if no active page found anywhere
+        if (index === 0 && !categoryContainsActivePage(category) && !footerContainsActivePage() && !headerContainsActivePage()) {
+            return true;
+        }
+        // Expand if this category contains the active page
+        return categoryContainsActivePage(category);
+    };
+
+    // For AdminCommandDialog
     const ROLE_FOR_ADMIN_DIALOG = '';
 
     return (
-        <Sidebar collapsible="icon" variant="inset">
+        <Sidebar collapsible="icon" variant="inset" {...props}>
             <SidebarHeader>
                 <SidebarMenu>
                     <SidebarMenuItem>
@@ -128,25 +201,59 @@ export function AppSidebar() {
             </SidebarHeader>
 
             <SidebarContent>
-                <NavMain items={filteredMainNavItems} />
+
+                <SidebarGroup>
+                    <NavHeader items={filteredHeaderNavItems} className="mt-auto" />
+                    <SidebarMenu>
+                        {filteredCategories.map((category, index) => (
+                            <Collapsible
+                                key={category.title}
+                                defaultOpen={shouldExpandCategory(category, index)}
+                                className="group/collapsible"
+                            >
+                                <SidebarMenuItem>
+                                    <CollapsibleTrigger asChild>
+                                        <SidebarMenuButton>
+                                            {category.title}{" "}
+                                            <Plus className="ml-auto group-data-[state=open]/collapsible:hidden" />
+                                            <Minus className="ml-auto group-data-[state=closed]/collapsible:hidden" />
+                                        </SidebarMenuButton>
+                                    </CollapsibleTrigger>
+                                    {category.items?.length ? (
+                                        <CollapsibleContent>
+                                            <SidebarMenuSub>
+                                                {category.items.map((item) => (
+                                                    <SidebarMenuSubItem key={item.title}>
+                                                        <SidebarMenuSubButton
+                                                            asChild
+                                                            isActive={currentUrl.startsWith(item.href)}
+                                                        >
+                                                            <Link href={item.href} prefetch>
+                                                                {item.icon && <item.icon />}
+                                                                <span>{item.title}</span>
+                                                            </Link>
+                                                        </SidebarMenuSubButton>
+                                                    </SidebarMenuSubItem>
+                                                ))}
+                                            </SidebarMenuSub>
+                                        </CollapsibleContent>
+                                    ) : null}
+                                </SidebarMenuItem>
+                            </Collapsible>
+                        ))}
+                    </SidebarMenu>
+                </SidebarGroup>
             </SidebarContent>
 
-            {/* This check should now work correctly since HandleInertiaRequests.php is sending roles */}
+            {/* AdminCommandDialog with role check */}
             {user && hasRole(ROLE_FOR_ADMIN_DIALOG) && <AdminCommandDialog />}
 
-            {/* For debugging the AdminCommandDialog visibility:
-            <div className="p-2 text-xs">
-                <p>User Logged In: {user ? 'Yes' : 'No'}</p>
-                {user && <p>User Roles: {JSON.stringify(user.roles)}</p>}
-                {user && <p>User Permissions: {JSON.stringify(user.permissions)}</p>}
-                <p>Has '{ROLE_FOR_ADMIN_DIALOG}' Role: {user && hasRole(ROLE_FOR_ADMIN_DIALOG) ? 'Yes' : 'No'}</p>
-            </div>
-            */}
-
             <SidebarFooter>
-                <NavFooter items={filteredFooterNavItems} className="mt-auto" />
+                <NavFooter items={filteredFooterNavItems} currentUrl={currentUrl} className="mt-auto" />
                 <NavUser />
             </SidebarFooter>
+
+            <SidebarRail />
         </Sidebar>
     );
 }

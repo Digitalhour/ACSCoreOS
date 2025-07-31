@@ -9,7 +9,7 @@ import {Label} from '@/components/ui/label';
 import {Card, CardContent, CardHeader, CardTitle} from '@/components/ui/card';
 import {Badge} from '@/components/ui/badge';
 import {RadioGroup, RadioGroupItem} from '@/components/ui/radio-group';
-import {Eye, Image as ImageIcon, Save, X} from 'lucide-react';
+import {Eye, Save} from 'lucide-react';
 import SunEditorComponent from '@/components/ui/sun-editor';
 
 interface BlogArticle {
@@ -203,52 +203,52 @@ export default function BlogCreateEdit({ article }: Props) {
                             </CardContent>
                         </Card>
 
-                        {/* Featured Image */}
-                        <Card>
-                            <CardHeader>
-                                <CardTitle>Featured Image</CardTitle>
-                            </CardHeader>
-                            <CardContent>
-                                {imagePreview ? (
-                                    <div className="relative">
-                                        <img
-                                            src={imagePreview}
-                                            alt="Featured image preview"
-                                            className="w-full h-48 object-cover rounded-lg"
-                                        />
-                                        <Button
-                                            type="button"
-                                            variant="destructive"
-                                            size="sm"
-                                            className="absolute top-2 right-2"
-                                            onClick={removeImage}
-                                        >
-                                            <X className="h-4 w-4" />
-                                        </Button>
-                                    </div>
-                                ) : (
-                                    <div
-                                        className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-8 text-center cursor-pointer hover:border-muted-foreground/50 transition-colors"
-                                        onClick={() => fileInputRef.current?.click()}
-                                    >
-                                        <ImageIcon className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                                        <p className="text-muted-foreground mb-2">Click to upload featured image</p>
-                                        <p className="text-sm text-muted-foreground">PNG, JPG up to 2MB</p>
-                                    </div>
-                                )}
+                        {/*/!* Featured Image *!/*/}
+                        {/*<Card>*/}
+                        {/*    <CardHeader>*/}
+                        {/*        <CardTitle>Featured Image</CardTitle>*/}
+                        {/*    </CardHeader>*/}
+                        {/*    <CardContent>*/}
+                        {/*        {imagePreview ? (*/}
+                        {/*            <div className="relative">*/}
+                        {/*                <img*/}
+                        {/*                    src={imagePreview}*/}
+                        {/*                    alt="Featured image preview"*/}
+                        {/*                    className="w-full h-48 object-cover rounded-lg"*/}
+                        {/*                />*/}
+                        {/*                <Button*/}
+                        {/*                    type="button"*/}
+                        {/*                    variant="destructive"*/}
+                        {/*                    size="sm"*/}
+                        {/*                    className="absolute top-2 right-2"*/}
+                        {/*                    onClick={removeImage}*/}
+                        {/*                >*/}
+                        {/*                    <X className="h-4 w-4" />*/}
+                        {/*                </Button>*/}
+                        {/*            </div>*/}
+                        {/*        ) : (*/}
+                        {/*            <div*/}
+                        {/*                className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-8 text-center cursor-pointer hover:border-muted-foreground/50 transition-colors"*/}
+                        {/*                onClick={() => fileInputRef.current?.click()}*/}
+                        {/*            >*/}
+                        {/*                <ImageIcon className="h-12 w-12 mx-auto text-muted-foreground mb-4" />*/}
+                        {/*                <p className="text-muted-foreground mb-2">Click to upload featured image</p>*/}
+                        {/*                <p className="text-sm text-muted-foreground">PNG, JPG up to 2MB</p>*/}
+                        {/*            </div>*/}
+                        {/*        )}*/}
 
-                                <input
-                                    ref={fileInputRef}
-                                    type="file"
-                                    accept="image/*"
-                                    onChange={handleImageChange}
-                                    className="hidden"
-                                />
-                                {form.errors.featured_image && (
-                                    <p className="text-sm text-destructive mt-2">{form.errors.featured_image}</p>
-                                )}
-                            </CardContent>
-                        </Card>
+                        {/*        <input*/}
+                        {/*            ref={fileInputRef}*/}
+                        {/*            type="file"*/}
+                        {/*            accept="image/*"*/}
+                        {/*            onChange={handleImageChange}*/}
+                        {/*            className="hidden"*/}
+                        {/*        />*/}
+                        {/*        {form.errors.featured_image && (*/}
+                        {/*            <p className="text-sm text-destructive mt-2">{form.errors.featured_image}</p>*/}
+                        {/*        )}*/}
+                        {/*    </CardContent>*/}
+                        {/*</Card>*/}
                         {/* Content */}
                         <Card>
                             <CardHeader>

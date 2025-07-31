@@ -10,12 +10,12 @@ import {type NavItem, SharedData} from '@/types';
 import {Link as InertiaLink, usePage} from '@inertiajs/react';
 import {type ComponentPropsWithoutRef} from 'react';
 
-export function NavFooter({
-    items,
-    currentUrl,
-    className,
-    ...props
-}: ComponentPropsWithoutRef<typeof SidebarGroup> & {
+export function NavHeader({
+                              items,
+                              currentUrl,
+                              className,
+                              ...props
+                          }: ComponentPropsWithoutRef<typeof SidebarGroup> & {
     items: NavItem[];
     currentUrl?: string;
 }) {
@@ -30,7 +30,7 @@ export function NavFooter({
                             <SidebarMenuButton
                                 asChild
                                 isActive={currentUrl ? currentUrl.startsWith(item.href) : false}
-                                className="text-neutral-600 hover:text-neutral-800 dark:text-neutral-300 dark:hover:text-neutral-100"
+                                className="text-neutral-900 hover:text-neutral-900 dark:text-neutral-300 dark:hover:text-neutral-100"
                             >
                                 {item.external ? (
                                     <a href={item.href} target="_blank" rel="noopener noreferrer">
