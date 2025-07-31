@@ -8,50 +8,28 @@
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
             line-height: 1.6;
-            color: #333;
+            color: #0f172a;
             max-width: 600px;
             margin: 0 auto;
             padding: 20px;
-            background-color: #f8f9fa;
+            background-color: #f8fafc;
         }
         .email-container {
             background-color: white;
             border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            border: 1px solid #e2e8f0;
             overflow: hidden;
         }
-
-        .header h1 {
-            margin: 0;
-            font-size: 28px;
-            font-weight: 700;
-        }
-        .header p {
-            margin: 10px 0 0 0;
-            opacity: 0.9;
-            font-size: 16px;
-        }
-
         .content {
             padding: 30px;
         }
-
-        .author-details h4 {
-            margin: 0;
-            font-size: 14px;
-            color: #495057;
-        }
-        .author-details p {
-            margin: 2px 0 0 0;
-            font-size: 12px;
-            color: #6c757d;
-        }
         .blog-content {
-            font-size: 10px;
+            font-size: 16px;
             line-height: 1.7;
+            color: #334155;
         }
         .blog-content h1, .blog-content h2, .blog-content h3 {
-            color: #2c3e50;
+            color: #0f172a;
             margin-top: 30px;
             margin-bottom: 15px;
         }
@@ -68,10 +46,10 @@
             margin: 15px 0;
         }
         .blog-content blockquote {
-            border-left: 4px solid #667eea;
+            border-left: 4px solid #e2e8f0;
             margin: 20px 0;
             padding: 15px 20px;
-            background-color: #f8f9fa;
+            background-color: #f8fafc;
             font-style: italic;
         }
         .blog-content ul, .blog-content ol {
@@ -82,14 +60,14 @@
             margin-bottom: 5px;
         }
         .blog-content code {
-            background-color: #f8f9fa;
+            background-color: #f1f5f9;
             padding: 2px 4px;
             border-radius: 3px;
             font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
             font-size: 14px;
         }
         .blog-content pre {
-            background-color: #f8f9fa;
+            background-color: #f1f5f9;
             padding: 15px;
             border-radius: 5px;
             overflow-x: auto;
@@ -100,14 +78,14 @@
             padding: 0;
         }
         .footer {
-            background-color: #f8f9fa;
+            background-color: #f8fafc;
             padding: 25px 30px;
             text-align: center;
-            border-top: 1px solid #e9ecef;
+            border-top: 1px solid #e2e8f0;
         }
         .view-online {
             display: inline-block;
-            background: linear-gradient(135deg, #ea667a 0%, #c51031 100%);
+            background-color: #0f172a;
             color: white;
             text-decoration: none;
             padding: 12px 24px;
@@ -117,21 +95,16 @@
         }
         .footer p {
             margin: 0;
-            color: #6c757d;
+            color: #64748b;
             font-size: 14px;
         }
         @media only screen and (max-width: 600px) {
             body {
                 padding: 10px;
             }
-
-            .header h1 {
-                font-size: 24px;
-            }
             .content {
                 padding: 20px;
             }
-
         }
     </style>
 </head>
@@ -145,7 +118,7 @@
 
     <div class="footer">
         <a href="{{ $blogUrl }}" class="view-online">View Online</a>
-        <p> {{ config('app.name') }}.</p>
+        <p>{{ config('app.name') }}</p>
     </div>
 </div>
 </body>
