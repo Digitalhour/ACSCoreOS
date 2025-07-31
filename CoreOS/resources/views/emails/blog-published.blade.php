@@ -47,7 +47,7 @@
             color: #6c757d;
         }
         .blog-content {
-            font-size: 16px;
+            font-size: 10px;
             line-height: 1.7;
         }
         .blog-content h1, .blog-content h2, .blog-content h3 {
