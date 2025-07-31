@@ -91,7 +91,13 @@ class BlogController extends Controller
     {
         return Inertia::render('blog/Create');
     }
+    private function simplifyContentForEmail($content) {
+        // Remove complex flex layouts
+        $content = preg_replace('/style="[^"]*display:\s*flex[^"]*"/', 'style="display: block;"', $content);
+        $content = preg_replace('/style="[^"]*flex:\s*[^;"]*[^"]*"/', 'style="display: block; width: 100%; margin-bottom: 15px;"', $content);
 
+        return $content;
+    }
     public function store(Request $request)
     {
         $validated = $request->validate([
@@ -124,8 +130,12 @@ class BlogController extends Controller
 
         // Send notification if blog is published
         if ($validated['status'] === 'published') {
-            Notification::route('mail', 'caldridge@aircompressorservices.com')
-                ->notify(new BlogPublished($article));
+            $simplifiedContent = $this->simplifyContentForEmail($article->content);
+            $articleForEmail = $article->replicate();
+            $articleForEmail->content = $simplifiedContent;
+
+            Notification::route('mail', 'caldridge@aircompressorservces.com')
+                ->notify(new BlogPublished($articleForEmail));
         }
 
         return redirect()->route('blog.show', $article)
