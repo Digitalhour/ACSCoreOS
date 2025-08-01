@@ -7,6 +7,8 @@ use App\Models\PtoModels\PtoBalance;
 use App\Models\PtoModels\PtoRequest;
 use App\Models\PtoModels\PtoType;
 use App\Models\User;
+use App\Notifications\PtoCanceled;
+use App\Notifications\PtoCreated;
 use App\Services\BlackoutValidationService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -257,6 +259,10 @@ class EmployeePtoController extends Controller
 
             DB::commit();
 
+            // Send notifications after successful creation
+            $ptoRequest->load(['user', 'ptoType', 'approvals.approver']);
+            $this->sendPtoNotifications($ptoRequest, 'created');
+
             // Determine success message based on blackout status
             $successMessage = 'PTO request submitted successfully! Holidays in your date range were automatically excluded.';
 
@@ -307,7 +313,9 @@ class EmployeePtoController extends Controller
             // Update request status
             $ptoRequest->update([
                 'status' => 'cancelled',
-                'reason' => 'Cancelled by user ' . $user->name . ($user->isImpersonated() ? ' (impersonated)' : '')
+                'cancelled_at' => now(),
+                'cancelled_by_id' => Auth::id(),
+                'cancellation_reason' => 'Cancelled by user ' . $user->name . ($user->isImpersonated() ? ' (impersonated)' : '')
             ]);
 
             // Return days to balance
@@ -344,6 +352,10 @@ class EmployeePtoController extends Controller
 
             DB::commit();
 
+            // Send cancellation notifications after successful cancellation
+            $ptoRequest->load(['user', 'ptoType']);
+            $this->sendPtoNotifications($ptoRequest, 'canceled');
+
             Log::info('PTO request cancelled successfully', [
                 'request_id' => $ptoRequest->id,
                 'user_id' => $user->id,
@@ -363,6 +375,40 @@ class EmployeePtoController extends Controller
             ]);
 
             return back()->withErrors(['error' => 'Failed to cancel PTO request. Please try again.']);
+        }
+    }
+
+    /**
+     * Helper method to centralize PTO notification logic
+     */
+    private function sendPtoNotifications(PtoRequest $ptoRequest, string $notificationType): void
+    {
+        try {
+            $notificationClass = match($notificationType) {
+                'created' => PtoCreated::class,
+                'canceled' => PtoCanceled::class,
+                default => throw new \InvalidArgumentException("Invalid notification type: {$notificationType}")
+            };
+
+            // Notify the employee (confirmation for creation, notification for cancellation by self)
+            if ($notificationType === 'created') {
+                // For created requests, always notify the employee
+                $ptoRequest->user->notify(new $notificationClass($ptoRequest, false));
+            } elseif ($notificationType === 'canceled') {
+                // For canceled requests, only notify if someone else canceled it (but in this controller, it's always self-cancel)
+                // We'll still send the notification for consistency, but the template will handle it appropriately
+                $ptoRequest->user->notify(new $notificationClass($ptoRequest, false));
+            }
+
+            // Always notify the manager if they exist
+            if ($ptoRequest->user->manager) {
+                $ptoRequest->user->manager->notify(new $notificationClass($ptoRequest, true));
+            }
+
+            Log::info("PTO {$notificationType} notifications sent for request {$ptoRequest->id}");
+        } catch (\Exception $e) {
+            Log::error("Failed to send PTO {$notificationType} notifications for request {$ptoRequest->id}: " . $e->getMessage());
+            // Don't throw the exception to avoid breaking the main functionality
         }
     }
 

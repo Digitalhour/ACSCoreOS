@@ -7,6 +7,8 @@ use App\Models\PtoModels\PtoBalance;
 use App\Models\PtoModels\PtoRequest;
 use App\Models\PtoModels\PtoType;
 use App\Models\User;
+use App\Notifications\PtoApproved;
+use App\Notifications\PtoDenied;
 use App\Services\BlackoutValidationService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -298,7 +300,9 @@ class DepartmentTimeOffController extends Controller
         }
 
         try {
-            DB::transaction(function () use ($approval, $request, $ptoRequest, $user) {
+            $isFullyApproved = false;
+
+            DB::transaction(function () use ($approval, $request, $ptoRequest, $user, &$isFullyApproved) {
                 // Update the approval
                 $approval->update([
                     'status' => 'approved',
@@ -332,8 +336,15 @@ class DepartmentTimeOffController extends Controller
                             $balance->save();
                         }
                     }
+
+                    $isFullyApproved = true;
                 }
             });
+
+            // Send notifications if the request is fully approved
+            if ($isFullyApproved) {
+                $this->sendPtoNotifications($ptoRequest, 'approved');
+            }
 
             Log::info("PTO Request approved: ID {$ptoRequest->id}, Approver: {$user->name}");
             return back()->with('success', 'Request approved successfully!');
@@ -393,6 +404,9 @@ class DepartmentTimeOffController extends Controller
                 }
             });
 
+            // Send denial notifications
+            $this->sendPtoNotifications($ptoRequest, 'denied');
+
             Log::info("PTO Request denied: ID {$ptoRequest->id}, Approver: {$user->name}");
             return back()->with('success', 'Request denied successfully!');
 
@@ -425,6 +439,14 @@ class DepartmentTimeOffController extends Controller
             );
 
             if ($result['success']) {
+                // If the override was approved and the PTO request status changed, send notifications
+                $ptoRequest->refresh();
+                if ($ptoRequest->status === 'approved') {
+                    $this->sendPtoNotifications($ptoRequest, 'approved');
+                } elseif ($ptoRequest->status === 'denied') {
+                    $this->sendPtoNotifications($ptoRequest, 'denied');
+                }
+
                 return back()->with('success', $result['message']);
             } else {
                 return back()->with('error', $result['message']);
@@ -432,6 +454,33 @@ class DepartmentTimeOffController extends Controller
         } catch (\Exception $e) {
             Log::error("Error processing emergency override for PTO Request ID {$ptoRequest->id}: " . $e->getMessage());
             return back()->with('error', 'Failed to process emergency override.');
+        }
+    }
+
+    /**
+     * Helper method to centralize PTO notification logic
+     */
+    private function sendPtoNotifications(PtoRequest $ptoRequest, string $notificationType): void
+    {
+        try {
+            $notificationClass = match($notificationType) {
+                'approved' => PtoApproved::class,
+                'denied' => PtoDenied::class,
+                default => throw new \InvalidArgumentException("Invalid notification type: {$notificationType}")
+            };
+
+            // Always notify the employee
+            $ptoRequest->user->notify(new $notificationClass($ptoRequest, false));
+
+            // Notify the manager if they exist and they weren't the one who approved/denied
+            if ($ptoRequest->user->manager && $ptoRequest->user->manager->id !== Auth::id()) {
+                $ptoRequest->user->manager->notify(new $notificationClass($ptoRequest, true));
+            }
+
+            Log::info("PTO {$notificationType} notifications sent for request {$ptoRequest->id}");
+        } catch (\Exception $e) {
+            Log::error("Failed to send PTO {$notificationType} notifications for request {$ptoRequest->id}: " . $e->getMessage());
+            // Don't throw the exception to avoid breaking the main functionality
         }
     }
 

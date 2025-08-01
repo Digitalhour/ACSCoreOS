@@ -152,6 +152,7 @@ class PtoRequestController extends Controller
             return response()->json(['errors' => $validator->errors()], 422);
         }
 
+
         try {
             $user = Auth::user();
             $userId = $user->id;
