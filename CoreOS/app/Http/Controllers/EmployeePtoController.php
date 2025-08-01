@@ -313,9 +313,7 @@ class EmployeePtoController extends Controller
             // Update request status
             $ptoRequest->update([
                 'status' => 'cancelled',
-                'cancelled_at' => now(),
-                'cancelled_by_id' => Auth::id(),
-                'cancellation_reason' => 'Cancelled by user ' . $user->name . ($user->isImpersonated() ? ' (impersonated)' : '')
+                'reason' => 'Cancelled by user ' . $user->name . ($user->isImpersonated() ? ' (impersonated)' : '')
             ]);
 
             // Return days to balance
@@ -352,11 +350,20 @@ class EmployeePtoController extends Controller
 
             DB::commit();
 
+            Log::info('PTO request cancelled successfully - now sending notifications', [
+                'request_id' => $ptoRequest->id,
+                'user_id' => $user->id,
+                'user_name' => $user->name,
+                'user_email' => $user->email,
+                'original_status' => $originalStatus,
+                'days_returned' => $ptoRequest->total_days
+            ]);
+
             // Send cancellation notifications after successful cancellation
             $ptoRequest->load(['user', 'ptoType']);
             $this->sendPtoNotifications($ptoRequest, 'canceled');
 
-            Log::info('PTO request cancelled successfully', [
+            Log::info('PTO request cancellation process completed', [
                 'request_id' => $ptoRequest->id,
                 'user_id' => $user->id,
                 'original_status' => $originalStatus,
@@ -390,24 +397,24 @@ class EmployeePtoController extends Controller
                 default => throw new \InvalidArgumentException("Invalid notification type: {$notificationType}")
             };
 
-            // Notify the employee (confirmation for creation, notification for cancellation by self)
-            if ($notificationType === 'created') {
-                // For created requests, always notify the employee
-                $ptoRequest->user->notify(new $notificationClass($ptoRequest, false));
-            } elseif ($notificationType === 'canceled') {
-                // For canceled requests, only notify if someone else canceled it (but in this controller, it's always self-cancel)
-                // We'll still send the notification for consistency, but the template will handle it appropriately
-                $ptoRequest->user->notify(new $notificationClass($ptoRequest, false));
-            }
+            Log::info("Attempting to send PTO {$notificationType} notifications for request {$ptoRequest->id}");
+
+            // Always notify the employee for both creation and self-cancellation
+            $ptoRequest->user->notify(new $notificationClass($ptoRequest, false));
+            Log::info("Employee notification sent for PTO {$notificationType} - User: {$ptoRequest->user->name} ({$ptoRequest->user->email})");
 
             // Always notify the manager if they exist
             if ($ptoRequest->user->manager) {
                 $ptoRequest->user->manager->notify(new $notificationClass($ptoRequest, true));
+                Log::info("Manager notification sent for PTO {$notificationType} - Manager: {$ptoRequest->user->manager->name} ({$ptoRequest->user->manager->email})");
+            } else {
+                Log::info("No manager found for user {$ptoRequest->user->name} - skipping manager notification");
             }
 
-            Log::info("PTO {$notificationType} notifications sent for request {$ptoRequest->id}");
+            Log::info("All PTO {$notificationType} notifications processed successfully for request {$ptoRequest->id}");
         } catch (\Exception $e) {
             Log::error("Failed to send PTO {$notificationType} notifications for request {$ptoRequest->id}: " . $e->getMessage());
+            Log::error("Notification error stack trace: " . $e->getTraceAsString());
             // Don't throw the exception to avoid breaking the main functionality
         }
     }
