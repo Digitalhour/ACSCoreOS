@@ -126,7 +126,7 @@ export default function BlogCreateEdit({ article }: Props) {
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title={isEditing ? `Edit: ${article.title}` : 'Create New Article'} />
 
-            <div className="flex h-full max-h-screen flex-1 flex-col gap-4 rounded-xl p-4">
+            <div className="flex h-full max-h-screen flex-1 flex-col gap-2 rounded-xl p-4">
                 {/* Header */}
                 <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-2">
@@ -143,15 +143,15 @@ export default function BlogCreateEdit({ article }: Props) {
                     </div>
                 </div>
 
-                <form onSubmit={handleSubmit} className="grid lg:grid-cols-4 gap-2">
+                <form onSubmit={handleSubmit} className="">
                     {/* Main content */}
-                    <div className="lg:col-span-3 space-y-6">
+                    <div className="space-y-6">
                         {/* Title */}
-                        <Card>
-                            <CardHeader>
-                                <CardTitle>Article Details</CardTitle>
-                            </CardHeader>
-                            <CardContent className="space-y-4">
+                        <div>
+                            <div>
+                                <div>Article Details</div>
+                            </div>
+                            <div className="grid lg:grid-cols-2 gap-2 ">
                                 <div>
                                     <Label htmlFor="title">Title *</Label>
                                     <Input
@@ -167,7 +167,9 @@ export default function BlogCreateEdit({ article }: Props) {
                                 </div>
 
                                 <div>
-                                    <Label htmlFor="slug">URL Slug</Label>
+                                    <Label htmlFor="slug">URL Slug
+                                        Preview: /blog/{form.data.slug || 'article-slug'}
+                                    </Label>
                                     <Input
                                         id="slug"
                                         value={form.data.slug}
@@ -178,12 +180,10 @@ export default function BlogCreateEdit({ article }: Props) {
                                     {form.errors.slug && (
                                         <p className="text-sm text-destructive mt-1">{form.errors.slug}</p>
                                     )}
-                                    <p className="text-sm text-muted-foreground mt-1">
-                                        Preview: /blog/{form.data.slug || 'article-slug'}
-                                    </p>
+
                                 </div>
 
-                                <div>
+                                <div className={""}>
                                     <Label htmlFor="excerpt">Excerpt</Label>
                                     <Textarea
                                         id="excerpt"
@@ -196,12 +196,12 @@ export default function BlogCreateEdit({ article }: Props) {
                                     {form.errors.excerpt && (
                                         <p className="text-sm text-destructive mt-1">{form.errors.excerpt}</p>
                                     )}
-                                    <p className="text-sm text-muted-foreground mt-1">
+                                    <p className="text-xs text-muted-foreground mt-1">
                                         {form.data.excerpt.length}/500 characters
                                     </p>
                                 </div>
-                            </CardContent>
-                        </Card>
+                            </div>
+                        </div>
 
                         {/*/!* Featured Image *!/*/}
                         {/*<Card>*/}
@@ -250,26 +250,26 @@ export default function BlogCreateEdit({ article }: Props) {
                         {/*    </CardContent>*/}
                         {/*</Card>*/}
                         {/* Content */}
-                        <Card>
-                            <CardHeader>
-                                <CardTitle>Content *</CardTitle>
-                            </CardHeader>
-                            <CardContent>
+                        <div>
+                            <div>
+                                <div>Content *</div>
+                            </div>
+                            <div>
                                 <SunEditorComponent
                                     value={form.data.content || ''}
                                     onChange={(content) => form.setData('content', content)}
                                     placeholder="Write your article content here..."
-                                    height="500px"
+                                    height="900px"
                                 />
                                 {form.errors.content && (
                                     <p className="text-sm text-destructive mt-1">{form.errors.content}</p>
                                 )}
-                            </CardContent>
-                        </Card>
+                            </div>
+                        </div>
                     </div>
 
                     {/* Sidebar */}
-                    <div className="space-y-6">
+                    <div className="grid grid-cols-2 gap-4 mt-2 space-y-6">
                         {/* Publishing Options */}
                         <Card>
                             <CardHeader>
