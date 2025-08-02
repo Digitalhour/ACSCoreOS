@@ -34,14 +34,7 @@
         .content {
             padding: 30px;
         }
-        .employee-info {
-            background-color: #e5e7eb;
-            border: 1px solid #6b7280;
-            border-radius: 6px;
-            padding: 15px;
-            margin: 20px 0;
-            text-align: center;
-        }
+
         .employee-info h3 {
             margin-top: 0;
             color: #374151;
@@ -97,14 +90,7 @@
             color: #374151;
             font-size: 16px;
         }
-        .calendar-update {
-            background-color: #fef3c7;
-            border: 1px solid #f59e0b;
-            border-radius: 6px;
-            padding: 15px;
-            margin: 20px 0;
-            text-align: center;
-        }
+
         .calendar-update h4 {
             margin-top: 0;
             color: #92400e;
@@ -154,7 +140,7 @@
 <body>
 <div class="email-container">
     <div class="header">
-        <h1>🚫 PTO Request Canceled</h1>
+        <h1>PTO Request Cancellation notice</h1>
     </div>
 
     <div class="content">
@@ -162,12 +148,15 @@
 
         <p>A PTO request from one of your direct reports has been canceled. Please see the details below.</p>
 
-        <div class="employee-info">
-            <h3>{{ $employee->name }}</h3>
-            <p>{{ $employee->email }}</p>
-        </div>
-
         <div class="pto-details">
+            <div class="detail-row">
+                <span class="detail-label">Requestor Name:</span>
+                <span class="detail-value">{{ $employee->name }}</span>
+            </div>
+            <div class="detail-row">
+                <span class="detail-label">Requestor Email:</span>
+                <span class="detail-value">{{ $employee->email }}</span>
+            </div>
             <div class="detail-row">
                 <span class="detail-label">Request Number:</span>
                 <span class="detail-value">{{ $ptoRequest->request_number }}</span>
@@ -177,22 +166,16 @@
                 <span class="detail-value">{{ $ptoType->name }}</span>
             </div>
             <div class="detail-row">
-                <span class="detail-label">Start Date:</span>
+                <span class="detail-label">Requested From:</span>
                 <span class="detail-value">{{ $ptoRequest->start_date->format('M d, Y') }}</span>
             </div>
             <div class="detail-row">
-                <span class="detail-label">End Date:</span>
+                <span class="detail-label">Requested To:</span>
                 <span class="detail-value">{{ $ptoRequest->end_date->format('M d, Y') }}</span>
             </div>
             <div class="detail-row">
                 <span class="detail-label">Total Days:</span>
                 <span class="detail-value">{{ $ptoRequest->total_days }} day{{ $ptoRequest->total_days != 1 ? 's' : '' }}</span>
-            </div>
-            <div class="detail-row">
-                <span class="detail-label">Status:</span>
-                <span class="detail-value">
-                    <span class="status-badge status-canceled">Canceled</span>
-                </span>
             </div>
             @if($ptoRequest->reason)
                 <div class="detail-row">
@@ -200,6 +183,12 @@
                     <span class="detail-value">{{ $ptoRequest->reason }}</span>
                 </div>
             @endif
+            <div class="detail-row">
+                <span class="detail-label">Status:</span>
+                <span class="detail-value">
+                    <span class="status-badge status-canceled">Canceled</span>
+                </span>
+            </div>
         </div>
 
         @if($cancellationReason || $canceledBy)
@@ -219,9 +208,8 @@
         @endif
 
         <div class="calendar-update">
-            <h4>📅 Calendar Update Needed</h4>
+            <h4>Calendar Updated</h4>
             <p><strong>{{ $employee->first_name }}</strong> will now be available from {{ $ptoRequest->start_date->format('M d') }} to {{ $ptoRequest->end_date->format('M d, Y') }}</p>
-            <p>Please update team calendars and adjust any coverage arrangements that were made.</p>
         </div>
 
         @if($ptoRequest->status === 'approved')

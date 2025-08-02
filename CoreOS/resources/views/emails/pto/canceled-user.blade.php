@@ -141,7 +141,7 @@
 <body>
 <div class="email-container">
     <div class="header">
-        <h1>🚫 PTO Request Canceled</h1>
+        <h1>PTO Request Cancellation Notice</h1>
     </div>
 
     <div class="content">

@@ -150,17 +150,18 @@
 <body>
 <div class="email-container">
     <div class="header">
-        <h1>📋 PTO Request Needs Approval</h1>
+        <h1>PTO Request Needs Approval</h1>
     </div>
 
     <div class="content">
         <p>Hello {{ $recipient->first_name }},</p>
 
-        <p>A new PTO request has been submitted by one of your direct reports and requires your approval.</p>
+        <p>A new PTO request has been submitted by {{ $employee->name }} and requires your approval.</p>
 
-        <div class="employee-info">
-            <h3>{{ $employee->name }}</h3>
-            <p>{{ $employee->email }}</p>
+        <div class="action-box">
+            <h3>Action Required</h3>
+            <p>Please log into CORE OS to review and approve/deny this PTO request.</p>
+            <p><strong>{{ $employee->name }}</strong> is waiting for your response.</p>
         </div>
 
         <div class="pto-details">
@@ -222,11 +223,7 @@
             </div>
         @endif
 
-        <div class="action-box">
-            <h3>Action Required</h3>
-            <p>Please log into the system to review and approve/deny this PTO request.</p>
-            <p><strong>{{ $employee->name }}</strong> is waiting for your response.</p>
-        </div>
+
 
         <p>If you have any questions about this request, please contact {{ $employee->name }} directly or reach out to the HR department.</p>
 
