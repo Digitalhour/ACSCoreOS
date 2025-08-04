@@ -68,16 +68,25 @@ export default function BlogFeed({ articles, limit = 5 }: Props) {
                         <div className="max-w-full overflow-hidden">
                             <div className="p-0">
                                 {/* Banner Image */}
+                                {/*{article.featured_image && (*/}
+                                {/*    <div className="max-h-56 w-full overflow-hidden">*/}
+                                {/*        <img*/}
+                                {/*            src={article.featured_image}*/}
+                                {/*            alt={article.title}*/}
+                                {/*            className="w-full h-full object-cover hover:scale-105 transition-transform duration-300 rounded-t-lg"*/}
+                                {/*        />*/}
+                                {/*    </div>*/}
+                                {/*)}*/}
+
                                 {article.featured_image && (
-                                    <div className="max-h-56 w-full overflow-hidden">
+                                    <div className="aspect-video overflow-hidden">
                                         <img
                                             src={article.featured_image}
                                             alt={article.title}
-                                            className="w-full h-full object-cover hover:scale-105 transition-transform duration-300 rounded-t-lg"
+                                            className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
                                         />
                                     </div>
                                 )}
-
                                 {/* Content Section */}
                                 <div className="p-6">
                                     {/* Author Info */}
