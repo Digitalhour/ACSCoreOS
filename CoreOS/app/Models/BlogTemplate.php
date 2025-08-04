@@ -71,13 +71,6 @@ class BlogTemplate extends Model
             return null;
         }
 
-        try {
-            return Storage::disk('s3')->temporaryUrl(
-                $this->featured_image,
-                now()->addHours(24)
-            );
-        } catch (\Exception $e) {
-            return null;
-        }
+        return Storage::disk('s3')->url($this->featured_image);
     }
 }
