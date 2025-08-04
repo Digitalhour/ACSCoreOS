@@ -121,7 +121,15 @@ class BlogController extends Controller
             'templates' => $templates
         ]);
     }
+    private function copyTemplateImage($template, $slug): string
+    {
+        $templatePath = $template->featured_image;
+        $filename = basename($templatePath);
+        $newPath = "blog-images/{$slug}/featured/{$filename}";
 
+        Storage::disk('s3')->copy($templatePath, $newPath);
+        return $newPath;
+    }
     public function store(Request $request)
     {
         $validated = $request->validate([
@@ -132,13 +140,22 @@ class BlogController extends Controller
             'featured_image' => 'nullable|image|max:2048',
             'status' => 'required|in:draft,published',
             'published_at' => 'nullable|date',
+            'selected_template' => 'nullable|string',
         ]);
 
         if (!$validated['slug']) {
             $validated['slug'] = Str::slug($validated['title']);
         }
 
-        // Handle featured image upload
+        // Handle template image copying
+        if ($validated['selected_template'] && !$request->hasFile('featured_image')) {
+            $template = BlogTemplate::where('name', $validated['selected_template'])->first();
+            if ($template?->featured_image) {
+                $validated['featured_image'] = $this->copyTemplateImage($template, $validated['slug']);
+            }
+        }
+
+        // Handle manual upload
         if ($request->hasFile('featured_image')) {
             $validated['featured_image'] = $this->storeFeaturedImage(
                 $request->file('featured_image'),
