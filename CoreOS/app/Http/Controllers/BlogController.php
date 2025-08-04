@@ -43,7 +43,7 @@ class BlogController extends Controller
                     'title' => $article->title,
                     'slug' => $article->slug,
                     'excerpt' => $article->excerpt,
-                    'featured_image' => $article->featured_image,
+                    'featured_image' => $this->getFeaturedImageUrl($article),
                     'status' => $article->status,
                     'user' => $article->user,
                     'published_at' => $article->published_at,
@@ -67,6 +67,10 @@ class BlogController extends Controller
 
         $blogArticle->load(['user:id,name,email,avatar']);
 
+        // Transform the article with proper image URL
+        $article = $blogArticle->toArray();
+        $article['featured_image'] = $this->getFeaturedImageUrl($blogArticle);
+
         // Get comments with the package
         $comments = $blogArticle->comments()
             ->with(['user:id,name,email,avatar', 'replies.user:id,name,email,avatar'])
@@ -79,10 +83,15 @@ class BlogController extends Controller
             ->with('user:id,name,email,avatar')
             ->latest('published_at')
             ->limit(3)
-            ->get();
+            ->get()
+            ->map(function ($article) {
+                $articleArray = $article->toArray();
+                $articleArray['featured_image'] = $this->getFeaturedImageUrl($article);
+                return $articleArray;
+            });
 
         return Inertia::render('blog/Show', [
-            'article' => $blogArticle,
+            'article' => $article,
             'comments' => $comments,
             'relatedArticles' => $relatedArticles,
         ]);
@@ -97,8 +106,9 @@ class BlogController extends Controller
             ->map(function ($template) {
                 return [
                     'name' => $template->name,
+                    'slug' => $template->slug,
                     'html' => $template->content,
-                    'featured_image' => $template->getPreviewUrl(),
+                    'featured_image' => $this->getTemplateImageUrl($template),
                 ];
             });
 
@@ -125,7 +135,10 @@ class BlogController extends Controller
 
         // Handle featured image upload
         if ($request->hasFile('featured_image')) {
-            $validated['featured_image'] = $request->file('featured_image')->store('blog-images', 'public');
+            $validated['featured_image'] = $this->storeFeaturedImage(
+                $request->file('featured_image'),
+                $validated['slug']
+            );
         }
 
         // Set published_at if status is published and no date provided
@@ -160,13 +173,18 @@ class BlogController extends Controller
             ->map(function ($template) {
                 return [
                     'name' => $template->name,
+                    'slug' => $template->slug,
                     'html' => $template->content,
-                    'featured_image' => $template->getPreviewUrl(),
+                    'featured_image' => $this->getTemplateImageUrl($template),
                 ];
             });
 
+        // Transform article with proper image URL
+        $article = $blogArticle->toArray();
+        $article['featured_image'] = $this->getFeaturedImageUrl($blogArticle);
+
         return Inertia::render('blog/Edit', [
-            'article' => $blogArticle,
+            'article' => $article,
             'templates' => $templates
         ]);
     }
@@ -192,17 +210,30 @@ class BlogController extends Controller
             'published_at' => 'nullable|date',
         ]);
 
+        $oldSlug = $blogArticle->slug;
+
         if (!$validated['slug']) {
             $validated['slug'] = Str::slug($validated['title']);
         }
 
         // Handle featured image upload
         if ($request->hasFile('featured_image')) {
-            // Delete old image
+            // Delete old image if slug changed or replacing image
             if ($blogArticle->featured_image) {
-                Storage::disk('public')->delete($blogArticle->featured_image);
+                Storage::disk('s3')->delete($blogArticle->featured_image);
             }
-            $validated['featured_image'] = $request->file('featured_image')->store('blog-images', 'public');
+
+            $validated['featured_image'] = $this->storeFeaturedImage(
+                $request->file('featured_image'),
+                $validated['slug']
+            );
+        } else if ($oldSlug !== $validated['slug'] && $blogArticle->featured_image) {
+            // Move existing image to new slug folder if slug changed
+            $validated['featured_image'] = $this->moveFeaturedImage(
+                $blogArticle->featured_image,
+                $oldSlug,
+                $validated['slug']
+            );
         }
 
         // Set published_at if status is published and no date provided
@@ -230,6 +261,11 @@ class BlogController extends Controller
     {
         if (!$blogArticle->canBeEditedBy(Auth::user())) {
             abort(403);
+        }
+
+        // Delete featured image
+        if ($blogArticle->featured_image) {
+            Storage::disk('s3')->delete($blogArticle->featured_image);
         }
 
         $blogArticle->delete();
@@ -305,6 +341,7 @@ class BlogController extends Controller
                     'title' => $article->title,
                     'slug' => $article->slug,
                     'excerpt' => $article->excerpt,
+                    'featured_image' => $this->getFeaturedImageUrl($article),
                     'status' => $article->status,
                     'user' => $article->user,
                     'published_at' => $article->published_at,
@@ -326,15 +363,93 @@ class BlogController extends Controller
             'file' => 'required|image|max:2048', // 2MB max
         ]);
 
-        if ($request->hasFile('file')) {
-            $path = $request->file('file')->store('blog-images', 'public');
-
-            return response()->json([
-                'url' => asset('storage/' . $path),
-                'path' => $path
-            ]);
+        if (!$request->hasFile('file')) {
+            return response()->json(['error' => 'No file uploaded'], 400);
         }
 
-        return response()->json(['error' => 'No file uploaded'], 400);
+        // Get slug from request or generate a temporary one
+        $slug = $request->input('slug', 'temp-' . uniqid());
+
+        $file = $request->file('file');
+        $filename = time() . '_' . $file->getClientOriginalName();
+        $path = "blog-images/{$slug}/editor/{$filename}";
+
+        Storage::disk('s3')->put($path, file_get_contents($file));
+
+        // Generate temporary URL (expires in 24 hours)
+        $url = Storage::disk('s3')->temporaryUrl($path, now()->addHours(24));
+
+        return response()->json([
+            'url' => $url,
+            'path' => $path
+        ]);
+    }
+
+    /**
+     * Store featured image in S3 with slug-based folder
+     */
+    private function storeFeaturedImage($file, string $slug): string
+    {
+        $filename = time() . '_' . $file->getClientOriginalName();
+        $path = "blog-images/{$slug}/featured/{$filename}";
+
+        Storage::disk('s3')->put($path, file_get_contents($file));
+
+        return $path;
+    }
+
+    /**
+     * Move featured image to new slug folder
+     */
+    private function moveFeaturedImage(string $currentPath, string $oldSlug, string $newSlug): string
+    {
+        $filename = basename($currentPath);
+        $newPath = "blog-images/{$newSlug}/featured/{$filename}";
+
+        // Copy to new location
+        if (Storage::disk('s3')->exists($currentPath)) {
+            Storage::disk('s3')->copy($currentPath, $newPath);
+            Storage::disk('s3')->delete($currentPath);
+        }
+
+        return $newPath;
+    }
+
+    /**
+     * Get temporary URL for blog article featured image
+     */
+    private function getFeaturedImageUrl($article): ?string
+    {
+        if (!$article->featured_image) {
+            return null;
+        }
+
+        try {
+            return Storage::disk('s3')->temporaryUrl(
+                $article->featured_image,
+                now()->addHours(24)
+            );
+        } catch (\Exception $e) {
+            return null;
+        }
+    }
+
+    /**
+     * Get temporary URL for template image
+     */
+    private function getTemplateImageUrl($template): ?string
+    {
+        if (!$template->featured_image) {
+            return null;
+        }
+
+        try {
+            return Storage::disk('s3')->temporaryUrl(
+                $template->featured_image,
+                now()->addHours(24)
+            );
+        } catch (\Exception $e) {
+            return null;
+        }
     }
 }

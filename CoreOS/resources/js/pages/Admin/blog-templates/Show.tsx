@@ -131,14 +131,14 @@ export default function BlogTemplateShow({ template }: Props) {
                         )}
 
                         {/* Featured Image */}
-                        {template.featured_image && (
+                        {template.preview_url && (
                             <Card>
                                 <CardHeader>
                                     <CardTitle>Template Image</CardTitle>
                                 </CardHeader>
                                 <CardContent>
                                     <img
-                                        src={template.preview_url || `/storage/${template.featured_image}`}
+                                        src={template.preview_url}
                                         alt={template.name}
                                         className="w-full h-64 object-cover rounded-lg"
                                     />

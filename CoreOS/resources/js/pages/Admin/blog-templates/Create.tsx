@@ -22,6 +22,10 @@ interface FormData {
     sort_order: number;
 }
 
+interface Props {
+    categories: string[];
+}
+
 const breadcrumbs: BreadcrumbItem[] = [
     {
         title: 'Admin',
@@ -37,7 +41,7 @@ const breadcrumbs: BreadcrumbItem[] = [
     },
 ];
 
-export default function BlogTemplatesCreate() {
+export default function BlogTemplatesCreate({ categories }: Props) {
     const [imagePreview, setImagePreview] = useState<string | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -47,7 +51,7 @@ export default function BlogTemplatesCreate() {
         description: '',
         content: '',
         featured_image: null,
-        category: 'general',
+        category: categories[0] || 'general',
         is_active: true,
         sort_order: 0,
     });
@@ -99,15 +103,6 @@ export default function BlogTemplatesCreate() {
             form.setData('slug', generateSlug(name));
         }
     };
-
-    const predefinedCategories = [
-        'general',
-        'newsletter',
-        'brief',
-        'article',
-        'announcement',
-        'update'
-    ];
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
@@ -267,7 +262,7 @@ export default function BlogTemplatesCreate() {
                                         onChange={(e) => form.setData('category', e.target.value)}
                                         className="w-full mt-1 px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
                                     >
-                                        {predefinedCategories.map((category) => (
+                                        {categories.map((category) => (
                                             <option key={category} value={category}>
                                                 {category.charAt(0).toUpperCase() + category.slice(1)}
                                             </option>

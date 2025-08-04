@@ -19,6 +19,7 @@ interface BlogTemplate {
     description: string | null;
     content: string;
     featured_image: string | null;
+    preview_url: string | null;
     category: string;
     is_active: boolean;
     sort_order: number;
@@ -28,6 +29,7 @@ interface BlogTemplate {
 
 interface Props {
     template: BlogTemplate;
+    categories?: string[];
 }
 
 export default function BlogTemplateEdit({ template }: Props) {
@@ -44,7 +46,7 @@ export default function BlogTemplateEdit({ template }: Props) {
     });
 
     const [imagePreview, setImagePreview] = useState<string | null>(
-        template?.featured_image ? `/storage/${template.featured_image}` : null
+        template?.preview_url || null
     );
     const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -106,7 +108,7 @@ export default function BlogTemplateEdit({ template }: Props) {
 
     const removeImage = () => {
         form.setData('featured_image', null);
-        setImagePreview(template?.featured_image ? `/storage/${template.featured_image}` : null);
+        setImagePreview(template?.preview_url || null);
         if (fileInputRef.current) {
             fileInputRef.current.value = '';
         }
@@ -130,6 +132,15 @@ export default function BlogTemplateEdit({ template }: Props) {
             form.setData('slug', generateSlug(name));
         }
     };
+
+    const predefinedCategories = [
+        'general',
+        'newsletter',
+        'brief',
+        'article',
+        'announcement',
+        'update'
+    ];
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
@@ -200,13 +211,18 @@ export default function BlogTemplateEdit({ template }: Props) {
 
                                 <div>
                                     <Label htmlFor="category">Category *</Label>
-                                    <Input
+                                    <select
                                         id="category"
                                         value={form.data.category}
                                         onChange={(e) => form.setData('category', e.target.value)}
-                                        placeholder="e.g., Business, Technology, News"
-                                        className={form.errors.category ? 'border-destructive' : ''}
-                                    />
+                                        className="w-full mt-1 px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+                                    >
+                                        {predefinedCategories.map((category) => (
+                                            <option key={category} value={category}>
+                                                {category.charAt(0).toUpperCase() + category.slice(1)}
+                                            </option>
+                                        ))}
+                                    </select>
                                     {form.errors.category && (
                                         <p className="text-sm text-destructive mt-1">{form.errors.category}</p>
                                     )}
