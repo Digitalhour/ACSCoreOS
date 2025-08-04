@@ -76,7 +76,7 @@ export default function BlogShow({ article, comments, relatedArticles }: Props) 
 
                     {/* Article Header Card */}
                     <div className="col-span-4">
-                        <div className=" relative overflow-hidden ">
+                        <div className="relative overflow-hidden">
                             <div className="p-2">
                                 <div className="flex items-start justify-between">
                                     <div className="flex-1">
@@ -125,50 +125,19 @@ export default function BlogShow({ article, comments, relatedArticles }: Props) 
                         </div>
                     </div>
 
-                    {/* Related Articles Sidebar */}
-                    {/*<div className="col-span-1">*/}
-                    {/*    {relatedArticles.length > 0 && (*/}
-                    {/*        <div className="border-sidebar-border/70 dark:border-sidebar-border relative overflow-hidden rounded-xl border">*/}
-                    {/*            <div className="p-4">*/}
-                    {/*                <h3 className="font-semibold mb-4">Related Articles</h3>*/}
-                    {/*                <div className="space-y-4">*/}
-                    {/*                    {relatedArticles.map((related, index) => (*/}
-                    {/*                        <div key={related.id}>*/}
-                    {/*                            <Link*/}
-                    {/*                                href={`/blog/${related.slug}`}*/}
-                    {/*                                className="block hover:text-primary transition-colors"*/}
-                    {/*                            >*/}
-                    {/*                                <h4 className="font-medium line-clamp-2 mb-2 text-sm">*/}
-                    {/*                                    {related.title}*/}
-                    {/*                                </h4>*/}
-                    {/*                                <p className="text-xs text-muted-foreground">*/}
-                    {/*                                    by {related.user.name}*/}
-                    {/*                                </p>*/}
-                    {/*                            </Link>*/}
-                    {/*                            {index < relatedArticles.length - 1 && (*/}
-                    {/*                                <div className="border-t border-border/40 mt-4" />*/}
-                    {/*                            )}*/}
-                    {/*                        </div>*/}
-                    {/*                    ))}*/}
-                    {/*                </div>*/}
-                    {/*            </div>*/}
-                    {/*        </div>*/}
-                    {/*    )}*/}
-                    {/*</div>*/}
+                    {/* Featured Image */}
+                    {article.featured_image && (
+                        <div className="col-span-4">
+                            <div className="border-sidebar-border/70 dark:border-sidebar-border relative overflow-hidden rounded-xl border">
+                                <img
+                                    src={article.featured_image}
+                                    alt={article.title}
+                                    className="w-full h-auto object-cover"
+                                />
+                            </div>
+                        </div>
+                    )}
 
-
-                    {/*/!* Featured Image *!/*/}
-                    {/*{article.featured_image && (*/}
-                    {/*    <div className="col-span-4">*/}
-                    {/*        <div className="border-sidebar-border/70 dark:border-sidebar-border relative overflow-hidden rounded-xl border">*/}
-                    {/*            <img*/}
-                    {/*                src={`/storage/${article.featured_image}`}*/}
-                    {/*                alt={article.title}*/}
-                    {/*                className="w-full h-auto object-cover"*/}
-                    {/*            />*/}
-                    {/*        </div>*/}
-                    {/*    </div>*/}
-                    {/*)}*/}
                     {/* Article Content */}
                     <div className="col-span-4">
                         <div className="border-sidebar-border/70 dark:border-sidebar-border relative overflow-hidden rounded-xl border">
@@ -176,6 +145,40 @@ export default function BlogShow({ article, comments, relatedArticles }: Props) 
                                  dangerouslySetInnerHTML={{ __html: article.content }} />
                         </div>
                     </div>
+
+                    {/* Related Articles */}
+                    {relatedArticles.length > 0 && (
+                        <div className="col-span-4">
+                            <div className="border-sidebar-border/70 dark:border-sidebar-border relative overflow-hidden rounded-xl border">
+                                <div className="p-6">
+                                    <h3 className="font-semibold mb-4">Related Articles</h3>
+                                    <div className="grid gap-4 md:grid-cols-3">
+                                        {relatedArticles.map((related) => (
+                                            <Link
+                                                key={related.id}
+                                                href={`/blog/${related.slug}`}
+                                                className="block p-4 border rounded-lg hover:bg-muted/50 transition-colors"
+                                            >
+                                                {related.featured_image && (
+                                                    <img
+                                                        src={related.featured_image}
+                                                        alt={related.title}
+                                                        className="w-full h-32 object-cover rounded mb-3"
+                                                    />
+                                                )}
+                                                <h4 className="font-medium line-clamp-2 mb-2">
+                                                    {related.title}
+                                                </h4>
+                                                <p className="text-sm text-muted-foreground">
+                                                    by {related.user.name}
+                                                </p>
+                                            </Link>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
 
                     {/* Comments Section */}
                     <div className="col-span-4">

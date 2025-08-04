@@ -25,6 +25,7 @@ interface BlogArticle {
 
 interface Template {
     name: string;
+    slug: string;
     html: string;
     featured_image?: string | null;
 }
@@ -34,20 +35,10 @@ interface Props {
     templates: Template[];
 }
 
-interface FormData {
-    title: string;
-    slug: string;
-    excerpt: string;
-    content: string;
-    featured_image: File | null;
-    status: 'draft' | 'published' | 'archived';
-    published_at: string;
-}
-
 export default function BlogCreateEdit({ article, templates }: Props) {
     const isEditing = !!article;
     const [imagePreview, setImagePreview] = useState<string | null>(
-        article?.featured_image ? `/storage/${article.featured_image}` : null
+        article?.featured_image || null
     );
     const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -63,14 +54,15 @@ export default function BlogCreateEdit({ article, templates }: Props) {
         },
     ];
 
-    const form = useForm<FormData>({
+    const form = useForm({
         title: article?.title || '',
         slug: article?.slug || '',
         excerpt: article?.excerpt || '',
         content: article?.content || '',
-        featured_image: null,
+        featured_image: null as File | null,
         status: article?.status || 'draft',
         published_at: article?.published_at || '',
+        _method: isEditing ? 'put' : '',
     });
 
     const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
@@ -79,10 +71,6 @@ export default function BlogCreateEdit({ article, templates }: Props) {
         if (isEditing && article) {
             form.post(`/blog/${article.slug}`, {
                 forceFormData: true,
-                data: {
-                    ...form.data,
-                    _method: 'put',
-                },
             });
         } else {
             form.post('/blog', {
@@ -122,24 +110,23 @@ export default function BlogCreateEdit({ article, templates }: Props) {
 
         if (template?.featured_image) {
             try {
-                // Fetch the image and convert to File object
-                const response = await fetch(template.featured_image);
-                const blob = await response.blob();
-
-                // Create a File object from the blob
-                const fileName = `template-${templateName.toLowerCase().replace(/\s+/g, '-')}.jpg`;
-                const file = new File([blob], fileName, { type: blob.type });
-
-                // Set the form data and preview
-                form.setData('featured_image', file);
+                // For S3 temporary URLs, we'll just set the preview
+                // The actual template image won't be copied to the article
                 setImagePreview(template.featured_image);
+
+                // Optionally, you could fetch and convert to File object:
+                // const response = await fetch(template.featured_image);
+                // const blob = await response.blob();
+                // const fileName = `template-${template.slug}.jpg`;
+                // const file = new File([blob], fileName, { type: blob.type });
+                // form.setData('featured_image', file);
 
                 // Clear the file input
                 if (fileInputRef.current) {
                     fileInputRef.current.value = '';
                 }
             } catch (error) {
-                console.error('Failed to fetch template image:', error);
+                console.error('Failed to load template image:', error);
                 // Fallback: just set the preview URL
                 setImagePreview(template.featured_image);
             }
@@ -166,7 +153,6 @@ export default function BlogCreateEdit({ article, templates }: Props) {
 
     const handleSaveAsDraft = () => {
         form.setData('status', 'draft');
-        // Create a proper form event
         const formElement = document.querySelector('form');
         if (formElement) {
             const submitEvent = new Event('submit', { bubbles: true, cancelable: true });
@@ -177,7 +163,6 @@ export default function BlogCreateEdit({ article, templates }: Props) {
     const handlePublish = () => {
         form.setData('status', 'published');
 
-        // If no published_at date is set, set it to now
         if (!form.data.published_at) {
             const now = new Date();
             const localISOTime = new Date(now.getTime() - now.getTimezoneOffset() * 60000)
@@ -186,7 +171,6 @@ export default function BlogCreateEdit({ article, templates }: Props) {
             form.setData('published_at', localISOTime);
         }
 
-        // Create a proper form event
         const formElement = document.querySelector('form');
         if (formElement) {
             const submitEvent = new Event('submit', { bubbles: true, cancelable: true });
@@ -293,7 +277,7 @@ export default function BlogCreateEdit({ article, templates }: Props) {
                                 <CardTitle>Featured Image</CardTitle>
                                 {selectedTemplate && (
                                     <p className="text-sm text-muted-foreground">
-                                        Template "{selectedTemplate}" image auto-applied
+                                        Template "{selectedTemplate}" image preview applied
                                     </p>
                                 )}
                             </CardHeader>
@@ -325,7 +309,7 @@ export default function BlogCreateEdit({ article, templates }: Props) {
                                         <p className="text-sm text-muted-foreground">PNG, JPG up to 2MB</p>
                                         {templates.length > 0 && (
                                             <p className="text-xs text-muted-foreground mt-2">
-                                                Or select a template below to auto-populate
+                                                Or select a template below to see preview
                                             </p>
                                         )}
                                     </div>
@@ -350,7 +334,7 @@ export default function BlogCreateEdit({ article, templates }: Props) {
                                 <div>Content *</div>
                                 {templates.length > 0 && (
                                     <p className="text-sm text-muted-foreground">
-                                        Select a template to auto-populate the featured image
+                                        Select a template to auto-populate content and see image preview
                                     </p>
                                 )}
                             </div>

@@ -96,7 +96,7 @@ class BlogTemplateController extends Controller
             'slug' => 'nullable|string|max:255|unique:blog_templates,slug',
             'description' => 'nullable|string|max:1000',
             'content' => 'required|string',
-            'featured_image' => 'nullable|image|max:2048',
+            'featured_image' => 'nullable|image|max:12288',
             'category' => 'required|string|max:100',
             'is_active' => 'boolean',
             'sort_order' => 'integer|min:0',

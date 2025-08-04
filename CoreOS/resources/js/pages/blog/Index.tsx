@@ -6,7 +6,7 @@ import {Button} from '@/components/ui/button';
 import {Input} from '@/components/ui/input';
 import {Card, CardContent, CardFooter, CardHeader} from '@/components/ui/card';
 import {Avatar, AvatarFallback, AvatarImage} from '@/components/ui/avatar';
-import {Calendar, Clock, MessageCircle, Plus, Search, User} from 'lucide-react';
+import {Calendar, Clock, MessageCircle, Plus, Search} from 'lucide-react';
 
 interface User {
     id: number;
@@ -101,7 +101,6 @@ export default function BlogIndex({ articles, filters }: Props) {
                             </p>
                         </div>
 
-
                         <Link href="/blog/create">
                             <Button>
                                 <Plus className="h-4 w-4 mr-2" />
@@ -140,7 +139,7 @@ export default function BlogIndex({ articles, filters }: Props) {
                                 {article.featured_image && (
                                     <div className="aspect-video overflow-hidden">
                                         <img
-                                            src={`/storage/${article.featured_image}`}
+                                            src={article.featured_image}
                                             alt={article.title}
                                             className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
                                         />

@@ -73,7 +73,7 @@ const breadcrumbs: BreadcrumbItem[] = [
         href: '/admin',
     },
     {
-        title: 'blog Management',
+        title: 'Blog Management',
         href: '/admin/blog',
     },
 ];
@@ -165,7 +165,7 @@ export default function BlogManage({ articles, filters }: Props) {
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Blog Management" />
 
-            <div className="container mx-auto px-4 py-8">
+            <div className="container px-4 py-4">
                 {/* Header */}
                 <div className="flex flex-col gap-6 mb-8">
                     <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -271,14 +271,14 @@ export default function BlogManage({ articles, filters }: Props) {
                                 {articles.data.map((article) => (
                                     <TableRow key={article.id}>
                                         <TableCell>
-                                            <div>
+                                            <div >
                                                 <Link
                                                     href={`/blog/${article.slug}`}
                                                     className="font-medium hover:underline line-clamp-1"
                                                 >
                                                     {article.title}
                                                 </Link>
-                                                <p className="text-sm text-muted-foreground line-clamp-2 mt-1">
+                                                <p className="text-sm text-muted-foreground line-clamp-2 mt-1  ">
                                                     {article.excerpt}
                                                 </p>
                                             </div>

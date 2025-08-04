@@ -9,7 +9,7 @@ import {Label} from '@/components/ui/label';
 import {Card, CardContent, CardHeader, CardTitle} from '@/components/ui/card';
 import {Badge} from '@/components/ui/badge';
 import {RadioGroup, RadioGroupItem} from '@/components/ui/radio-group';
-import {Eye, Save} from 'lucide-react';
+import {Eye, ImageIcon, Save, Upload, X} from 'lucide-react';
 import SunEditorComponent from '@/components/ui/sun-editor';
 
 interface BlogArticle {
@@ -25,13 +25,21 @@ interface BlogArticle {
     updated_at: string;
 }
 
-interface Props {
-    article: BlogArticle;
+interface Template {
+    name: string;
+    slug: string;
+    html: string;
+    featured_image?: string | null;
 }
 
-export default function BlogEdit({ article }: Props) {
+interface Props {
+    article: BlogArticle;
+    templates?: Template[];
+}
+
+export default function BlogEdit({ article, templates = [] }: Props) {
     const [imagePreview, setImagePreview] = useState<string | null>(
-        article.featured_image ? `/storage/${article.featured_image}` : null
+        article.featured_image || null
     );
     const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -84,7 +92,7 @@ export default function BlogEdit({ article }: Props) {
 
     const removeImage = () => {
         form.setData('featured_image', null);
-        setImagePreview(article.featured_image ? `/storage/${article.featured_image}` : null);
+        setImagePreview(article.featured_image || null);
         if (fileInputRef.current) {
             fileInputRef.current.value = '';
         }
@@ -102,6 +110,11 @@ export default function BlogEdit({ article }: Props) {
     const handleTitleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const title = e.target.value;
         form.setData('title', title);
+
+        // Auto-generate slug if it matches the current slug pattern
+        if (!form.data.slug || form.data.slug === generateSlug(article.title)) {
+            form.setData('slug', generateSlug(title));
+        }
     };
 
     const handleSaveAsDraft = () => {
@@ -130,13 +143,6 @@ export default function BlogEdit({ article }: Props) {
                 {/* Header */}
                 <div className="flex items-center justify-between mb-8">
                     <div className="flex items-center gap-4">
-                        {/*<Link*/}
-                        {/*    href={`/blog/${article.slug}`}*/}
-                        {/*    className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground"*/}
-                        {/*>*/}
-                        {/*    <ArrowLeft className="h-4 w-4" />*/}
-                        {/*    Back to Article*/}
-                        {/*</Link>*/}
                         <div>
                             <h1 className="text-3xl font-bold">Edit Article</h1>
                             <div className="flex items-center gap-2 mt-2">
@@ -219,62 +225,62 @@ export default function BlogEdit({ article }: Props) {
                         </Card>
 
                         {/* Featured Image */}
-                        {/*<Card>*/}
-                        {/*    <CardHeader>*/}
-                        {/*        <CardTitle>Featured Image</CardTitle>*/}
-                        {/*    </CardHeader>*/}
-                        {/*    <CardContent>*/}
-                        {/*        {imagePreview ? (*/}
-                        {/*            <div className="relative">*/}
-                        {/*                <img*/}
-                        {/*                    src={imagePreview}*/}
-                        {/*                    alt="Featured image preview"*/}
-                        {/*                    className="w-full h-48 object-cover rounded-lg"*/}
-                        {/*                />*/}
-                        {/*                <Button*/}
-                        {/*                    type="button"*/}
-                        {/*                    variant="destructive"*/}
-                        {/*                    size="sm"*/}
-                        {/*                    className="absolute top-2 right-2"*/}
-                        {/*                    onClick={removeImage}*/}
-                        {/*                >*/}
-                        {/*                    <X className="h-4 w-4" />*/}
-                        {/*                </Button>*/}
-                        {/*                <Button*/}
-                        {/*                    type="button"*/}
-                        {/*                    variant="secondary"*/}
-                        {/*                    size="sm"*/}
-                        {/*                    className="absolute bottom-2 right-2"*/}
-                        {/*                    onClick={() => fileInputRef.current?.click()}*/}
-                        {/*                >*/}
-                        {/*                    <Upload className="h-4 w-4 mr-2" />*/}
-                        {/*                    Change Image*/}
-                        {/*                </Button>*/}
-                        {/*            </div>*/}
-                        {/*        ) : (*/}
-                        {/*            <div*/}
-                        {/*                className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-8 text-center cursor-pointer hover:border-muted-foreground/50 transition-colors"*/}
-                        {/*                onClick={() => fileInputRef.current?.click()}*/}
-                        {/*            >*/}
-                        {/*                <ImageIcon className="h-12 w-12 mx-auto text-muted-foreground mb-4" />*/}
-                        {/*                <p className="text-muted-foreground mb-2">Click to upload featured image</p>*/}
-                        {/*                <p className="text-sm text-muted-foreground">PNG, JPG up to 2MB</p>*/}
-                        {/*            </div>*/}
-                        {/*        )}*/}
+                        <Card>
+                            <CardHeader>
+                                <CardTitle>Featured Image</CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                {imagePreview ? (
+                                    <div className="relative">
+                                        <img
+                                            src={imagePreview}
+                                            alt="Featured image preview"
+                                            className="w-full h-48 object-cover rounded-lg"
+                                        />
+                                        <Button
+                                            type="button"
+                                            variant="destructive"
+                                            size="sm"
+                                            className="absolute top-2 right-2"
+                                            onClick={removeImage}
+                                        >
+                                            <X className="h-4 w-4" />
+                                        </Button>
+                                        <Button
+                                            type="button"
+                                            variant="secondary"
+                                            size="sm"
+                                            className="absolute bottom-2 right-2"
+                                            onClick={() => fileInputRef.current?.click()}
+                                        >
+                                            <Upload className="h-4 w-4 mr-2" />
+                                            Change Image
+                                        </Button>
+                                    </div>
+                                ) : (
+                                    <div
+                                        className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-8 text-center cursor-pointer hover:border-muted-foreground/50 transition-colors"
+                                        onClick={() => fileInputRef.current?.click()}
+                                    >
+                                        <ImageIcon className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                                        <p className="text-muted-foreground mb-2">Click to upload featured image</p>
+                                        <p className="text-sm text-muted-foreground">PNG, JPG up to 2MB</p>
+                                    </div>
+                                )}
 
-                        {/*        <input*/}
-                        {/*            ref={fileInputRef}*/}
-                        {/*            type="file"*/}
-                        {/*            accept="image/*"*/}
-                        {/*            onChange={handleImageChange}*/}
-                        {/*            className="hidden"*/}
-                        {/*        />*/}
+                                <input
+                                    ref={fileInputRef}
+                                    type="file"
+                                    accept="image/*"
+                                    onChange={handleImageChange}
+                                    className="hidden"
+                                />
 
-                        {/*        {form.errors.featured_image && (*/}
-                        {/*            <p className="text-sm text-destructive mt-2">{form.errors.featured_image}</p>*/}
-                        {/*        )}*/}
-                        {/*    </CardContent>*/}
-                        {/*</Card>*/}
+                                {form.errors.featured_image && (
+                                    <p className="text-sm text-destructive mt-2">{form.errors.featured_image}</p>
+                                )}
+                            </CardContent>
+                        </Card>
 
                         {/* Content */}
                         <Card>
@@ -285,6 +291,7 @@ export default function BlogEdit({ article }: Props) {
                                 <SunEditorComponent
                                     value={form.data.content}
                                     onChange={(content) => form.setData('content', content)}
+                                    templates={templates}
                                     placeholder="Write your article content here..."
                                     height="500px"
                                 />

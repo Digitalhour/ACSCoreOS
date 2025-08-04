@@ -10,17 +10,19 @@ import {Card, CardContent, CardHeader, CardTitle} from '@/components/ui/card';
 import {Switch} from '@/components/ui/switch';
 import {ImageIcon, Save, X} from 'lucide-react';
 import SunEditorComponent from '@/components/ui/sun-editor';
-
-interface FormData {
-    name: string;
-    slug: string;
-    description: string;
-    content: string;
-    featured_image: File | null;
-    category: string;
-    is_active: boolean;
-    sort_order: number;
-}
+//
+// interface PostFormData {
+//
+//     name: string;
+//     slug: string;
+//     description: string;
+//     content: string;
+//     featured_image: File | null;
+//     category: string;
+//     is_active: boolean;
+//     sort_order: number;
+//
+// }
 
 interface Props {
     categories: string[];
@@ -45,14 +47,14 @@ export default function BlogTemplatesCreate({ categories }: Props) {
     const [imagePreview, setImagePreview] = useState<string | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
-    const form = useForm<FormData>({
+    const form = useForm('PostFormData',{
         name: '',
         slug: '',
         description: '',
         content: '',
-        featured_image: null,
+        featured_image: null as File | null,
         category: categories[0] || 'general',
-        is_active: true,
+        is_active: true as boolean,
         sort_order: 0,
     });
 
@@ -207,7 +209,7 @@ export default function BlogTemplatesCreate({ categories }: Props) {
                                     >
                                         <ImageIcon className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
                                         <p className="text-muted-foreground mb-2">Click to upload preview image</p>
-                                        <p className="text-sm text-muted-foreground">PNG, JPG up to 2MB</p>
+                                        <p className="text-sm text-muted-foreground">PNG, JPG, Gif up to 12MB</p>
                                     </div>
                                 )}
 
