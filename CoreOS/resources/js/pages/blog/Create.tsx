@@ -63,6 +63,7 @@ export default function BlogCreateEdit({ article, templates }: Props) {
         status: article?.status || 'draft',
         published_at: article?.published_at || '',
         _method: isEditing ? 'put' : '',
+        selected_template: null as string | null,
     });
 
     const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
@@ -104,7 +105,7 @@ export default function BlogCreateEdit({ article, templates }: Props) {
 
     const handleTemplateChange = async (templateName: string) => {
         setSelectedTemplate(templateName);
-
+        form.setData('selected_template', templateName);
         const template = templates.find(t => t.name === templateName);
 
         if (template?.featured_image) {
