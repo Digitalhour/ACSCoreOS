@@ -1,4 +1,4 @@
-import React, {useEffect, useRef} from 'react';
+import React, {useCallback, useEffect, useRef} from 'react';
 import SunEditor from 'suneditor';
 import plugins from 'suneditor/src/plugins';
 import 'suneditor/dist/css/suneditor.min.css';
@@ -32,13 +32,19 @@ export default function SunEditorComponent({
                                            }: SunEditorProps) {
     const editorRef = useRef<HTMLTextAreaElement>(null);
     const sunEditorRef = useRef<any>(null);
-
-    // Ref to track if the content change is from the editor's own onChange event
     const isInternalChange = useRef(false);
+    const templateClickHandlerRef = useRef<((event: Event) => void) | null>(null);
 
-    // This hook manages the editor's creation and destruction
+    // Stable template change handler
+    const handleTemplateChange = useCallback((templateName: string) => {
+        if (onTemplateChange) {
+            onTemplateChange(templateName);
+        }
+    }, [onTemplateChange]);
+
+    // Create editor only once
     useEffect(() => {
-        if (!editorRef.current) return;
+        if (!editorRef.current || sunEditorRef.current) return;
 
         // Create the editor instance
         sunEditorRef.current = SunEditor.create(editorRef.current, {
@@ -58,7 +64,6 @@ export default function SunEditorComponent({
             "katex": "window.katex",
             "previewTemplate": "<div style='width:auto; max-width:1080px; margin:auto;'>    <h1>Preview Template</h1>     {{contents}}     <div>_Footer_</div></div>",
 
-            // Use templates from props, fallback to empty array if none provided
             templates: templates.length > 0 ? templates : [
                 {
                     name: 'Empty Template',
@@ -113,104 +118,95 @@ export default function SunEditorComponent({
             ],
         });
 
-        // Attach the onChange handler
+        // Set up basic onChange handler
         sunEditorRef.current.onChange = (contents: any) => {
             const stringContent = typeof contents === 'string' ? contents : '';
-
             isInternalChange.current = true;
             onChange(stringContent);
         };
 
-        // Add template change detection if callback is provided
-        if (onTemplateChange && templates.length > 0) {
-            // Store the previous content to detect template changes
-            let previousContent = value || '';
-
-            // Enhanced onChange handler to detect template usage
-            const originalOnChange = sunEditorRef.current.onChange;
-            sunEditorRef.current.onChange = (contents: any) => {
-                const stringContent = typeof contents === 'string' ? contents : '';
-
-                // Check if content dramatically changed (likely a template was applied)
-                const contentChanged = stringContent.length > previousContent.length + 100;
-
-                if (contentChanged) {
-                    // Try to match which template was applied based on content
-                    for (const template of templates) {
-                        // Check if the new content contains significant portions of the template
-                        const templateContent = template.html.replace(/<[^>]*>/g, '').substring(0, 200);
-                        const newContent = stringContent.replace(/<[^>]*>/g, '').substring(0, 200);
-
-                        if (templateContent && newContent.includes(templateContent.substring(0, 50))) {
-                            setTimeout(() => onTemplateChange(template.name), 100);
-                            break;
-                        }
-                    }
-                }
-
-                previousContent = stringContent;
-
-                // Call the original onChange
-                isInternalChange.current = true;
-                onChange(stringContent);
-            };
-
-            // Also listen for clicks on the editor container to detect template button clicks
-            const handleTemplateClick = (event: any) => {
-                const target = event.target;
-                if (target && target.textContent) {
-                    // Look for matching template names in the clicked element
-                    for (const template of templates) {
-                        if (target.textContent.includes(template.name)) {
-                            // Delay to let the template content load
-                            setTimeout(() => {
-                                const content = sunEditorRef.current?.getContents() || '';
-                                // Verify the template was actually applied
-                                const templateCheck = template.html.replace(/<[^>]*>/g, '').substring(0, 50);
-                                const contentCheck = content.replace(/<[^>]*>/g, '').substring(0, 50);
-
-                                if (templateCheck && contentCheck.includes(templateCheck)) {
-                                    onTemplateChange(template.name);
-                                }
-                            }, 200);
-                            break;
-                        }
-                    }
-                };
-
-                // Add event listener using delegation on document
-                document.addEventListener('click', handleTemplateClick);
-
-                // Return cleanup function for this listener
-                return () => {
-                    document.removeEventListener('click', handleTemplateClick);
-                };
-            }
-        } else {
-            // Original onChange handler when no template detection needed
-            sunEditorRef.current.onChange = (contents: any) => {
-                const stringContent = typeof contents === 'string' ? contents : '';
-                isInternalChange.current = true;
-                onChange(stringContent);
-            };
-        }
-
-        // Cleanup function to destroy the editor instance
+        // Cleanup function
         return () => {
             if (sunEditorRef.current) {
                 sunEditorRef.current.destroy();
                 sunEditorRef.current = null;
             }
         };
-    }, [onTemplateChange, templates]); // Add templates to dependencies
+    }, []); // Empty dependency array - create only once
 
-    // This hook syncs changes from the parent component back to the editor
+    // Update templates when they change
     useEffect(() => {
+        if (!sunEditorRef.current || !templates.length) return;
+
+        // Update templates in existing editor
+        try {
+            const editorTemplates = templates.length > 0 ? templates : [
+                {
+                    name: 'Empty Template',
+                    html: '<p>Start writing your content here...</p>'
+                }
+            ];
+
+            // Update the editor's template list
+            sunEditorRef.current.options.templates = editorTemplates;
+        } catch (error) {
+            console.warn('Failed to update templates:', error);
+        }
+    }, [templates]);
+
+    // Set up template detection
+    useEffect(() => {
+        if (!sunEditorRef.current || !onTemplateChange || !templates.length) return;
+
+        // Clean up previous handler
+        if (templateClickHandlerRef.current) {
+            document.removeEventListener('click', templateClickHandlerRef.current);
+        }
+
+        // Simple template detection via button clicks
+        const handleTemplateClick = (event: Event) => {
+            const target = event.target as HTMLElement;
+            if (!target) return;
+
+            // Check if it's a template button click
+            const isTemplateButton = target.closest('.se-btn-list') &&
+                target.textContent &&
+                templates.some(t => target.textContent!.includes(t.name));
+
+            if (isTemplateButton) {
+                // Find matching template
+                const template = templates.find(t => target.textContent!.includes(t.name));
+                if (template) {
+                    // Small delay to let template content load
+                    setTimeout(() => {
+                        handleTemplateChange(template.name);
+                    }, 150);
+                }
+            }
+        };
+
+        templateClickHandlerRef.current = handleTemplateClick;
+        document.addEventListener('click', handleTemplateClick);
+
+        return () => {
+            if (templateClickHandlerRef.current) {
+                document.removeEventListener('click', templateClickHandlerRef.current);
+                templateClickHandlerRef.current = null;
+            }
+        };
+    }, [templates, handleTemplateChange]);
+
+    // Sync value changes from parent
+    useEffect(() => {
+        if (!sunEditorRef.current) return;
+
         if (isInternalChange.current) {
             isInternalChange.current = false;
             return;
         }
-        if (sunEditorRef.current && sunEditorRef.current.getContents() !== value) {
+
+        const currentContent = sunEditorRef.current.getContents();
+        if (currentContent !== value) {
             sunEditorRef.current.setContents(value || '');
         }
     }, [value]);
