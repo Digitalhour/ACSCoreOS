@@ -33,7 +33,11 @@ class BlogController extends Controller
                 $q->where('name', 'like', "%{$request->author}%");
             });
         }
-
+        if ($query->count() > 0) {
+            $firstArticle = $query->first();
+            \Log::info('Featured image path: ' . $firstArticle->featured_image);
+            \Log::info('Generated URL: ' . $this->getFeaturedImageUrl($firstArticle));
+        }
         $articles = $query->latest('published_at')
             ->paginate(12)
             ->withQueryString()
@@ -53,11 +57,7 @@ class BlogController extends Controller
                 ];
             });
 
-        if ($articles->count() > 0) {
-            $firstArticle = $articles->first();
-            \Log::info('Featured image path: ' . $firstArticle->featured_image);
-            \Log::info('Generated URL: ' . $this->getFeaturedImageUrl($firstArticle));
-        }
+
         return Inertia::render('blog/Index', [
             'articles' => $articles,
             'filters' => $request->only(['search', 'author']),
