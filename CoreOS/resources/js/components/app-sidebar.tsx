@@ -137,7 +137,7 @@ const navigationCategories: NavCategory[] = [
         items: [
             // { title: 'Your Training', href: '/training', icon: BookOpenText, description: null },
             // { title: 'Training Dashboard', href: '/admin/reports', icon: BookOpenText, description: null },
-            { title: 'Training Dashboard', href: route('old-style-training-tracking.index'), icon: BookOpenText, description: null },
+            { title: 'Training Dashboard', href: '/old-style-training-tracking', icon: BookOpenText, description: null },
         ]
     },
     {
