@@ -83,15 +83,15 @@ const navigationCategories: NavCategory[] = [
 
             { title: 'Department PTO', href: '/department-pto', icon: Users, description: null },
 
-            { title: 'Timesheet Manager Dash', href: route('time-clock.manager.dashboard'), icon: BookOpenText, description: null },
-            { title: 'Timesheet Payroll Dash', href: route('time-clock.payroll.dashboard'), icon: BookOpenText, description: null },
+            { title: 'Timesheet Manager Dash', href: '/time-clock/manager/dashboard', icon: BookOpenText, description: null },
+            { title: 'Timesheet Payroll Dash', href: '/time-clock/payroll/dashboard', icon: BookOpenText, description: null },
         ]
     },
     {
         title: "Time & PTO Payroll",
         icon: DollarSign,
         items: [
-            { title: 'Timesheet Payroll Dash', href: route('time-clock.payroll.dashboard'), icon: BookOpenText, description: null },
+            { title: 'Timesheet Payroll Dash', href: '/time-clock/payroll/dashboard', icon: BookOpenText, description: null },
         ]
     },
     {
