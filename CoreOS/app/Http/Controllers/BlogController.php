@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\BlogArticle;
 use App\Models\BlogComment;
+use App\Models\BlogTemplate;
 use App\Notifications\BlogPublished;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -89,7 +90,21 @@ class BlogController extends Controller
 
     public function create()
     {
-        return Inertia::render('blog/Create');
+        // Get active templates for the editor
+        $templates = BlogTemplate::active()
+            ->ordered()
+            ->get()
+            ->map(function ($template) {
+                return [
+                    'name' => $template->name,
+                    'html' => $template->content,
+                    'featured_image' => $template->getPreviewUrl(),
+                ];
+            });
+
+        return Inertia::render('blog/Create', [
+            'templates' => $templates
+        ]);
     }
 
     public function store(Request $request)
@@ -138,8 +153,21 @@ class BlogController extends Controller
             abort(403);
         }
 
+        // Get active templates for the editor
+        $templates = BlogTemplate::active()
+            ->ordered()
+            ->get()
+            ->map(function ($template) {
+                return [
+                    'name' => $template->name,
+                    'html' => $template->content,
+                    'featured_image' => $template->getPreviewUrl(),
+                ];
+            });
+
         return Inertia::render('blog/Edit', [
             'article' => $blogArticle,
+            'templates' => $templates
         ]);
     }
 
@@ -190,7 +218,7 @@ class BlogController extends Controller
 
         // Send notification if blog is being published for the first time
         if ($wasNotPublished && $isNowPublished) {
-            Notification::route('mail', 'caldridge@aircompressorservces.com')
+            Notification::route('mail', 'caldridge@aircompressorservices.com')
                 ->notify(new BlogPublished($blogArticle->fresh()));
         }
 
@@ -206,7 +234,7 @@ class BlogController extends Controller
 
         $blogArticle->delete();
 
-        return redirect()->route('blog.index')
+        return redirect()->route('admin.blog.manage')
             ->with('success', 'Article deleted successfully!');
     }
 

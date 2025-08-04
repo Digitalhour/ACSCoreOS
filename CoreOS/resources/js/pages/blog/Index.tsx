@@ -44,7 +44,6 @@ interface PaginatedData {
         total: number;
         per_page: number;
     };
-    // Laravel also sometimes puts pagination data at root level
     current_page?: number;
     last_page?: number;
     total?: number;
@@ -101,6 +100,7 @@ export default function BlogIndex({ articles, filters }: Props) {
                                 Stay updated with the latest news and insights from our team
                             </p>
                         </div>
+
 
                         <Link href="/blog/create">
                             <Button>

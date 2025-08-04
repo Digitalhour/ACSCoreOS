@@ -9,7 +9,7 @@ import {Label} from '@/components/ui/label';
 import {Card, CardContent, CardHeader, CardTitle} from '@/components/ui/card';
 import {Badge} from '@/components/ui/badge';
 import {RadioGroup, RadioGroupItem} from '@/components/ui/radio-group';
-import {Eye, Save} from 'lucide-react';
+import {Eye, ImageIcon, Save, X} from 'lucide-react';
 import SunEditorComponent from '@/components/ui/sun-editor';
 
 interface BlogArticle {
@@ -23,15 +23,33 @@ interface BlogArticle {
     published_at: string | null;
 }
 
-interface Props {
-    article?: BlogArticle;
+interface Template {
+    name: string;
+    html: string;
+    featured_image?: string | null;
 }
 
-export default function BlogCreateEdit({ article }: Props) {
+interface Props {
+    article?: BlogArticle;
+    templates: Template[];
+}
+
+interface FormData {
+    title: string;
+    slug: string;
+    excerpt: string;
+    content: string;
+    featured_image: File | null;
+    status: 'draft' | 'published' | 'archived';
+    published_at: string;
+}
+
+export default function BlogCreateEdit({ article, templates }: Props) {
     const isEditing = !!article;
     const [imagePreview, setImagePreview] = useState<string | null>(
         article?.featured_image ? `/storage/${article.featured_image}` : null
     );
+    const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     const breadcrumbs: BreadcrumbItem[] = [
@@ -41,27 +59,30 @@ export default function BlogCreateEdit({ article }: Props) {
         },
         {
             title: isEditing ? 'Edit Article' : 'Create Article',
-            href: isEditing ? `/blog/${article.slug}/edit` : '/blog/create',
+            href: isEditing ? `/blog/${article?.slug}/edit` : '/blog/create',
         },
     ];
 
-    const form = useForm({
+    const form = useForm<FormData>({
         title: article?.title || '',
         slug: article?.slug || '',
         excerpt: article?.excerpt || '',
         content: article?.content || '',
-        featured_image: null as File | null,
+        featured_image: null,
         status: article?.status || 'draft',
         published_at: article?.published_at || '',
     });
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
 
-        if (isEditing) {
+        if (isEditing && article) {
             form.post(`/blog/${article.slug}`, {
                 forceFormData: true,
-                _method: 'put',
+                data: {
+                    ...form.data,
+                    _method: 'put',
+                },
             });
         } else {
             form.post('/blog', {
@@ -77,7 +98,9 @@ export default function BlogCreateEdit({ article }: Props) {
 
             const reader = new FileReader();
             reader.onload = (e) => {
-                setImagePreview(e.target?.result as string);
+                if (e.target?.result) {
+                    setImagePreview(e.target.result as string);
+                }
             };
             reader.readAsDataURL(file);
         }
@@ -91,13 +114,45 @@ export default function BlogCreateEdit({ article }: Props) {
         }
     };
 
-    const generateSlug = (title: string) => {
+    const handleTemplateChange = async (templateName: string) => {
+        setSelectedTemplate(templateName);
+
+        // Find the template that was selected
+        const template = templates.find(t => t.name === templateName);
+
+        if (template?.featured_image) {
+            try {
+                // Fetch the image and convert to File object
+                const response = await fetch(template.featured_image);
+                const blob = await response.blob();
+
+                // Create a File object from the blob
+                const fileName = `template-${templateName.toLowerCase().replace(/\s+/g, '-')}.jpg`;
+                const file = new File([blob], fileName, { type: blob.type });
+
+                // Set the form data and preview
+                form.setData('featured_image', file);
+                setImagePreview(template.featured_image);
+
+                // Clear the file input
+                if (fileInputRef.current) {
+                    fileInputRef.current.value = '';
+                }
+            } catch (error) {
+                console.error('Failed to fetch template image:', error);
+                // Fallback: just set the preview URL
+                setImagePreview(template.featured_image);
+            }
+        }
+    };
+
+    const generateSlug = (title: string): string => {
         return title
             .toLowerCase()
             .replace(/[^a-z0-9 -]/g, '')
             .replace(/\s+/g, '-')
             .replace(/-+/g, '-')
-            .trim('-');
+            .replace(/^-|-$/g, '');
     };
 
     const handleTitleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -111,20 +166,48 @@ export default function BlogCreateEdit({ article }: Props) {
 
     const handleSaveAsDraft = () => {
         form.setData('status', 'draft');
-        handleSubmit(new Event('submit') as any);
+        // Create a proper form event
+        const formElement = document.querySelector('form');
+        if (formElement) {
+            const submitEvent = new Event('submit', { bubbles: true, cancelable: true });
+            formElement.dispatchEvent(submitEvent);
+        }
     };
 
     const handlePublish = () => {
         form.setData('status', 'published');
+
+        // If no published_at date is set, set it to now
         if (!form.data.published_at) {
-            form.setData('published_at', new Date().toISOString().slice(0, 16));
+            const now = new Date();
+            const localISOTime = new Date(now.getTime() - now.getTimezoneOffset() * 60000)
+                .toISOString()
+                .slice(0, 16);
+            form.setData('published_at', localISOTime);
         }
-        handleSubmit(new Event('submit') as any);
+
+        // Create a proper form event
+        const formElement = document.querySelector('form');
+        if (formElement) {
+            const submitEvent = new Event('submit', { bubbles: true, cancelable: true });
+            formElement.dispatchEvent(submitEvent);
+        }
     };
+
+    const getWordCount = (content: string): number => {
+        return content.split(/\s+/).filter(word => word.length > 0).length;
+    };
+
+    const getReadingTime = (wordCount: number): number => {
+        return Math.max(1, Math.ceil(wordCount / 200));
+    };
+
+    const wordCount = getWordCount(form.data.content);
+    const readingTime = getReadingTime(wordCount);
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
-            <Head title={isEditing ? `Edit: ${article.title}` : 'Create New Article'} />
+            <Head title={isEditing ? `Edit: ${article?.title}` : 'Create New Article'} />
 
             <div className="flex h-full max-h-screen flex-1 flex-col gap-2 rounded-xl p-4">
                 {/* Header */}
@@ -134,7 +217,7 @@ export default function BlogCreateEdit({ article }: Props) {
                             <h1 className="text-3xl font-bold">
                                 {isEditing ? 'Edit Announcement' : 'Create New Company Announcement'}
                             </h1>
-                            {isEditing && (
+                            {isEditing && article && (
                                 <Badge variant="secondary" className="mt-2">
                                     {article.status}
                                 </Badge>
@@ -143,7 +226,7 @@ export default function BlogCreateEdit({ article }: Props) {
                     </div>
                 </div>
 
-                <form onSubmit={handleSubmit} className="">
+                <form onSubmit={handleSubmit}>
                     {/* Main content */}
                     <div className="space-y-6">
                         {/* Title */}
@@ -151,7 +234,7 @@ export default function BlogCreateEdit({ article }: Props) {
                             <div>
                                 <div>Article Details</div>
                             </div>
-                            <div className="grid lg:grid-cols-2 gap-2 ">
+                            <div className="grid lg:grid-cols-2 gap-2">
                                 <div>
                                     <Label htmlFor="title">Title *</Label>
                                     <Input
@@ -167,7 +250,9 @@ export default function BlogCreateEdit({ article }: Props) {
                                 </div>
 
                                 <div>
-                                    <Label htmlFor="slug">URL Slug
+                                    <Label htmlFor="slug">
+                                        URL Slug
+                                        <br />
                                         Preview: /blog/{form.data.slug || 'article-slug'}
                                     </Label>
                                     <Input
@@ -180,10 +265,9 @@ export default function BlogCreateEdit({ article }: Props) {
                                     {form.errors.slug && (
                                         <p className="text-sm text-destructive mt-1">{form.errors.slug}</p>
                                     )}
-
                                 </div>
 
-                                <div className={""}>
+                                <div className="lg:col-span-2">
                                     <Label htmlFor="excerpt">Excerpt</Label>
                                     <Textarea
                                         id="excerpt"
@@ -203,61 +287,79 @@ export default function BlogCreateEdit({ article }: Props) {
                             </div>
                         </div>
 
-                        {/*/!* Featured Image *!/*/}
-                        {/*<Card>*/}
-                        {/*    <CardHeader>*/}
-                        {/*        <CardTitle>Featured Image</CardTitle>*/}
-                        {/*    </CardHeader>*/}
-                        {/*    <CardContent>*/}
-                        {/*        {imagePreview ? (*/}
-                        {/*            <div className="relative">*/}
-                        {/*                <img*/}
-                        {/*                    src={imagePreview}*/}
-                        {/*                    alt="Featured image preview"*/}
-                        {/*                    className="w-full h-48 object-cover rounded-lg"*/}
-                        {/*                />*/}
-                        {/*                <Button*/}
-                        {/*                    type="button"*/}
-                        {/*                    variant="destructive"*/}
-                        {/*                    size="sm"*/}
-                        {/*                    className="absolute top-2 right-2"*/}
-                        {/*                    onClick={removeImage}*/}
-                        {/*                >*/}
-                        {/*                    <X className="h-4 w-4" />*/}
-                        {/*                </Button>*/}
-                        {/*            </div>*/}
-                        {/*        ) : (*/}
-                        {/*            <div*/}
-                        {/*                className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-8 text-center cursor-pointer hover:border-muted-foreground/50 transition-colors"*/}
-                        {/*                onClick={() => fileInputRef.current?.click()}*/}
-                        {/*            >*/}
-                        {/*                <ImageIcon className="h-12 w-12 mx-auto text-muted-foreground mb-4" />*/}
-                        {/*                <p className="text-muted-foreground mb-2">Click to upload featured image</p>*/}
-                        {/*                <p className="text-sm text-muted-foreground">PNG, JPG up to 2MB</p>*/}
-                        {/*            </div>*/}
-                        {/*        )}*/}
+                        {/* Featured Image */}
+                        <Card>
+                            <CardHeader>
+                                <CardTitle>Featured Image</CardTitle>
+                                {selectedTemplate && (
+                                    <p className="text-sm text-muted-foreground">
+                                        Template "{selectedTemplate}" image auto-applied
+                                    </p>
+                                )}
+                            </CardHeader>
+                            <CardContent>
+                                {imagePreview ? (
+                                    <div className="relative">
+                                        <img
+                                            src={imagePreview}
+                                            alt="Featured image preview"
+                                            className="w-full h-48 object-cover rounded-lg"
+                                        />
+                                        <Button
+                                            type="button"
+                                            variant="destructive"
+                                            size="sm"
+                                            className="absolute top-2 right-2"
+                                            onClick={removeImage}
+                                        >
+                                            <X className="h-4 w-4" />
+                                        </Button>
+                                    </div>
+                                ) : (
+                                    <div
+                                        className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-8 text-center cursor-pointer hover:border-muted-foreground/50 transition-colors"
+                                        onClick={() => fileInputRef.current?.click()}
+                                    >
+                                        <ImageIcon className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                                        <p className="text-muted-foreground mb-2">Click to upload featured image</p>
+                                        <p className="text-sm text-muted-foreground">PNG, JPG up to 2MB</p>
+                                        {templates.length > 0 && (
+                                            <p className="text-xs text-muted-foreground mt-2">
+                                                Or select a template below to auto-populate
+                                            </p>
+                                        )}
+                                    </div>
+                                )}
 
-                        {/*        <input*/}
-                        {/*            ref={fileInputRef}*/}
-                        {/*            type="file"*/}
-                        {/*            accept="image/*"*/}
-                        {/*            onChange={handleImageChange}*/}
-                        {/*            className="hidden"*/}
-                        {/*        />*/}
-                        {/*        {form.errors.featured_image && (*/}
-                        {/*            <p className="text-sm text-destructive mt-2">{form.errors.featured_image}</p>*/}
-                        {/*        )}*/}
-                        {/*    </CardContent>*/}
-                        {/*</Card>*/}
+                                <input
+                                    ref={fileInputRef}
+                                    type="file"
+                                    accept="image/*"
+                                    onChange={handleImageChange}
+                                    className="hidden"
+                                />
+                                {form.errors.featured_image && (
+                                    <p className="text-sm text-destructive mt-2">{form.errors.featured_image}</p>
+                                )}
+                            </CardContent>
+                        </Card>
+
                         {/* Content */}
                         <div>
                             <div>
                                 <div>Content *</div>
+                                {templates.length > 0 && (
+                                    <p className="text-sm text-muted-foreground">
+                                        Select a template to auto-populate the featured image
+                                    </p>
+                                )}
                             </div>
                             <div>
                                 <SunEditorComponent
                                     value={form.data.content || ''}
-                                    onChange={(content) => form.setData('content', content)}
+                                    onChange={(content: string) => form.setData('content', content)}
+                                    onTemplateChange={handleTemplateChange}
+                                    templates={templates}
                                     placeholder="Write your article content here..."
                                     height="900px"
                                 />
@@ -269,7 +371,7 @@ export default function BlogCreateEdit({ article }: Props) {
                     </div>
 
                     {/* Sidebar */}
-                    <div className="grid grid-cols-2 gap-4 mt-2 space-y-6">
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mt-6">
                         {/* Publishing Options */}
                         <Card>
                             <CardHeader>
@@ -280,7 +382,9 @@ export default function BlogCreateEdit({ article }: Props) {
                                     <Label>Status</Label>
                                     <RadioGroup
                                         value={form.data.status}
-                                        onValueChange={(value) => form.setData('status', value as any)}
+                                        onValueChange={(value: 'draft' | 'published' | 'archived') =>
+                                            form.setData('status', value)
+                                        }
                                         className="mt-2"
                                     >
                                         <div className="flex items-center space-x-2">
@@ -304,6 +408,9 @@ export default function BlogCreateEdit({ article }: Props) {
                                             onChange={(e) => form.setData('published_at', e.target.value)}
                                             className="mt-1"
                                         />
+                                        <p className="text-xs text-muted-foreground mt-1">
+                                            Leave empty to publish immediately
+                                        </p>
                                     </div>
                                 )}
                             </CardContent>
@@ -336,7 +443,7 @@ export default function BlogCreateEdit({ article }: Props) {
                                     {isEditing ? 'Update & Publish' : 'Publish'}
                                 </Button>
 
-                                {isEditing && (
+                                {isEditing && article && (
                                     <Link href={`/blog/${article.slug}`}>
                                         <Button variant="ghost" className="w-full">
                                             <Eye className="h-4 w-4 mr-2" />
@@ -356,27 +463,32 @@ export default function BlogCreateEdit({ article }: Props) {
                                 <CardContent className="space-y-2">
                                     <div className="flex justify-between text-sm">
                                         <span>Words:</span>
-                                        <span>
-                                            {typeof form.data.content === 'string'
-                                                ? form.data.content.split(/\s+/).filter(w => w.length > 0).length
-                                                : 0}
-                                        </span>
+                                        <span>{wordCount}</span>
                                     </div>
 
                                     <div className="flex justify-between text-sm">
                                         <span>Characters:</span>
-                                        <span>
-                                            {typeof form.data.content === 'string' ? form.data.content.length : 0}
-                                        </span>
+                                        <span>{form.data.content.length}</span>
                                     </div>
 
                                     <div className="flex justify-between text-sm">
                                         <span>Reading time:</span>
-                                        <span>
-                                            {Math.max(1, Math.ceil((typeof form.data.content === 'string' ? form.data.content.split(/\s+/).length : 0) / 200))} min
-                                        </span>
+                                        <span>{readingTime} min</span>
                                     </div>
 
+                                    {selectedTemplate && (
+                                        <div className="flex justify-between text-sm">
+                                            <span>Template:</span>
+                                            <span className="text-xs font-medium">{selectedTemplate}</span>
+                                        </div>
+                                    )}
+
+                                    {templates.length > 0 && (
+                                        <div className="flex justify-between text-sm">
+                                            <span>Available Templates:</span>
+                                            <span className="text-xs">{templates.length}</span>
+                                        </div>
+                                    )}
                                 </CardContent>
                             </Card>
                         )}

@@ -9,6 +9,7 @@ use App\Http\Controllers\Api\PtoApi\PtoOverviewController;
 use App\Http\Controllers\Api\UserPtoController;
 use App\Http\Controllers\BillyAIController;
 use App\Http\Controllers\BlogController;
+use App\Http\Controllers\BlogTemplateController;
 use App\Http\Controllers\DepartmentTimeOffController;
 use App\Http\Controllers\DeviceAliasController;
 use App\Http\Controllers\HolidayController;
@@ -70,17 +71,13 @@ Route::middleware([
 
         // blog routes (public)
         Route::get('/blog', [BlogController::class, 'index'])->name('blog.index');
-
-
-
-            // blog management routes
+         // blog management routes
             Route::get('/blog/create', [BlogController::class, 'create'])->name('blog.create');
             Route::post('/blog', [BlogController::class, 'store'])->name('blog.store');
             Route::get('/blog/{blogArticle}/edit', [BlogController::class, 'edit'])->name('blog.edit');
             Route::put('/blog/{blogArticle}', [BlogController::class, 'update'])->name('blog.update');
             Route::delete('/blog/{blogArticle}', [BlogController::class, 'destroy'])->name('blog.destroy');
-        Route::post('/blog/upload-image', [BlogController::class, 'uploadEditorImage'])->name('blog.upload-image');
-
+            Route::post('/blog/upload-image', [BlogController::class, 'uploadEditorImage'])->name('blog.upload-image');
             // blog comment routes
             Route::post('/blog/{blogArticle}/comments', [BlogController::class, 'storeComment'])->name('blog.comments.store');
             Route::put('/blog-comments/{blogComment}', [BlogController::class, 'updateComment'])->name('blog.comments.update');
@@ -91,7 +88,18 @@ Route::middleware([
 
         Route::get('/blog/{blogArticle}', [BlogController::class, 'show'])->name('blog.show');
 
+        Route::prefix('admin')->group(function () {
+            Route::get('/blog-templates', [BlogTemplateController::class, 'index'])->name('admin.blog-templates.index');
+            Route::get('/blog-templates/create', [BlogTemplateController::class, 'create'])->name('admin.blog-templates.create');
+            Route::post('/blog-templates', [BlogTemplateController::class, 'store'])->name('admin.blog-templates.store');
+            Route::get('/blog-templates/{blogTemplate}', [BlogTemplateController::class, 'show'])->name('admin.blog-templates.show');
+            Route::get('/blog-templates/{blogTemplate}/edit', [BlogTemplateController::class, 'edit'])->name('admin.blog-templates.edit');
+            Route::put('/blog-templates/{blogTemplate}', [BlogTemplateController::class, 'update'])->name('admin.blog-templates.update');
+            Route::delete('/blog-templates/{blogTemplate}', [BlogTemplateController::class, 'destroy'])->name('admin.blog-templates.destroy');
+        });
 
+// API route for SunEditor to fetch templates
+        Route::get('/api/blog-templates', [BlogTemplateController::class, 'apiIndex'])->name('api.blog-templates.index');
 
 
 //
