@@ -104,7 +104,7 @@ export default function BlogEdit({ article, templates = [] }: Props) {
             .replace(/[^a-z0-9 -]/g, '')
             .replace(/\s+/g, '-')
             .replace(/-+/g, '-')
-            .trim('-');
+            .replace(/^-|-$/g, '');
     };
 
     const handleTitleChange = (e: React.ChangeEvent<HTMLInputElement>) => {

@@ -71,7 +71,7 @@ export default function BlogFeed({ articles, limit = 5 }: Props) {
                                 {article.featured_image && (
                                     <div className="max-h-56 w-full overflow-hidden">
                                         <img
-                                            src={`/storage/${article.featured_image}`}
+                                            src={article.featured_image}
                                             alt={article.title}
                                             className="w-full h-full object-cover hover:scale-105 transition-transform duration-300 rounded-t-lg"
                                         />
@@ -109,18 +109,18 @@ export default function BlogFeed({ articles, limit = 5 }: Props) {
                                     </p>
 
                                     <div className={"flex flex-col"}>
-                                    {/* Read More Link */}
-                                    <Link
-                                        href={`/blog/${article.slug}`}
-                                        className="group inline-flex items-center gap-1 text-sm font-medium hover:underlin justify-end"
-                                    >
-                                        <Button variant={"ghost"}>
-                                        Read more
+                                        {/* Read More Link */}
+                                        <Link
+                                            href={`/blog/${article.slug}`}
+                                            className="group inline-flex items-center gap-1 text-sm font-medium hover:underlin justify-end"
+                                        >
+                                            <Button variant={"ghost"}>
+                                                Read more
 
-                                        <ChevronRight className="w-4 h-4" />
-                                        </Button>
-                                    </Link>
-                            </div>
+                                                <ChevronRight className="w-4 h-4" />
+                                            </Button>
+                                        </Link>
+                                    </div>
                                 </div>
                             </div>
                         </div>
