@@ -23,6 +23,7 @@ interface Article {
     published_at: string | null;
     created_at: string;
     updated_at: string;
+    featured_image: string | null;
 }
 
 interface Props {
