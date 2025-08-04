@@ -39,8 +39,16 @@ Route::middleware([
             ->published()
             ->latest()
             ->limit(10)
-            ->get();
-        return Inertia::render('dashboard',[
+            ->get()
+            ->map(function ($article) {
+                $articleArray = $article->toArray();
+                $articleArray['featured_image'] = $article->featured_image
+                    ? Storage::disk('s3')->temporaryUrl($article->featured_image, now()->addHours(24))
+                    : null;
+                return $articleArray;
+            });
+
+        return Inertia::render('dashboard', [
             'articles' => $articles
         ]);
     })->name('dashboard');

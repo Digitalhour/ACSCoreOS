@@ -9,8 +9,11 @@ interface User {
     email: string;
     avatar: string;
 }
-
-interface BlogArticle {
+interface Props {
+    articles: Article[];
+    limit?: number;
+}
+interface Article {
     id: number;
     title: string;
     slug: string;
@@ -24,10 +27,7 @@ interface BlogArticle {
     approved_comments_count: number;
 }
 
-interface Props {
-    articles: BlogArticle[];
-    limit?: number;
-}
+
 
 export default function BlogFeed({ articles, limit = 5 }: Props) {
     const displayArticles = articles.slice(0, limit);

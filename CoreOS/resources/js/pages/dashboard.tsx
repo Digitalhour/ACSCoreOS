@@ -17,13 +17,13 @@ interface Article {
     title: string;
     slug: string;
     excerpt: string;
-    content: string;
-    status: 'draft' | 'published';
-    user: User;
-    published_at: string | null;
-    created_at: string;
-    updated_at: string;
     featured_image: string | null;
+    status: 'draft' | 'published' | 'archived';
+    user: User;
+    published_at: string;
+    created_at: string;
+    reading_time: number;
+    approved_comments_count: number;
 }
 
 interface Props {
