@@ -163,24 +163,60 @@ export default function SunEditorComponent({
             document.removeEventListener('click', templateClickHandlerRef.current);
         }
 
-        // Simple template detection via button clicks
+        // Store previous content for comparison
+        let previousContent = sunEditorRef.current.getContents() || '';
+
+        // Enhanced onChange handler to detect template usage
+        const originalOnChange = sunEditorRef.current.onChange;
+        sunEditorRef.current.onChange = (contents: any) => {
+            const stringContent = typeof contents === 'string' ? contents : '';
+
+            // Check if content dramatically changed (likely a template was applied)
+            const contentChanged = stringContent.length > previousContent.length + 100;
+
+            if (contentChanged && templates.length > 0) {
+                // Try to match which template was applied based on content
+                for (const template of templates) {
+                    // Check if the new content contains significant portions of the template
+                    const templateContent = template.html.replace(/<[^>]*>/g, '').substring(0, 200);
+                    const newContent = stringContent.replace(/<[^>]*>/g, '').substring(0, 200);
+
+                    if (templateContent && newContent.includes(templateContent.substring(0, 50))) {
+                        setTimeout(() => handleTemplateChange(template.name), 100);
+                        break;
+                    }
+                }
+            }
+
+            previousContent = stringContent;
+
+            // Call the original onChange
+            isInternalChange.current = true;
+            onChange(stringContent);
+        };
+
+        // Template button click detection
         const handleTemplateClick = (event: Event) => {
             const target = event.target as HTMLElement;
             if (!target) return;
 
-            // Check if it's a template button click
-            const isTemplateButton = target.closest('.se-btn-list') &&
-                target.textContent &&
-                templates.some(t => target.textContent!.includes(t.name));
-
-            if (isTemplateButton) {
-                // Find matching template
-                const template = templates.find(t => target.textContent!.includes(t.name));
-                if (template) {
-                    // Small delay to let template content load
+            // Look for matching template names in the clicked element
+            for (const template of templates) {
+                if (target.textContent && target.textContent.includes(template.name)) {
+                    // Delay to let the template content load
                     setTimeout(() => {
-                        handleTemplateChange(template.name);
-                    }, 150);
+                        if (sunEditorRef.current) {
+                            const content = sunEditorRef.current.getContents() || '';
+                            // Verify the template was actually applied
+                            const templateCheck = template.html.replace(/<[^>]*>/g, '').substring(0, 50);
+                            const contentCheck = content.replace(/<[^>]*>/g, '').substring(0, 50);
+
+                            if (templateCheck && contentCheck.includes(templateCheck)) {
+                                handleTemplateChange(template.name);
+                            }
+                        }
+                    }, 200);
+                    break;
                 }
             }
         };
