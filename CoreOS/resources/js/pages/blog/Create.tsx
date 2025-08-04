@@ -105,29 +105,25 @@ export default function BlogCreateEdit({ article, templates }: Props) {
     const handleTemplateChange = async (templateName: string) => {
         setSelectedTemplate(templateName);
 
-        // Find the template that was selected
         const template = templates.find(t => t.name === templateName);
 
         if (template?.featured_image) {
             try {
-                // For S3 temporary URLs, we'll just set the preview
-                // The actual template image won't be copied to the article
+                // Fetch the template image and convert to File object
+                const response = await fetch(template.featured_image);
+                const blob = await response.blob();
+                const fileName = `template-${template.slug}.jpg`;
+                const file = new File([blob], fileName, { type: blob.type });
+
+                // Set the form data so it gets uploaded
+                form.setData('featured_image', file);
                 setImagePreview(template.featured_image);
 
-                // Optionally, you could fetch and convert to File object:
-                // const response = await fetch(template.featured_image);
-                // const blob = await response.blob();
-                // const fileName = `template-${template.slug}.jpg`;
-                // const file = new File([blob], fileName, { type: blob.type });
-                // form.setData('featured_image', file);
-
-                // Clear the file input
                 if (fileInputRef.current) {
                     fileInputRef.current.value = '';
                 }
             } catch (error) {
-                console.error('Failed to load template image:', error);
-                // Fallback: just set the preview URL
+                console.error('Failed to fetch template image:', error);
                 setImagePreview(template.featured_image);
             }
         }
