@@ -446,9 +446,15 @@ class BlogController extends Controller
             return null;
         }
 
-        return Storage::disk('s3')->url($article->featured_image);
+        try {
+            return Storage::disk('s3')->temporaryUrl(
+                $article->featured_image,
+                now()->addHours(24)
+            );
+        } catch (\Exception $e) {
+            return null;
+        }
     }
-
 
     /**
      * Get temporary URL for template image
@@ -459,6 +465,13 @@ class BlogController extends Controller
             return null;
         }
 
-        return Storage::disk('s3')->url($template->featured_image);
+        try {
+            return Storage::disk('s3')->temporaryUrl(
+                $template->featured_image,
+                now()->addHours(24)
+            );
+        } catch (\Exception $e) {
+            return null;
+        }
     }
 }
