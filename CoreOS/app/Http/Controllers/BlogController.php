@@ -53,6 +53,11 @@ class BlogController extends Controller
                 ];
             });
 
+        if ($articles->data && count($articles->data) > 0) {
+            $firstArticle = BlogArticle::find($articles->data[0]['id']);
+            \Log::info('Featured image path: ' . $firstArticle->featured_image);
+            \Log::info('Generated URL: ' . $this->getFeaturedImageUrl($firstArticle));
+        }
         return Inertia::render('blog/Index', [
             'articles' => $articles,
             'filters' => $request->only(['search', 'author']),
