@@ -53,8 +53,8 @@ class BlogController extends Controller
                 ];
             });
 
-        if ($articles->data && count($articles->data) > 0) {
-            $firstArticle = BlogArticle::find($articles->data[0]['id']);
+        if ($articles->count() > 0) {
+            $firstArticle = $articles->first();
             \Log::info('Featured image path: ' . $firstArticle->featured_image);
             \Log::info('Generated URL: ' . $this->getFeaturedImageUrl($firstArticle));
         }
