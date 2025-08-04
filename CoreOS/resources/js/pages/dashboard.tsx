@@ -47,6 +47,33 @@ export default function Dashboard({ articles }: Props) {
             <Head title="Dashboard" />
             <div className="flex h-full max-h-screen flex-1 flex-col gap-4 rounded-xl p-4">
                 <div className="grid auto-rows-min gap-2 md:grid-cols-6">
+                    <div className="border-sidebar-border/70 dark:border-sidebar-border relative aspect-video overflow-hidden rounded-xl border">
+                        <PlaceholderPattern className="absolute inset-0 size-full stroke-neutral-900/20 dark:stroke-neutral-100/20" />
+                        <p>Total Sales This Month</p>
+                    </div>
+                    {/* New block added below */}
+                    <div className="border-sidebar-border/70 dark:border-sidebar-border relative aspect-video overflow-hidden rounded-xl border">
+                        <PlaceholderPattern className="absolute inset-0 size-full stroke-neutral-900/20 dark:stroke-neutral-100/20" />
+                        <p>Total Sales This Year</p>
+                    </div>
+                    {/* New block added below */}
+                    <div className="border-sidebar-border/70 dark:border-sidebar-border relative aspect-video overflow-hidden rounded-xl border">
+                        <PlaceholderPattern className="absolute inset-0 size-full stroke-neutral-900/20 dark:stroke-neutral-100/20" />
+                        <p>Total Repeat Sales This Year</p>
+                    </div>
+                    {/* New block added below */}
+                    <div className="relative aspect-video overflow-hidden rounded-xl">
+                        {/*<PlaceholderPattern className="absolute inset-0 size-full stroke-neutral-900/20 dark:stroke-neutral-100/20" />*/}
+                        {/*<div className="relative z-10 p-4">Order Status: {orderStatus}</div>*/}
+                    </div>
+                    <div className="border-sidebar-border/70 dark:border-sidebar-border relative aspect-video overflow-hidden rounded-xl border">
+                        <PlaceholderPattern className="absolute inset-0 size-full stroke-neutral-900/20 dark:stroke-neutral-100/20" />
+                        <p>Machine Training Completed Current Month</p>
+                    </div>
+                    <div className="border-sidebar-border/70 dark:border-sidebar-border relative aspect-video overflow-hidden rounded-xl border">
+                        <PlaceholderPattern className="absolute inset-0 size-full stroke-neutral-900/20 dark:stroke-neutral-100/20" />
+                        <p>Machine Training Completed Overall</p>
+                    </div>
                     <div className="flex flex-col col-span-3 gap-4">
                         <div className="border-sidebar-border/70 dark:border-sidebar-border relative  overflow-hidden rounded-xl border">
                             <BlogFeed articles={articles} limit={5} />
@@ -67,25 +94,7 @@ export default function Dashboard({ articles }: Props) {
 
                     </div>
                     {/* New block added below */}
-                    <div className="border-sidebar-border/70 dark:border-sidebar-border relative aspect-video overflow-hidden rounded-xl border">
-                        <PlaceholderPattern className="absolute inset-0 size-full stroke-neutral-900/20 dark:stroke-neutral-100/20" />
-                        {/*<div className="relative z-10 p-4">Order Status: {orderStatus}</div>*/}
-                    </div>
-                    {/* New block added below */}
-                    <div className="border-sidebar-border/70 dark:border-sidebar-border relative aspect-video overflow-hidden rounded-xl border">
-                        <PlaceholderPattern className="absolute inset-0 size-full stroke-neutral-900/20 dark:stroke-neutral-100/20" />
-                        {/*<div className="relative z-10 p-4">Order Status: {orderStatus}</div>*/}
-                    </div>
-                    {/* New block added below */}
-                    <div className="border-sidebar-border/70 dark:border-sidebar-border relative aspect-video overflow-hidden rounded-xl border">
-                        <PlaceholderPattern className="absolute inset-0 size-full stroke-neutral-900/20 dark:stroke-neutral-100/20" />
-                        {/*<div className="relative z-10 p-4">Order Status: {orderStatus}</div>*/}
-                    </div>
-                    {/* New block added below */}
-                    <div className="border-sidebar-border/70 dark:border-sidebar-border relative aspect-video overflow-hidden rounded-xl border">
-                        <PlaceholderPattern className="absolute inset-0 size-full stroke-neutral-900/20 dark:stroke-neutral-100/20" />
-                        {/*<div className="relative z-10 p-4">Order Status: {orderStatus}</div>*/}
-                    </div>
+
                 </div>
                 <div className="border-sidebar-border/70 dark:border-sidebar-border">
 
