@@ -69,6 +69,7 @@ const headerNavItems: NavItem[] = [
     { title: 'My PTO', href: '/employee/pto', icon: ShipWheel, description: null },
     { title: 'ACS Org', href: '/organization-chart', icon: Users, roles: '', description: null },
     { title: 'ACS Parts Database', href: '/parts-catalog', icon: Cog, roles: '', description: null },
+    { title: 'ACS Wiki', href: '/wiki', icon: BookOpenText, roles: '', description: null },
 ];
 
 

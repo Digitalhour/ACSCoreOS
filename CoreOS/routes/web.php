@@ -18,6 +18,12 @@ use App\Http\Controllers\RolePermissionController;
 use App\Http\Controllers\UserManagementController;
 use App\Http\Controllers\VibetrackController;
 use App\Http\Controllers\WidgetController;
+use App\Http\Controllers\WikiAttachmentController;
+use App\Http\Controllers\WikiBookController;
+use App\Http\Controllers\WikiChapterController;
+use App\Http\Controllers\WikiController;
+use App\Http\Controllers\WikiPageController;
+use App\Http\Controllers\WikiTemplateController;
 use App\Models\BlogArticle;
 use App\Models\User;
 use Illuminate\Support\Facades\Route;
@@ -71,7 +77,61 @@ Route::middleware([
 
 
 
+        Route::prefix('wiki')->name('wiki.')->group(function () {
 
+            // Main wiki pages
+            Route::get('/', [WikiController::class, 'index'])->name('index');
+            Route::get('/search', [WikiController::class, 'search'])->name('search');
+            Route::post('/upload-image', [WikiController::class, 'uploadImage'])->name('upload-image');
+
+            // Books management
+            Route::get('/books', [WikiBookController::class, 'index'])->name('books.index');
+            Route::get('/books/create', [WikiBookController::class, 'create'])->name('books.create');
+            Route::post('/books', [WikiBookController::class, 'store'])->name('books.store');
+            Route::get('/books/{book}', [WikiBookController::class, 'show'])->name('books.show');
+            Route::get('/books/{book}/edit', [WikiBookController::class, 'edit'])->name('books.edit');
+            Route::put('/books/{book}', [WikiBookController::class, 'update'])->name('books.update');
+            Route::delete('/books/{book}', [WikiBookController::class, 'destroy'])->name('books.destroy');
+
+            // Chapters management
+            Route::get('/{book}/chapters/create', [WikiChapterController::class, 'create'])->name('chapters.create');
+            Route::post('/{book}/chapters', [WikiChapterController::class, 'store'])->name('chapters.store');
+            Route::get('/{book}/{chapter}', [WikiChapterController::class, 'show'])->name('chapters.show');
+            Route::get('/{book}/{chapter}/edit', [WikiChapterController::class, 'edit'])->name('chapters.edit');
+            Route::put('/{book}/{chapter}', [WikiChapterController::class, 'update'])->name('chapters.update');
+            Route::delete('/{book}/{chapter}', [WikiChapterController::class, 'destroy'])->name('chapters.destroy');
+
+            // Pages management
+            Route::get('/{book}/{chapter}/pages/create', [WikiPageController::class, 'create'])->name('pages.create');
+            Route::post('/{book}/{chapter}/pages', [WikiPageController::class, 'store'])->name('pages.store');
+            Route::get('/{book}/{chapter}/{page}', [WikiPageController::class, 'show'])->name('pages.show');
+            Route::get('/{book}/{chapter}/{page}/edit', [WikiPageController::class, 'edit'])->name('pages.edit');
+            Route::put('/{book}/{chapter}/{page}', [WikiPageController::class, 'update'])->name('pages.update');
+            Route::delete('/{book}/{chapter}/{page}', [WikiPageController::class, 'destroy'])->name('pages.destroy');
+
+            // Page versions
+            Route::get('/{book}/{chapter}/{page}/versions', [WikiPageController::class, 'versions'])->name('pages.versions');
+            Route::get('/{book}/{chapter}/{page}/versions/compare', [WikiPageController::class, 'compareVersions'])->name('pages.compare-versions');
+            Route::post('/{book}/{chapter}/{page}/versions/{version}/restore', [WikiPageController::class, 'restoreVersion'])->name('pages.restore-version');
+
+            // Page attachments
+            Route::get('/{book}/{chapter}/{page}/attachments', [WikiAttachmentController::class, 'index'])->name('attachments.index');
+            Route::post('/{book}/{chapter}/{page}/attachments', [WikiAttachmentController::class, 'store'])->name('attachments.store');
+            Route::get('/attachments/{attachment}/download', [WikiAttachmentController::class, 'download'])->name('attachments.download');
+            Route::delete('/attachments/{attachment}', [WikiAttachmentController::class, 'destroy'])->name('attachments.destroy');
+
+            // Templates management
+            Route::get('/templates', [WikiTemplateController::class, 'index'])->name('templates.index');
+            Route::get('/templates/create', [WikiTemplateController::class, 'create'])->name('templates.create');
+            Route::post('/templates', [WikiTemplateController::class, 'store'])->name('templates.store');
+            Route::get('/templates/{template}', [WikiTemplateController::class, 'show'])->name('templates.show');
+            Route::get('/templates/{template}/edit', [WikiTemplateController::class, 'edit'])->name('templates.edit');
+            Route::put('/templates/{template}', [WikiTemplateController::class, 'update'])->name('templates.update');
+            Route::delete('/templates/{template}', [WikiTemplateController::class, 'destroy'])->name('templates.destroy');
+        });
+
+// API route for SunEditor to fetch wiki templates
+        Route::get('/api/wiki-templates', [WikiTemplateController::class, 'apiIndex'])->name('api.wiki-templates.index');
 
 
 

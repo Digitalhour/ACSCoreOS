@@ -2,7 +2,7 @@ import AppLayout from '@/layouts/app-layout';
 import {type BreadcrumbItem} from '@/types';
 import {Head} from '@inertiajs/react';
 import BlogFeed from "@/components/BlogFeed";
-import {Card, CardContent, CardDescription, CardHeader, CardTitle} from "@/components/ui/card";
+
 import {ChartConfig, ChartContainer} from "@/components/ui/chart";
 import {Area, AreaChart, Bar, BarChart, Line, LineChart} from "recharts";
 
@@ -42,11 +42,11 @@ const breadcrumbs: BreadcrumbItem[] = [
 const monthlySalesData = [
     { day: "1", sales: 12000 },
     { day: "5", sales: 15000 },
-    { day: "10", sales: 18000 },
-    { day: "15", sales: 22000 },
-    { day: "20", sales: 25000 },
+    { day: "10", sales: 6000 },
+    { day: "15", sales: 20000 },
+    { day: "20", sales: 5000 },
     { day: "25", sales: 28000 },
-    { day: "30", sales: 32000 },
+    { day: "30", sales: 22000 },
 ];
 
 const yearlySalesData = [
@@ -70,19 +70,19 @@ const trainingData = [
 const chartConfig = {
     sales: {
         label: "Sales",
-        color: "hsl(var(--chart-1))",
+        color: "var(--chart-1)",
     },
     repeatSales: {
         label: "Repeat Sales",
-        color: "hsl(var(--chart-2))",
+        color: "var(--chart-2)",
     },
     current: {
         label: "Current Month",
-        color: "hsl(var(--chart-3))",
+        color: "var(--chart-3)",
     },
     overall: {
         label: "Overall",
-        color: "hsl(var(--chart-4))",
+        color: "var(--chart-4)",
     },
 } satisfies ChartConfig;
 
@@ -99,34 +99,35 @@ export default function Dashboard({ articles }: Props) {
             <div className="flex h-full max-h-screen flex-1 flex-col gap-4 rounded-xl p-4">
                 <div className="grid auto-rows-min gap-2 md:grid-cols-6">
                     {/* Total Sales This Month */}
-                    <Card className="border-sidebar-border/70 dark:border-sidebar-border">
-                        <CardHeader className="pb-2">
-                            <CardDescription>Total Sales This Month</CardDescription>
-                            <CardTitle className="text-2xl">${totalSalesThisMonth.toLocaleString()}</CardTitle>
-                        </CardHeader>
-                        <CardContent>
+                    <div className="border-sidebar-border/70 dark:border-sidebar-border relative aspect-video overflow-hidden rounded-xl border">
+                        <div className="p-4 pb-2">
+                            <p className="text-sm text-muted-foreground">Total Sales This Month</p>
+                            <h3 className="text-2xl font-semibold">${totalSalesThisMonth.toLocaleString()}</h3>
+                        </div>
+                        <div className="px-4 pb-4">
                             <ChartContainer config={chartConfig} className="h-[80px] w-full">
-                                <AreaChart data={monthlySalesData}>
-                                    <Area
+                                <LineChart data={monthlySalesData}>
+                                    <Line
                                         dataKey="sales"
                                         type="natural"
                                         fill="var(--color-sales)"
                                         fillOpacity={0.4}
                                         stroke="var(--color-sales)"
-                                        strokeWidth={2}
+                                        strokeWidth={1.5}
+                                        dot-={"true"}
                                     />
-                                </AreaChart>
+                                </LineChart>
                             </ChartContainer>
-                        </CardContent>
-                    </Card>
+                        </div>
+                    </div>
 
                     {/* Total Sales This Year */}
-                    <Card className="border-sidebar-border/70 dark:border-sidebar-border">
-                        <CardHeader className="pb-2">
-                            <CardDescription>Total Sales This Year</CardDescription>
-                            <CardTitle className="text-2xl">${(totalSalesThisYear / 1000000).toFixed(1)}M</CardTitle>
-                        </CardHeader>
-                        <CardContent>
+                    <div className="border-sidebar-border/70 dark:border-sidebar-border relative aspect-video overflow-hidden rounded-xl border">
+                        <div className="p-4 pb-2">
+                            <p className="text-sm text-muted-foreground">Total Sales This Year</p>
+                            <h3 className="text-2xl font-semibold">${(totalSalesThisYear / 1000000).toFixed(1)}M</h3>
+                        </div>
+                        <div className="px-4 pb-4">
                             <ChartContainer config={chartConfig} className="h-[80px] w-full">
                                 <LineChart data={yearlySalesData}>
                                     <Line
@@ -134,61 +135,70 @@ export default function Dashboard({ articles }: Props) {
                                         type="monotone"
                                         stroke="var(--color-sales)"
                                         strokeWidth={2}
-                                        dot={false}
+                                        dot={true}
                                     />
                                 </LineChart>
                             </ChartContainer>
-                        </CardContent>
-                    </Card>
+                        </div>
+                    </div>
 
                     {/* Total Repeat Sales This Year */}
-                    <Card className="border-sidebar-border/70 dark:border-sidebar-border">
-                        <CardHeader className="pb-2">
-                            <CardDescription>Repeat Sales This Year</CardDescription>
-                            <CardTitle className="text-2xl">${(totalRepeatSalesThisYear / 1000000).toFixed(1)}M</CardTitle>
-                        </CardHeader>
-                        <CardContent>
+                    <div className="border-sidebar-border/70 dark:border-sidebar-border relative aspect-video overflow-hidden rounded-xl border">
+                        <div className="p-4 pb-2">
+                            <p className="text-sm text-muted-foreground">Repeat Sales This Year</p>
+                            <h3 className="text-2xl font-semibold">${(totalRepeatSalesThisYear / 1000000).toFixed(1)}M</h3>
+                        </div>
+                        <div className="px-4 pb-4">
                             <ChartContainer config={chartConfig} className="h-[80px] w-full">
-                                <AreaChart data={yearlySalesData}>
-                                    <Area
+                                <LineChart data={yearlySalesData}
+                                           margin={{
+                                               top: 5,
+                                               right: 10,
+                                               left: 10,
+                                               bottom: 0,
+                                           }}
+                                >
+                                    <Line
                                         dataKey="repeatSales"
-                                        type="natural"
-                                        fill="var(--color-repeatSales)"
-                                        fillOpacity={0.4}
-                                        stroke="var(--color-repeatSales)"
+                                        type="monotone"
                                         strokeWidth={2}
+                                        activeDot={{
+                                            r: 6,
+                                            fill: "var(--color-sales)",
+                                        }}
+                                        stroke="var(--color-sales)"
                                     />
-                                </AreaChart>
+                                </LineChart>
                             </ChartContainer>
-                        </CardContent>
-                    </Card>
+                        </div>
+                    </div>
 
                     {/* Empty placeholder */}
                     <div className="relative aspect-video overflow-hidden rounded-xl">
                     </div>
 
                     {/* Machine Training Completed Current Month */}
-                    <Card className="border-sidebar-border/70 dark:border-sidebar-border">
-                        <CardHeader className="pb-2">
-                            <CardDescription>Training Completed This Month</CardDescription>
-                            <CardTitle className="text-2xl">{trainingCompletedThisMonth}</CardTitle>
-                        </CardHeader>
-                        <CardContent>
+                    <div className="border-sidebar-border/70 dark:border-sidebar-border relative aspect-video overflow-hidden rounded-xl border">
+                        <div className="p-4 pb-2">
+                            <p className="text-sm text-muted-foreground">Training Completed This Month</p>
+                            <h3 className="text-2xl font-semibold">{trainingCompletedThisMonth}</h3>
+                        </div>
+                        <div className="px-4 pb-4">
                             <ChartContainer config={chartConfig} className="h-[80px] w-full">
                                 <BarChart data={trainingData}>
                                     <Bar dataKey="current" fill="var(--color-current)" radius={2} />
                                 </BarChart>
                             </ChartContainer>
-                        </CardContent>
-                    </Card>
+                        </div>
+                    </div>
 
                     {/* Machine Training Completed Overall */}
-                    <Card className="border-sidebar-border/70 dark:border-sidebar-border">
-                        <CardHeader className="pb-2">
-                            <CardDescription>Training Completed Overall</CardDescription>
-                            <CardTitle className="text-2xl">{trainingCompletedOverall.toLocaleString()}</CardTitle>
-                        </CardHeader>
-                        <CardContent>
+                    <div className="border-sidebar-border/70 dark:border-sidebar-border relative aspect-video overflow-hidden rounded-xl border">
+                        <div className="p-4 pb-2">
+                            <p className="text-sm text-muted-foreground">Training Completed Overall</p>
+                            <h3 className="text-2xl font-semibold">{trainingCompletedOverall.toLocaleString()}</h3>
+                        </div>
+                        <div className="px-4 pb-4">
                             <ChartContainer config={chartConfig} className="h-[80px] w-full">
                                 <AreaChart data={trainingData}>
                                     <Area
@@ -201,8 +211,8 @@ export default function Dashboard({ articles }: Props) {
                                     />
                                 </AreaChart>
                             </ChartContainer>
-                        </CardContent>
-                    </Card>
+                        </div>
+                    </div>
 
                     <div className="flex flex-col col-span-3 gap-4">
                         <div className="border-sidebar-border/70 dark:border-sidebar-border relative overflow-hidden rounded-xl border">

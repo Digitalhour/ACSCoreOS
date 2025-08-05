@@ -109,19 +109,15 @@ Route::middleware(['auth', ValidateSessionWithWorkOS::class,])->group(function (
             Route::get('/timesheet/{timesheet}/punches', [PayrollTimeClockController::class, 'timesheetPunches'])->name('time-clock.payroll.timesheet.punches');
             Route::put('/punch/{timeClock}/edit', [PayrollTimeClockController::class, 'editPunch'])->name('time-clock.payroll.punch.edit');
             Route::put('/break/{audit}/edit', [PayrollTimeClockController::class, 'editBreak'])->name('time-clock.payroll.break.edit');
-            Route::delete('/punch/{timeClock}/delete', [PayrollTimeClockController::class, 'deletePunch'])
-                ->name('time-clock.payroll.punch.delete');
-
-            Route::delete('/break/{audit}/delete', [PayrollTimeClockController::class, 'deleteBreak'])
-                ->name('time-clock.payroll.break.delete');
-            Route::post('/punch/create', [PayrollTimeClockController::class, 'addEntry'])
-                ->name('time-clock.payroll.punch.create');
-            Route::post('/punch/{timeClock}/clock-out', [PayrollTimeClockController::class, 'clockOut'])
-                ->name('time-clock.payroll.punch.clock-out');
+            Route::delete('/punch/{timeClock}/delete', [PayrollTimeClockController::class, 'deletePunch'])->name('time-clock.payroll.punch.delete');
+            Route::delete('/break/{audit}/delete', [PayrollTimeClockController::class, 'deleteBreak'])->name('time-clock.payroll.break.delete');
+            Route::post('/punch/create', [PayrollTimeClockController::class, 'addEntry'])->name('time-clock.payroll.punch.create');
+            Route::post('/punch/{timeClock}/clock-out', [PayrollTimeClockController::class, 'clockOut'])->name('time-clock.payroll.punch.clock-out');
             Route::get('/export-punches', [PayrollTimeClockController::class, 'exportPunches'])->name('time-clock.payroll.export-punches');
-
             Route::post('/reject/{timesheet}', [PayrollTimeClockController::class, 'reject'])->name('payroll.reject');
             Route::post('/bulk-reject', [PayrollTimeClockController::class, 'bulkReject'])->name('payroll.bulk-reject');
+            Route::post('/update-entry/{timeClock}', [PayrollTimeClockController::class, 'updateEntry'])->name('time-clock.payroll.update-entry');
+            Route::post('/add-entry', [PayrollTimeClockController::class, 'addEntry'])->name('time-clock.payroll.add-entry');
         });
 
 
