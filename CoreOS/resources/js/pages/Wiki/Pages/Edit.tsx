@@ -68,7 +68,7 @@ interface FormData {
     status: 'draft' | 'published';
     change_summary: string;
     remove_featured_image: boolean;
-    _method: string;
+
 }
 
 export default function WikiPageEdit({ book, chapter, page, templates }: Props) {
