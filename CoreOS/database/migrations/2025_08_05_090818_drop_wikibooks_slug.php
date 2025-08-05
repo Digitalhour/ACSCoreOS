@@ -9,18 +9,24 @@ return new class extends Migration
 {
     public function up(): void
     {
-        // Drop existing unique constraint
-        DB::statement('DROP INDEX IF EXISTS wiki_books_slug_unique');
+        // Drop existing unique constraint (MySQL syntax)
+        try {
+            DB::statement('DROP INDEX wiki_books_slug_unique ON wiki_books');
+        } catch (\Exception $e) {
+            // Index doesn't exist, continue
+        }
 
-        // Create partial unique index excluding soft deletes
-        DB::statement('CREATE UNIQUE INDEX wiki_books_slug_unique ON wiki_books(slug) WHERE deleted_at IS NULL');
+        // Note: MySQL doesn't support partial unique indexes like PostgreSQL
+        // You'll need a different approach for soft delete handling
+        Schema::table('wiki_books', function (Blueprint $table) {
+            $table->unique('slug');
+        });
     }
 
     public function down(): void
     {
-        DB::statement('DROP INDEX IF EXISTS wiki_books_slug_unique');
-
         Schema::table('wiki_books', function (Blueprint $table) {
+            $table->dropUnique(['slug']);
             $table->unique('slug');
         });
     }
