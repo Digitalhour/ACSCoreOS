@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\WikiBook;
 use App\Models\WikiPage;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 
 class WikiController extends Controller
@@ -76,21 +77,15 @@ class WikiController extends Controller
             $path = "core_wiki/images/{$filename}";
 
             // Upload to S3
-            \Storage::disk('s3')->put($path, file_get_contents($image), 'public');
+            Storage::disk('s3')->put($path, file_get_contents($image), 'public');
 
             // Get the URL
-            $url = \Storage::disk('s3')->url($path);
+            return Storage::disk('s3')->url($path);
 
-            return response()->json([
-                'success' => true,
-                'url' => $url,
-                'path' => $path
-            ]);
         } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to upload image: ' . $e->getMessage()
-            ], 500);
+            return back()->withErrors([
+                'upload' => 'Failed to upload image: ' . $e->getMessage()
+            ]);
         }
     }
 }

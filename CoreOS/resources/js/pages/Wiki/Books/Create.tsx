@@ -1,6 +1,6 @@
-import React, {useState} from 'react';
+import React, {useRef, useState} from 'react';
 import AppLayout from '@/layouts/app-layout';
-import {Head, router, useForm} from '@inertiajs/react';
+import {Head, useForm} from '@inertiajs/react';
 import {Button} from '@/components/ui/button';
 import {Input} from '@/components/ui/input';
 import {Label} from '@/components/ui/label';
@@ -8,9 +8,15 @@ import {Textarea} from '@/components/ui/textarea';
 import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from '@/components/ui/select';
 import {Card, CardContent, CardHeader, CardTitle} from '@/components/ui/card';
 import {Alert, AlertDescription} from '@/components/ui/alert';
-import {Upload, X} from 'lucide-react';
+import {ImageIcon, Upload, X} from 'lucide-react';
 import {type BreadcrumbItem} from '@/types';
 
+interface FormData {
+    name: string;
+    description: string;
+    cover_image: File | null;
+    status: 'draft' | 'published';
+}
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
@@ -20,48 +26,43 @@ const breadcrumbs: BreadcrumbItem[] = [
 ];
 
 export default function WikiBookCreate() {
-    const [coverImagePreview, setCoverImagePreview] = useState<string>('');
-    const [uploadingImage, setUploadingImage] = useState(false);
+    const [imagePreview, setImagePreview] = useState<string | null>(null);
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
-    const { data, setData, post, processing, errors } = useForm('FormData',{
+    const form = useForm<FormData>({
         name: '',
         description: '',
-        cover_image: '',
+        cover_image: null,
         status: 'draft'
     });
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        post('/wiki/books');
-    };
 
-    const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (!file) return;
-
-        setUploadingImage(true);
-        const formData = new FormData();
-        formData.append('image', file);
-
-        router.post('/wiki/upload-image', formData, {
-            onSuccess: (response: any) => {
-                if (response.props?.upload) {
-                    setData('cover_image', response.props.upload.path);
-                    setCoverImagePreview(response.props.upload.url);
-                }
-            },
-            onError: (errors) => {
-                console.error('Failed to upload image:', errors);
-            },
-            onFinish: () => {
-                setUploadingImage(false);
-            }
+        form.post('/wiki/books', {
+            forceFormData: true,
         });
     };
 
-    const removeCoverImage = () => {
-        setData('cover_image', '');
-        setCoverImagePreview('');
+    const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            form.setData('cover_image', file);
+
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                setImagePreview(e.target?.result as string);
+            };
+            reader.readAsDataURL(file);
+        }
+    };
+
+    const removeImage = () => {
+        form.setData('cover_image', null);
+        setImagePreview(null);
+        if (fileInputRef.current) {
+            fileInputRef.current.value = '';
+        }
     };
 
     return (
@@ -81,12 +82,13 @@ export default function WikiBookCreate() {
                                 <Input
                                     id="name"
                                     type="text"
-                                    value={data.name}
-                                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setData('name', e.target.value)}
+                                    value={form.data.name}
+                                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => form.setData('name', e.target.value)}
                                     placeholder="Enter book name..."
+                                    className={form.errors.name ? 'border-destructive' : ''}
                                 />
-                                {errors.name && (
-                                    <p className="text-sm text-destructive mt-1">{errors.name}</p>
+                                {form.errors.name && (
+                                    <p className="text-sm text-destructive mt-1">{form.errors.name}</p>
                                 )}
                             </div>
 
@@ -94,21 +96,22 @@ export default function WikiBookCreate() {
                                 <Label htmlFor="description">Description</Label>
                                 <Textarea
                                     id="description"
-                                    value={data.description}
-                                    onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setData('description', e.target.value)}
+                                    value={form.data.description}
+                                    onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => form.setData('description', e.target.value)}
                                     placeholder="Describe what this book covers..."
                                     rows={4}
+                                    className={form.errors.description ? 'border-destructive' : ''}
                                 />
-                                {errors.description && (
-                                    <p className="text-sm text-destructive mt-1">{errors.description}</p>
+                                {form.errors.description && (
+                                    <p className="text-sm text-destructive mt-1">{form.errors.description}</p>
                                 )}
                             </div>
 
                             <div>
                                 <Label htmlFor="status">Status</Label>
                                 <Select
-                                    value={data.status}
-                                    onValueChange={(value: 'draft' | 'published') => setData('status', value)}
+                                    value={form.data.status}
+                                    onValueChange={(value: 'draft' | 'published') => form.setData('status', value)}
                                 >
                                     <SelectTrigger>
                                         <SelectValue placeholder="Select status" />
@@ -118,8 +121,8 @@ export default function WikiBookCreate() {
                                         <SelectItem value="published">Published</SelectItem>
                                     </SelectContent>
                                 </Select>
-                                {errors.status && (
-                                    <p className="text-sm text-destructive mt-1">{errors.status}</p>
+                                {form.errors.status && (
+                                    <p className="text-sm text-destructive mt-1">{form.errors.status}</p>
                                 )}
                             </div>
                         </CardContent>
@@ -130,10 +133,10 @@ export default function WikiBookCreate() {
                             <CardTitle>Cover Image</CardTitle>
                         </CardHeader>
                         <CardContent>
-                            {coverImagePreview ? (
-                                <div className="relative mb-4">
+                            {imagePreview ? (
+                                <div className="relative">
                                     <img
-                                        src={coverImagePreview}
+                                        src={imagePreview}
                                         alt="Cover preview"
                                         className="w-full max-w-md h-auto rounded-lg"
                                     />
@@ -142,38 +145,49 @@ export default function WikiBookCreate() {
                                         variant="destructive"
                                         size="sm"
                                         className="absolute top-2 right-2"
-                                        onClick={removeCoverImage}
+                                        onClick={removeImage}
                                     >
                                         <X className="h-4 w-4" />
                                     </Button>
+                                    <Button
+                                        type="button"
+                                        variant="secondary"
+                                        size="sm"
+                                        className="absolute bottom-2 right-2"
+                                        onClick={() => fileInputRef.current?.click()}
+                                    >
+                                        <Upload className="h-4 w-4 mr-2" />
+                                        Change Image
+                                    </Button>
                                 </div>
                             ) : (
-                                <div className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-6 text-center">
-                                    <Upload className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
-                                    <p className="text-sm text-muted-foreground mb-2">
-                                        Upload a cover image
-                                    </p>
-                                    <input
-                                        type="file"
-                                        accept="image/*"
-                                        onChange={handleImageUpload}
-                                        className="hidden"
-                                        id="cover-upload"
-                                    />
-                                    <Label
-                                        htmlFor="cover-upload"
-                                        className="cursor-pointer inline-flex items-center justify-center rounded-md border border-input bg-background px-4 py-2 text-sm font-medium shadow-sm transition-colors hover:bg-accent hover:text-accent-foreground"
-                                    >
-                                        {uploadingImage ? 'Uploading...' : 'Choose File'}
-                                    </Label>
+                                <div
+                                    className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-8 text-center cursor-pointer hover:border-muted-foreground/50 transition-colors"
+                                    onClick={() => fileInputRef.current?.click()}
+                                >
+                                    <ImageIcon className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                                    <p className="text-muted-foreground mb-2">Click to upload cover image</p>
+                                    <p className="text-sm text-muted-foreground">PNG, JPG, WEBP up to 5MB</p>
                                 </div>
+                            )}
+
+                            <input
+                                ref={fileInputRef}
+                                type="file"
+                                accept="image/*"
+                                onChange={handleImageChange}
+                                className="hidden"
+                            />
+
+                            {form.errors.cover_image && (
+                                <p className="text-sm text-destructive mt-2">{form.errors.cover_image}</p>
                             )}
                         </CardContent>
                     </Card>
 
                     <div className="flex gap-2">
-                        <Button type="submit" disabled={processing || uploadingImage}>
-                            {processing ? 'Creating...' : 'Create Book'}
+                        <Button type="submit" disabled={form.processing}>
+                            {form.processing ? 'Creating...' : 'Create Book'}
                         </Button>
                         <Button
                             type="button"
@@ -185,7 +199,7 @@ export default function WikiBookCreate() {
                     </div>
                 </form>
 
-                {data.status === 'published' && (
+                {form.data.status === 'published' && (
                     <Alert className="max-w-2xl">
                         <AlertDescription>
                             Publishing this book will make it visible to all users immediately.

@@ -1,6 +1,6 @@
-import React, {useState} from 'react';
+import React, {useRef, useState} from 'react';
 import AppLayout from '@/layouts/app-layout';
-import {Head, router, useForm} from '@inertiajs/react';
+import {Head, useForm} from '@inertiajs/react';
 import {Button} from '@/components/ui/button';
 import {Input} from '@/components/ui/input';
 import {Label} from '@/components/ui/label';
@@ -8,7 +8,7 @@ import {Textarea} from '@/components/ui/textarea';
 import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from '@/components/ui/select';
 import {Card, CardContent, CardHeader, CardTitle} from '@/components/ui/card';
 import {Alert, AlertDescription} from '@/components/ui/alert';
-import {Upload, X} from 'lucide-react';
+import {ImageIcon, Upload, X} from 'lucide-react';
 import SunEditorComponent from '@/components/ui/sun-editor';
 import {type BreadcrumbItem} from '@/types';
 
@@ -40,15 +40,15 @@ interface FormData {
     name: string;
     content: string;
     excerpt: string;
-    featured_image: string;
+    featured_image: File | null;
     status: 'draft' | 'published';
     change_summary: string;
 }
 
 export default function WikiPageCreate({ book, chapter, templates }: Props) {
-    const [featuredImagePreview, setFeaturedImagePreview] = useState<string>('');
-    const [uploadingImage, setUploadingImage] = useState(false);
+    const [imagePreview, setImagePreview] = useState<string | null>(null);
     const [selectedTemplate, setSelectedTemplate] = useState<string>('');
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
     const breadcrumbs: BreadcrumbItem[] = [
         { title: 'Dashboard', href: '/dashboard' },
@@ -58,55 +58,52 @@ export default function WikiPageCreate({ book, chapter, templates }: Props) {
         { title: 'Create Page', href: `/wiki/${book.slug}/${chapter.slug}/pages/create` }
     ];
 
-    const { data, setData, post, processing, errors } = useForm<FormData>({
+    const form = useForm<FormData>({
         name: '',
         content: '',
         excerpt: '',
-        featured_image: '',
+        featured_image: null,
         status: 'draft',
-        change_summary: ''
+        change_summary: 'Initial version'
     });
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        post(`/wiki/${book.slug}/${chapter.slug}/pages`);
-    };
 
-    const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (!file) return;
-
-        setUploadingImage(true);
-        const formData = new FormData();
-        formData.append('image', file);
-
-        router.post('/wiki/upload-image', formData, {
-            onSuccess: (response: any) => {
-                if (response.props?.upload) {
-                    setData('featured_image', response.props.upload.path);
-                    setFeaturedImagePreview(response.props.upload.url);
-                }
-            },
-            onError: (errors) => {
-                console.error('Failed to upload image:', errors);
-            },
-            onFinish: () => {
-                setUploadingImage(false);
-            }
+        form.post(`/wiki/${book.slug}/${chapter.slug}/pages`, {
+            forceFormData: true,
         });
     };
 
-    const removeFeaturedImage = () => {
-        setData('featured_image', '');
-        setFeaturedImagePreview('');
+    const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            form.setData('featured_image', file);
+
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                setImagePreview(e.target?.result as string);
+            };
+            reader.readAsDataURL(file);
+        }
+    };
+
+    const removeImage = () => {
+        form.setData('featured_image', null);
+        setImagePreview(null);
+        if (fileInputRef.current) {
+            fileInputRef.current.value = '';
+        }
     };
 
     const handleTemplateChange = (templateName: string) => {
         setSelectedTemplate(templateName);
         const template = templates.find(t => t.name === templateName);
-        if (template && template.featured_image) {
-            setData('featured_image', template.featured_image);
-            setFeaturedImagePreview(template.featured_image);
+        if (template) {
+            form.setData('content', template.html);
+            if (template.featured_image) {
+                setImagePreview(template.featured_image);
+            }
         }
     };
 
@@ -132,12 +129,13 @@ export default function WikiPageCreate({ book, chapter, templates }: Props) {
                                         <Input
                                             id="name"
                                             type="text"
-                                            value={data.name}
-                                            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setData('name', e.target.value)}
+                                            value={form.data.name}
+                                            onChange={(e: React.ChangeEvent<HTMLInputElement>) => form.setData('name', e.target.value)}
                                             placeholder="Enter page name..."
+                                            className={form.errors.name ? 'border-destructive' : ''}
                                         />
-                                        {errors.name && (
-                                            <p className="text-sm text-destructive mt-1">{errors.name}</p>
+                                        {form.errors.name && (
+                                            <p className="text-sm text-destructive mt-1">{form.errors.name}</p>
                                         )}
                                     </div>
 
@@ -145,13 +143,14 @@ export default function WikiPageCreate({ book, chapter, templates }: Props) {
                                         <Label htmlFor="excerpt">Excerpt</Label>
                                         <Textarea
                                             id="excerpt"
-                                            value={data.excerpt}
-                                            onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setData('excerpt', e.target.value)}
+                                            value={form.data.excerpt}
+                                            onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => form.setData('excerpt', e.target.value)}
                                             placeholder="Brief description of the page content..."
                                             rows={3}
+                                            className={form.errors.excerpt ? 'border-destructive' : ''}
                                         />
-                                        {errors.excerpt && (
-                                            <p className="text-sm text-destructive mt-1">{errors.excerpt}</p>
+                                        {form.errors.excerpt && (
+                                            <p className="text-sm text-destructive mt-1">{form.errors.excerpt}</p>
                                         )}
                                     </div>
                                 </CardContent>
@@ -163,14 +162,14 @@ export default function WikiPageCreate({ book, chapter, templates }: Props) {
                                 </CardHeader>
                                 <CardContent>
                                     <SunEditorComponent
-                                        value={data.content}
-                                        onChange={(content: string) => setData('content', content)}
+                                        value={form.data.content}
+                                        onChange={(content: string) => form.setData('content', content)}
                                         onTemplateChange={handleTemplateChange}
                                         templates={templates}
                                         height="500px"
                                     />
-                                    {errors.content && (
-                                        <p className="text-sm text-destructive mt-2">{errors.content}</p>
+                                    {form.errors.content && (
+                                        <p className="text-sm text-destructive mt-2">{form.errors.content}</p>
                                     )}
                                 </CardContent>
                             </Card>
@@ -185,8 +184,8 @@ export default function WikiPageCreate({ book, chapter, templates }: Props) {
                                     <div>
                                         <Label htmlFor="status">Status</Label>
                                         <Select
-                                            value={data.status}
-                                            onValueChange={(value: 'draft' | 'published') => setData('status', value)}
+                                            value={form.data.status}
+                                            onValueChange={(value: 'draft' | 'published') => form.setData('status', value)}
                                         >
                                             <SelectTrigger>
                                                 <SelectValue placeholder="Select status" />
@@ -196,6 +195,9 @@ export default function WikiPageCreate({ book, chapter, templates }: Props) {
                                                 <SelectItem value="published">Published</SelectItem>
                                             </SelectContent>
                                         </Select>
+                                        {form.errors.status && (
+                                            <p className="text-sm text-destructive mt-1">{form.errors.status}</p>
+                                        )}
                                     </div>
 
                                     <div>
@@ -203,10 +205,14 @@ export default function WikiPageCreate({ book, chapter, templates }: Props) {
                                         <Input
                                             id="change_summary"
                                             type="text"
-                                            value={data.change_summary}
-                                            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setData('change_summary', e.target.value)}
+                                            value={form.data.change_summary}
+                                            onChange={(e: React.ChangeEvent<HTMLInputElement>) => form.setData('change_summary', e.target.value)}
                                             placeholder="Initial version"
+                                            className={form.errors.change_summary ? 'border-destructive' : ''}
                                         />
+                                        {form.errors.change_summary && (
+                                            <p className="text-sm text-destructive mt-1">{form.errors.change_summary}</p>
+                                        )}
                                     </div>
                                 </CardContent>
                             </Card>
@@ -216,10 +222,10 @@ export default function WikiPageCreate({ book, chapter, templates }: Props) {
                                     <CardTitle>Featured Image</CardTitle>
                                 </CardHeader>
                                 <CardContent>
-                                    {featuredImagePreview ? (
-                                        <div className="relative mb-4">
+                                    {imagePreview ? (
+                                        <div className="relative">
                                             <img
-                                                src={featuredImagePreview}
+                                                src={imagePreview}
                                                 alt="Featured image preview"
                                                 className="w-full h-auto rounded-lg"
                                             />
@@ -228,31 +234,42 @@ export default function WikiPageCreate({ book, chapter, templates }: Props) {
                                                 variant="destructive"
                                                 size="sm"
                                                 className="absolute top-2 right-2"
-                                                onClick={removeFeaturedImage}
+                                                onClick={removeImage}
                                             >
                                                 <X className="h-4 w-4" />
                                             </Button>
+                                            <Button
+                                                type="button"
+                                                variant="secondary"
+                                                size="sm"
+                                                className="absolute bottom-2 right-2"
+                                                onClick={() => fileInputRef.current?.click()}
+                                            >
+                                                <Upload className="h-4 w-4 mr-2" />
+                                                Change Image
+                                            </Button>
                                         </div>
                                     ) : (
-                                        <div className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-4 text-center">
-                                            <Upload className="h-6 w-6 mx-auto mb-2 text-muted-foreground" />
-                                            <p className="text-sm text-muted-foreground mb-2">
-                                                Upload featured image
-                                            </p>
-                                            <input
-                                                type="file"
-                                                accept="image/*"
-                                                onChange={handleImageUpload}
-                                                className="hidden"
-                                                id="featured-upload"
-                                            />
-                                            <Label
-                                                htmlFor="featured-upload"
-                                                className="cursor-pointer inline-flex items-center justify-center rounded-md border border-input bg-background px-3 py-2 text-sm font-medium shadow-sm transition-colors hover:bg-accent hover:text-accent-foreground"
-                                            >
-                                                {uploadingImage ? 'Uploading...' : 'Choose File'}
-                                            </Label>
+                                        <div
+                                            className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-8 text-center cursor-pointer hover:border-muted-foreground/50 transition-colors"
+                                            onClick={() => fileInputRef.current?.click()}
+                                        >
+                                            <ImageIcon className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                                            <p className="text-muted-foreground mb-2">Click to upload featured image</p>
+                                            <p className="text-sm text-muted-foreground">PNG, JPG, WEBP up to 5MB</p>
                                         </div>
+                                    )}
+
+                                    <input
+                                        ref={fileInputRef}
+                                        type="file"
+                                        accept="image/*"
+                                        onChange={handleImageChange}
+                                        className="hidden"
+                                    />
+
+                                    {form.errors.featured_image && (
+                                        <p className="text-sm text-destructive mt-2">{form.errors.featured_image}</p>
                                     )}
                                 </CardContent>
                             </Card>
@@ -260,8 +277,8 @@ export default function WikiPageCreate({ book, chapter, templates }: Props) {
                     </div>
 
                     <div className="flex gap-2">
-                        <Button type="submit" disabled={processing || uploadingImage}>
-                            {processing ? 'Creating...' : 'Create Page'}
+                        <Button type="submit" disabled={form.processing}>
+                            {form.processing ? 'Creating...' : 'Create Page'}
                         </Button>
                         <Button
                             type="button"

@@ -7,6 +7,7 @@ use App\Models\WikiChapter;
 use App\Models\WikiPage;
 use App\Models\WikiTemplate;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Inertia\Inertia;
 
@@ -24,7 +25,7 @@ class WikiPageController extends Controller
         );
 
         $pageArray = $page->toArray();
-        $pageArray['featured_image_url'] = $page->getFeaturedImageUrl();
+        $pageArray['featured_image_url'] = $this->getFeaturedImageUrl($page);
         $pageArray['reading_time'] = $page->reading_time;
 
         return Inertia::render('Wiki/Pages/Show', [
@@ -40,7 +41,7 @@ class WikiPageController extends Controller
             return [
                 'name' => $template->name,
                 'html' => $template->content,
-                'featured_image' => $template->getPreviewUrl(),
+                'featured_image' => $this->getTemplateImageUrl($template),
             ];
         });
 
@@ -53,30 +54,42 @@ class WikiPageController extends Controller
 
     public function store(Request $request, WikiBook $book, WikiChapter $chapter)
     {
-        $request->validate([
+        $validated = $request->validate([
             'name' => 'required|string|max:255',
             'content' => 'required|string',
             'excerpt' => 'nullable|string|max:500',
-            'featured_image' => 'nullable|string',
+            'featured_image' => 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:5120',
             'status' => 'required|in:draft,published',
             'change_summary' => 'nullable|string|max:255',
         ]);
 
+        $slug = Str::slug($validated['name']);
+
+        // Handle featured image upload
+        if ($request->hasFile('featured_image')) {
+            $validated['featured_image'] = $this->storeFeaturedImage(
+                $request->file('featured_image'),
+                $book->slug,
+                $chapter->slug,
+                $slug
+            );
+        }
+
         $page = $chapter->pages()->create([
-            'name' => $request->input('name'),
-            'slug' => Str::slug($request->name),
-            'content' => $request->input('content'),
-            'excerpt' => $request->input('excerpt'),
-            'featured_image' => $request->featured_image,
-            'status' => $request->status,
+            'name' => $validated['name'],
+            'slug' => $slug,
+            'content' => $validated['content'],
+            'excerpt' => $validated['excerpt'],
+            'featured_image' => $validated['featured_image'] ?? null,
+            'status' => $validated['status'],
             'user_id' => auth()->id(),
             'sort_order' => $chapter->pages()->max('sort_order') + 1,
-            'published_at' => $request->status === 'published' ? now() : null,
+            'published_at' => $validated['status'] === 'published' ? now() : null,
             'version' => 1,
         ]);
 
         // Create initial version
-        $page->createVersion($request->change_summary ?? 'Initial version');
+        $page->createVersion($validated['change_summary'] ?? 'Initial version');
 
         return redirect()->route('wiki.pages.show', [$book, $chapter, $page])
             ->with('success', 'Page created successfully.');
@@ -84,18 +97,16 @@ class WikiPageController extends Controller
 
     public function edit(WikiBook $book, WikiChapter $chapter, WikiPage $page)
     {
-
-
         $templates = WikiTemplate::active()->ordered()->get()->map(function ($template) {
             return [
                 'name' => $template->name,
                 'html' => $template->content,
-                'featured_image' => $template->getPreviewUrl(),
+                'featured_image' => $this->getTemplateImageUrl($template),
             ];
         });
 
         $pageArray = $page->toArray();
-        $pageArray['featured_image_url'] = $page->getFeaturedImageUrl();
+        $pageArray['featured_image_url'] = $this->getFeaturedImageUrl($page);
 
         return Inertia::render('Wiki/Pages/Edit', [
             'book' => $book,
@@ -107,28 +118,62 @@ class WikiPageController extends Controller
 
     public function update(Request $request, WikiBook $book, WikiChapter $chapter, WikiPage $page)
     {
-
-        $request->validate([
+        $validated = $request->validate([
             'name' => 'required|string|max:255',
             'content' => 'required|string',
             'excerpt' => 'nullable|string|max:500',
-            'featured_image' => 'nullable|string',
+            'featured_image' => 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:5120',
             'status' => 'required|in:draft,published',
             'change_summary' => 'nullable|string|max:255',
+            'remove_featured_image' => 'sometimes|boolean',
         ]);
+
+        $oldSlug = $page->slug;
+        $newSlug = Str::slug($validated['name']);
+
+        $updateData = [
+            'name' => $validated['name'],
+            'slug' => $newSlug,
+            'content' => $validated['content'],
+            'excerpt' => $validated['excerpt'],
+            'status' => $validated['status'],
+            'published_at' => $validated['status'] === 'published' && !$page->published_at ? now() : $page->published_at,
+        ];
+
+        // Handle image removal
+        if ($request->boolean('remove_featured_image')) {
+            if ($page->featured_image) {
+                Storage::disk('s3')->delete($page->featured_image);
+            }
+            $updateData['featured_image'] = null;
+        }
+        // Handle new image upload
+        elseif ($request->hasFile('featured_image')) {
+            if ($page->featured_image) {
+                Storage::disk('s3')->delete($page->featured_image);
+            }
+            $updateData['featured_image'] = $this->storeFeaturedImage(
+                $request->file('featured_image'),
+                $book->slug,
+                $chapter->slug,
+                $newSlug
+            );
+        }
+        // Move existing image if slug changed
+        elseif ($oldSlug !== $newSlug && $page->featured_image) {
+            $updateData['featured_image'] = $this->moveFeaturedImage(
+                $page->featured_image,
+                $book->slug,
+                $chapter->slug,
+                $oldSlug,
+                $newSlug
+            );
+        }
 
         // Create version before updating
-        $page->createVersion($request->change_summary ?? 'Content updated');
+        $page->createVersion($validated['change_summary'] ?? 'Content updated');
 
-        $page->update([
-            'name' => $request->input('name'),
-            'content' => $request->input('content'),
-            'excerpt' =>  $request->input('excerpt'),
-            'featured_image' => $request->featured_image,
-            'status' => $request->status,
-            'published_at' => $request->status === 'published' && !$page->published_at ? now() : $page->published_at,
-        ]);
-
+        $page->update($updateData);
         $page->incrementVersion();
 
         return redirect()->route('wiki.pages.show', [$book, $chapter, $page])
@@ -138,6 +183,11 @@ class WikiPageController extends Controller
     public function destroy(WikiBook $book, WikiChapter $chapter, WikiPage $page)
     {
         $this->authorize('delete', $page);
+
+        // Delete featured image
+        if ($page->featured_image) {
+            Storage::disk('s3')->delete($page->featured_image);
+        }
 
         $page->delete();
 
@@ -156,9 +206,9 @@ class WikiPageController extends Controller
             'versions' => $versions,
         ]);
     }
+
     public function compareVersions(Request $request, WikiBook $book, WikiChapter $chapter, WikiPage $page)
     {
-
         $fromVersionNumber = $request->get('from', 1);
         $toVersionNumber = $request->get('to', $page->version);
 
@@ -183,12 +233,78 @@ class WikiPageController extends Controller
 
     public function restoreVersion(WikiBook $book, WikiChapter $chapter, WikiPage $page, $versionId)
     {
-
-
         $version = $page->versions()->findOrFail($versionId);
         $version->restoreToPage();
 
         return redirect()->route('wiki.pages.show', [$book, $chapter, $page])
             ->with('success', 'Page restored to version ' . $version->version_number);
+    }
+
+    /**
+     * Store featured image in S3 with book/chapter/page structure
+     */
+    private function storeFeaturedImage($file, string $bookSlug, string $chapterSlug, string $pageSlug): string
+    {
+        $filename = time() . '_' . $file->getClientOriginalName();
+        $path = "wiki-images/{$bookSlug}/{$chapterSlug}/{$pageSlug}/featured/{$filename}";
+
+        Storage::disk('s3')->put($path, file_get_contents($file));
+
+        return $path;
+    }
+
+    /**
+     * Move featured image to new slug folder
+     */
+    private function moveFeaturedImage(string $currentPath, string $bookSlug, string $chapterSlug, string $oldPageSlug, string $newPageSlug): string
+    {
+        $filename = basename($currentPath);
+        $newPath = "wiki-images/{$bookSlug}/{$chapterSlug}/{$newPageSlug}/featured/{$filename}";
+
+        // Copy to new location
+        if (Storage::disk('s3')->exists($currentPath)) {
+            Storage::disk('s3')->copy($currentPath, $newPath);
+            Storage::disk('s3')->delete($currentPath);
+        }
+
+        return $newPath;
+    }
+
+    /**
+     * Get temporary URL for wiki page featured image
+     */
+    private function getFeaturedImageUrl($page): ?string
+    {
+        if (!$page->featured_image) {
+            return null;
+        }
+
+        try {
+            return Storage::disk('s3')->temporaryUrl(
+                $page->featured_image,
+                now()->addHours(24)
+            );
+        } catch (\Exception $e) {
+            return null;
+        }
+    }
+
+    /**
+     * Get temporary URL for template image
+     */
+    private function getTemplateImageUrl($template): ?string
+    {
+        if (!$template->featured_image) {
+            return null;
+        }
+
+        try {
+            return Storage::disk('s3')->temporaryUrl(
+                $template->featured_image,
+                now()->addHours(24)
+            );
+        } catch (\Exception $e) {
+            return null;
+        }
     }
 }

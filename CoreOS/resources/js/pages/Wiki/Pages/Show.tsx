@@ -6,7 +6,7 @@ import {Card, CardContent, CardHeader, CardTitle} from '@/components/ui/card';
 import {Badge} from '@/components/ui/badge';
 import {Separator} from '@/components/ui/separator';
 import {Tabs, TabsContent, TabsList, TabsTrigger} from '@/components/ui/tabs';
-import {Calendar, Clock, Edit, Eye, History, Paperclip, User} from 'lucide-react';
+import {Edit, History, Paperclip, User} from 'lucide-react';
 import {type BreadcrumbItem} from '@/types';
 
 interface User {
@@ -89,36 +89,17 @@ export default function WikiPageShow({ book, chapter, page }: Props) {
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title={page.name} />
-            <div className="flex h-full max-h-screen flex-1 flex-col gap-6 rounded-xl p-4">
+            <div className="flex flex-1 flex-col gap-6 rounded-xl p-4">
                 {/* Header */}
                 <div className="flex items-start justify-between">
                     <div>
-                        <div className="flex items-center gap-2 mb-2">
-                            <h1 className="text-3xl font-bold">{page.name}</h1>
-                            <Badge variant={page.status === 'published' ? 'default' : 'secondary'}>
-                                {page.status}
-                            </Badge>
-                        </div>
-                        <div className="flex items-center gap-4 mt-4 text-sm text-muted-foreground">
-                            <div className="flex items-center gap-1">
-                                <User className="h-4 w-4" />
-                                {page.user.name}
-                            </div>
-                            <div className="flex items-center gap-1">
-                                <Clock className="h-4 w-4" />
-                                {page.reading_time} min read
-                            </div>
-                            <div className="flex items-center gap-1">
-                                <Eye className="h-4 w-4" />
-                                {page.view_count} views
-                            </div>
-                            <div className="flex items-center gap-1">
-                                <Calendar className="h-4 w-4" />
-                                {formatDate(page.published_at || page.created_at)}
-                            </div>
-                        </div>
+                        <h1 className="text-3xl font-bold">{page.name}</h1>
+
                     </div>
                     <div className="flex gap-2">
+                        <Badge variant={page.status === 'published' ? 'default' : 'secondary'}>
+                            {page.status}
+                        </Badge>
                         <Link
                             href={`/wiki/${book.slug}/${chapter.slug}/${page.slug}/versions`}
                             className="inline-flex items-center justify-center rounded-md border border-input bg-background px-4 py-2 text-sm font-medium shadow-sm transition-colors hover:bg-accent hover:text-accent-foreground"
@@ -138,7 +119,7 @@ export default function WikiPageShow({ book, chapter, page }: Props) {
 
                 {/* Featured Image */}
                 {page.featured_image_url && (
-                    <div className="w-full max-w-4xl mx-auto">
+                    <div className="w-full max-w-xl mx-auto">
                         <img
                             src={page.featured_image_url}
                             alt={page.name}
@@ -208,7 +189,9 @@ export default function WikiPageShow({ book, chapter, page }: Props) {
 
                 {/* Footer with version info */}
                 <Separator />
+
                 <div className="text-sm text-muted-foreground text-center">
+
                     Version {page.version} • Last updated {formatDate(page.created_at)} by {page.user.name}
                 </div>
             </div>
