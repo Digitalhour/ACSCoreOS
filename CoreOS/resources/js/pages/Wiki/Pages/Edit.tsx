@@ -87,7 +87,7 @@ export default function WikiPageEdit({ book, chapter, page, templates }: Props) 
         { title: 'Edit', href: `/wiki/${book.slug}/${chapter.slug}/${page.slug}/edit` }
     ];
 
-    const form = useForm('FormData',{
+    const form = useForm<FormData>({
         name: page.name,
         content: page.content,
         excerpt: page.excerpt || '',
@@ -95,13 +95,13 @@ export default function WikiPageEdit({ book, chapter, page, templates }: Props) 
         status: page.status as 'draft' | 'published',
         change_summary: '',
         remove_featured_image: false,
-        _method: 'PUT'
+
     });
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
 
-        form.post(`/wiki/${book.slug}/${chapter.slug}/${page.slug}`, {
+        form.put(`/wiki/${book.slug}/${chapter.slug}/${page.slug}`, {
             forceFormData: true,
         });
     };
