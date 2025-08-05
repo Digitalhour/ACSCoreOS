@@ -68,7 +68,7 @@ interface FormData {
     status: 'draft' | 'published';
     change_summary: string;
     remove_featured_image: boolean;
-
+    _method: string;
 }
 
 export default function WikiPageEdit({ book, chapter, page, templates }: Props) {
@@ -95,13 +95,13 @@ export default function WikiPageEdit({ book, chapter, page, templates }: Props) 
         status: page.status as 'draft' | 'published',
         change_summary: '',
         remove_featured_image: false,
-
+        _method: 'PUT'
     });
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
 
-        form.put(`/wiki/${book.slug}/${chapter.slug}/${page.slug}`, {
+        form.post(`/wiki/${book.slug}/${chapter.slug}/${page.slug}`, {
             forceFormData: true,
         });
     };
