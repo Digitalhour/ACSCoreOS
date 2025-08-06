@@ -135,34 +135,15 @@ class DashboardController extends Controller
                         COALESCE(sales_amount, 0) +
                         COALESCE(return_amount, 0) -
                         COALESCE(cancelled_amount, 0)
-                    ) as sales,
-                    SUM(
-                        CASE WHEN is_repeat = 1 THEN
-                            COALESCE(sales_amount, 0) +
-                            COALESCE(return_amount, 0) -
-                            COALESCE(cancelled_amount, 0)
-                        ELSE 0 END
-                    ) as repeat_sales
+                    ) as sales
                 FROM (
                     -- Sales Orders
                     SELECT
                         so.date as combined_date,
                         (so.amount - so.etail_tax_amount) as sales_amount,
                         0 as return_amount,
-                        0 as cancelled_amount,
-                        CASE WHEN first_orders.id IS NULL THEN 1 ELSE 0 END as is_repeat
+                        0 as cancelled_amount
                     FROM nssalesorder so
-                    LEFT JOIN (
-                        SELECT nssalesorder.id
-                        FROM nssalesorder
-                        JOIN (
-                            SELECT nscustomer_id, MIN(date) AS First_Order
-                            FROM nssalesorder
-                            GROUP BY nscustomer_id
-                        ) AS first_order_dates
-                        ON nssalesorder.nscustomer_id = first_order_dates.nscustomer_id
-                        AND nssalesorder.date = first_order_dates.First_Order
-                    ) AS first_orders ON so.id = first_orders.id
                     WHERE YEAR(so.date) = ?
 
                     UNION ALL
@@ -172,21 +153,8 @@ class DashboardController extends Controller
                         ro.date_refunded as combined_date,
                         0 as sales_amount,
                         (ro.amount - ro.tax_amount) as return_amount,
-                        0 as cancelled_amount,
-                        CASE WHEN first_orders.id IS NULL THEN 1 ELSE 0 END as is_repeat
+                        0 as cancelled_amount
                     FROM nsreturnorder ro
-                    LEFT JOIN nssalesorder so ON so.order_id = ro.order_id
-                    LEFT JOIN (
-                        SELECT nssalesorder.id
-                        FROM nssalesorder
-                        JOIN (
-                            SELECT nscustomer_id, MIN(date) AS First_Order
-                            FROM nssalesorder
-                            GROUP BY nscustomer_id
-                        ) AS first_order_dates
-                        ON nssalesorder.nscustomer_id = first_order_dates.nscustomer_id
-                        AND nssalesorder.date = first_order_dates.First_Order
-                    ) AS first_orders ON so.id = first_orders.id
                     WHERE YEAR(ro.date_refunded) = ?
                     AND ro.order_status IN ('Closed', 'Refunded')
 
@@ -197,21 +165,8 @@ class DashboardController extends Controller
                         col.cancelled_date as combined_date,
                         0 as sales_amount,
                         0 as return_amount,
-                        (col.cancelled_qty * col.unit_sold_price) as cancelled_amount,
-                        CASE WHEN first_orders.id IS NULL THEN 1 ELSE 0 END as is_repeat
+                        (col.cancelled_qty * col.unit_sold_price) as cancelled_amount
                     FROM nscancelledorderlines col
-                    LEFT JOIN nssalesorder so ON so.order_id = col.order_id
-                    LEFT JOIN (
-                        SELECT nssalesorder.id
-                        FROM nssalesorder
-                        JOIN (
-                            SELECT nscustomer_id, MIN(date) AS First_Order
-                            FROM nssalesorder
-                            GROUP BY nscustomer_id
-                        ) AS first_order_dates
-                        ON nssalesorder.nscustomer_id = first_order_dates.nscustomer_id
-                        AND nssalesorder.date = first_order_dates.First_Order
-                    ) AS first_orders ON so.id = first_orders.id
                     WHERE YEAR(col.cancelled_date) = ?
                 ) combined_sales
                 GROUP BY MONTH(combined_date), MONTHNAME(combined_date)
@@ -232,7 +187,7 @@ class DashboardController extends Controller
             $result[] = [
                 'month' => $monthAbbr,
                 'sales' => (int) round($monthData->sales ?? 0),
-                'repeatSales' => (int) round($monthData->repeat_sales ?? 0)
+                'repeatSales' => 0 // Temporarily set to 0 for speed
             ];
         }
 
