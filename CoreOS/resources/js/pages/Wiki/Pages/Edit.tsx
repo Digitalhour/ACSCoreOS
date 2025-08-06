@@ -6,8 +6,6 @@ import {Input} from '@/components/ui/input';
 import {Label} from '@/components/ui/label';
 import {Textarea} from '@/components/ui/textarea';
 import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from '@/components/ui/select';
-import {Card, CardContent, CardHeader, CardTitle} from '@/components/ui/card';
-import {Alert, AlertDescription} from '@/components/ui/alert';
 import {
     AlertDialog,
     AlertDialogAction,
@@ -22,6 +20,8 @@ import {
 import {ImageIcon, Trash2, Upload, X} from 'lucide-react';
 import SunEditorComponent from '@/components/ui/sun-editor';
 import {type BreadcrumbItem} from '@/types';
+import {Alert, AlertDescription} from "@/components/ui/alert";
+import 'suneditor/dist/css/suneditor.min.css';
 
 interface Template {
     name: string;
@@ -60,7 +60,8 @@ interface Props {
     templates: Template[];
 }
 
-interface FormData {
+type EditFormData = {
+
     name: string;
     content: string;
     excerpt: string;
@@ -69,7 +70,7 @@ interface FormData {
     change_summary: string;
     remove_featured_image: boolean;
     _method: string;
-}
+};
 
 export default function WikiPageEdit({ book, chapter, page, templates }: Props) {
     const [imagePreview, setImagePreview] = useState<string | null>(
@@ -87,7 +88,7 @@ export default function WikiPageEdit({ book, chapter, page, templates }: Props) 
         { title: 'Edit', href: `/wiki/${book.slug}/${chapter.slug}/${page.slug}/edit` }
     ];
 
-    const form = useForm<FormData>({
+    const form = useForm<EditFormData>({
         name: page.name,
         content: page.content,
         excerpt: page.excerpt || '',
@@ -160,20 +161,33 @@ export default function WikiPageEdit({ book, chapter, page, templates }: Props) 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title={`Edit ${page.name}`} />
-            <div className="flex h-full max-h-screen flex-1 flex-col gap-6 rounded-xl p-4">
+            <div className="flex flex-1 flex-col gap-6 rounded-xl p-4">
                 <div className="flex items-center justify-between">
                     <h1 className="text-3xl font-bold">Edit Page: {page.name}</h1>
                     <p className="text-muted-foreground">Version {page.version}</p>
                 </div>
 
                 <form onSubmit={handleSubmit} className="space-y-6">
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                        <div className="lg:col-span-2 space-y-6">
-                            <Card>
-                                <CardHeader>
-                                    <CardTitle>Page Information</CardTitle>
-                                </CardHeader>
-                                <CardContent className="space-y-4">
+                    <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+                        <div className="lg:col-span-3 space-y-6">
+                                <div>
+                                    <SunEditorComponent
+                                        value={form.data.content}
+                                        onChange={(content: string) => form.setData('content', content)}
+                                        onTemplateChange={handleTemplateChange}
+                                        templates={templates}
+                                        height={"700px"}
+                                    />
+                                    {form.errors.content && (
+                                        <p className="text-sm text-destructive mt-2">{form.errors.content}</p>
+                                    )}
+                                </div>
+
+                        </div>
+
+                        <div className="space-y-2">
+                            <div className={"border rounded-sm p-2"}>
+                               <div className="space-y-4">
                                     <div>
                                         <Label htmlFor="name">Page Name *</Label>
                                         <Input
@@ -203,78 +217,88 @@ export default function WikiPageEdit({ book, chapter, page, templates }: Props) 
                                             <p className="text-sm text-destructive mt-1">{form.errors.excerpt}</p>
                                         )}
                                     </div>
-                                </CardContent>
-                            </Card>
+                                   <div>
+                                       <Label htmlFor="status">Status</Label>
+                                       <Select
+                                           value={form.data.status}
+                                           onValueChange={(value: 'draft' | 'published') => form.setData('status', value)}
+                                       >
+                                           <SelectTrigger>
+                                               <SelectValue placeholder="Select status" />
+                                           </SelectTrigger>
+                                           <SelectContent>
+                                               <SelectItem value="draft">Draft</SelectItem>
+                                               <SelectItem value="published">Published</SelectItem>
+                                           </SelectContent>
+                                       </Select>
+                                       {form.errors.status && (
+                                           <p className="text-sm text-destructive mt-1">{form.errors.status}</p>
+                                       )}
+                                   </div>
 
-                            <Card>
-                                <CardHeader>
-                                    <CardTitle>Page Content</CardTitle>
-                                </CardHeader>
-                                <CardContent>
-                                    <SunEditorComponent
-                                        value={form.data.content}
-                                        onChange={(content: string) => form.setData('content', content)}
-                                        onTemplateChange={handleTemplateChange}
-                                        templates={templates}
-                                        height="500px"
-                                    />
-                                    {form.errors.content && (
-                                        <p className="text-sm text-destructive mt-2">{form.errors.content}</p>
-                                    )}
-                                </CardContent>
-                            </Card>
-                        </div>
+                                   <div>
+                                       <Label htmlFor="change_summary">Change Summary *</Label>
+                                       <Input
+                                           id="change_summary"
+                                           type="text"
+                                           value={form.data.change_summary}
+                                           onChange={(e: React.ChangeEvent<HTMLInputElement>) => form.setData('change_summary', e.target.value)}
+                                           placeholder="Describe your changes..."
+                                           className={form.errors.change_summary ? 'border-destructive' : ''}
+                                       />
+                                       <p className="text-xs text-muted-foreground mt-1">
+                                           Required for tracking changes in version history
+                                       </p>
+                                       {form.errors.change_summary && (
+                                           <p className="text-sm text-destructive mt-1">{form.errors.change_summary}</p>
+                                       )}
+                                   </div>
+                                   <div className="flex gap-2">
+                                       <Button type="submit" disabled={form.processing || !form.data.change_summary}>
+                                           {form.processing ? 'Updating...' : 'Update Page'}
+                                       </Button>
+                                       <Button
+                                           type="button"
+                                           variant="outline"
+                                           onClick={() => window.history.back()}
+                                       >
+                                           Cancel
+                                       </Button>
+                                       <div className={"justify-end"}>
+                                           <AlertDialog>
+                                               <AlertDialogTrigger asChild>
+                                                   <Button type="button" variant="destructive" size="sm">
+                                                       <Trash2 className="h-4 w-4 mr-2" />
+                                                       Delete Page
+                                                   </Button>
+                                               </AlertDialogTrigger>
+                                               <AlertDialogContent>
+                                                   <AlertDialogHeader>
+                                                       <AlertDialogTitle>Delete Page</AlertDialogTitle>
+                                                       <AlertDialogDescription>
+                                                           Are you sure you want to delete "{page.name}"? This action cannot be undone.
+                                                           All versions and history will be permanently deleted.
+                                                       </AlertDialogDescription>
+                                                   </AlertDialogHeader>
+                                                   <AlertDialogFooter>
+                                                       <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                                       <AlertDialogAction
+                                                           onClick={handleDelete}
+                                                           className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                                       >
+                                                           Delete Page
+                                                       </AlertDialogAction>
+                                                   </AlertDialogFooter>
+                                               </AlertDialogContent>
+                                           </AlertDialog>
+                                       </div>
+                                   </div>
+                                </div>
+                            </div>
 
-                        <div className="space-y-6">
-                            <Card>
-                                <CardHeader>
-                                    <CardTitle>Publishing</CardTitle>
-                                </CardHeader>
-                                <CardContent className="space-y-4">
-                                    <div>
-                                        <Label htmlFor="status">Status</Label>
-                                        <Select
-                                            value={form.data.status}
-                                            onValueChange={(value: 'draft' | 'published') => form.setData('status', value)}
-                                        >
-                                            <SelectTrigger>
-                                                <SelectValue placeholder="Select status" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="draft">Draft</SelectItem>
-                                                <SelectItem value="published">Published</SelectItem>
-                                            </SelectContent>
-                                        </Select>
-                                        {form.errors.status && (
-                                            <p className="text-sm text-destructive mt-1">{form.errors.status}</p>
-                                        )}
-                                    </div>
-
-                                    <div>
-                                        <Label htmlFor="change_summary">Change Summary *</Label>
-                                        <Input
-                                            id="change_summary"
-                                            type="text"
-                                            value={form.data.change_summary}
-                                            onChange={(e: React.ChangeEvent<HTMLInputElement>) => form.setData('change_summary', e.target.value)}
-                                            placeholder="Describe your changes..."
-                                            className={form.errors.change_summary ? 'border-destructive' : ''}
-                                        />
-                                        <p className="text-xs text-muted-foreground mt-1">
-                                            Required for tracking changes in version history
-                                        </p>
-                                        {form.errors.change_summary && (
-                                            <p className="text-sm text-destructive mt-1">{form.errors.change_summary}</p>
-                                        )}
-                                    </div>
-                                </CardContent>
-                            </Card>
-
-                            <Card>
-                                <CardHeader>
-                                    <CardTitle>Featured Image</CardTitle>
-                                </CardHeader>
-                                <CardContent>
+                            <div className={"border rounded-sm p-2"}>
+                             <p>Featured Image</p>
+                                <div>
                                     {imagePreview ? (
                                         <div className="relative">
                                             <img
@@ -335,67 +359,34 @@ export default function WikiPageEdit({ book, chapter, page, templates }: Props) 
                                     {form.errors.featured_image && (
                                         <p className="text-sm text-destructive mt-2">{form.errors.featured_image}</p>
                                     )}
-                                </CardContent>
-                            </Card>
+                                </div>
+
+                            </div>
+
+                            {selectedTemplate && (
+                                <Alert>
+                                    <AlertDescription>
+                                        Applied template: {selectedTemplate}
+                                    </AlertDescription>
+                                </Alert>
+                            )}
+
+                            <Alert>
+                                <AlertDescription>
+                                    Saving changes will create a new version and preserve the previous version in history.
+                                </AlertDescription>
+                            </Alert>
                         </div>
+
                     </div>
 
-                    <div className="flex justify-between">
-                        <div className="flex gap-2">
-                            <Button type="submit" disabled={form.processing || !form.data.change_summary}>
-                                {form.processing ? 'Updating...' : 'Update Page'}
-                            </Button>
-                            <Button
-                                type="button"
-                                variant="outline"
-                                onClick={() => window.history.back()}
-                            >
-                                Cancel
-                            </Button>
-                        </div>
+                    <div>
 
-                        <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                                <Button type="button" variant="destructive" size="sm">
-                                    <Trash2 className="h-4 w-4 mr-2" />
-                                    Delete Page
-                                </Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                                <AlertDialogHeader>
-                                    <AlertDialogTitle>Delete Page</AlertDialogTitle>
-                                    <AlertDialogDescription>
-                                        Are you sure you want to delete "{page.name}"? This action cannot be undone.
-                                        All versions and history will be permanently deleted.
-                                    </AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter>
-                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                    <AlertDialogAction
-                                        onClick={handleDelete}
-                                        className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                                    >
-                                        Delete Page
-                                    </AlertDialogAction>
-                                </AlertDialogFooter>
-                            </AlertDialogContent>
-                        </AlertDialog>
+
+
                     </div>
                 </form>
 
-                {selectedTemplate && (
-                    <Alert>
-                        <AlertDescription>
-                            Applied template: {selectedTemplate}
-                        </AlertDescription>
-                    </Alert>
-                )}
-
-                <Alert>
-                    <AlertDescription>
-                        Saving changes will create a new version and preserve the previous version in history.
-                    </AlertDescription>
-                </Alert>
             </div>
         </AppLayout>
     );

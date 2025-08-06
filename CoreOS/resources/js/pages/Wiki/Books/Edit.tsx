@@ -1,6 +1,6 @@
 import React, {useRef, useState} from 'react';
 import AppLayout from '@/layouts/app-layout';
-import {Head, router, useForm, usePage} from '@inertiajs/react';
+import {Head, router, useForm} from '@inertiajs/react';
 import {Button} from '@/components/ui/button';
 import {Input} from '@/components/ui/input';
 import {Label} from '@/components/ui/label';
@@ -36,21 +36,21 @@ interface Props {
     book: WikiBook;
 }
 
-interface FormData {
+type BookFormData = {
     name: string;
     description: string;
     cover_image: File | null;
     status: 'draft' | 'published';
     remove_cover_image: boolean;
     _method: string;
-}
+};
 
 export default function WikiBookEdit({ book }: Props) {
     const [imagePreview, setImagePreview] = useState<string | null>(
         book.cover_image_url || null
     );
     const fileInputRef = useRef<HTMLInputElement>(null);
-    const { flash } = usePage<any>().props;
+
 
     const breadcrumbs: BreadcrumbItem[] = [
         { title: 'Dashboard', href: '/dashboard' },
@@ -59,7 +59,7 @@ export default function WikiBookEdit({ book }: Props) {
         { title: 'Edit', href: `/wiki/books/${book.slug}/edit` }
     ];
 
-    const form = useForm<FormData>({
+    const form = useForm<BookFormData>({
         name: book.name,
         description: book.description || '',
         cover_image: null,

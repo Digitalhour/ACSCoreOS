@@ -8,6 +8,7 @@ import {Separator} from '@/components/ui/separator';
 import {Tabs, TabsContent, TabsList, TabsTrigger} from '@/components/ui/tabs';
 import {Edit, History, Paperclip, User} from 'lucide-react';
 import {type BreadcrumbItem} from '@/types';
+import 'suneditor/dist/css/suneditor.min.css';
 
 interface User {
     id: number;
@@ -141,11 +142,15 @@ export default function WikiPageShow({ book, chapter, page }: Props) {
                     </TabsList>
 
                     <TabsContent value="content">
-                        <Card>
-                            <CardContent className="prose prose-slate dark:prose-invert max-w-none p-6">
-                                <div dangerouslySetInnerHTML={{ __html: page.content }} />
+                        <div>
+                            <CardContent className="prose prose-slate dark:prose-invert max-w-none p-6 ">
+                                <div
+                                    className={"sun-editor-content"}
+                                    dangerouslySetInnerHTML={{ __html: page.content }}
+                                />
+
                             </CardContent>
-                        </Card>
+                        </div>
                     </TabsContent>
 
                     {attachments.length > 0 && (
