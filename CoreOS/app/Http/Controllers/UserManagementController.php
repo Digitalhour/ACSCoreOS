@@ -134,7 +134,7 @@ class UserManagementController extends Controller
     public function inviteUserWithPto(Request $request): RedirectResponse
     {
         $validator = Validator::make($request->all(), [
-            'invite.email' => 'required|email',
+            'invite.email' => 'required|email|unique:users,email',
             'invite.first_name' => 'required|string|max:255',
             'invite.last_name' => 'required|string|max:255',
             'invite.role' => 'required|string|in:member,admin',
@@ -157,43 +157,21 @@ class UserManagementController extends Controller
 
             $inviteData = $request->input('invite');
 
-            // ADD THIS LOG HERE
-
-
-            // Send WorkOS invitation
-            $workosResponse = Http::withHeaders([
-                'Authorization' => 'Bearer ' . env('WORKOS_API_KEY'),
-                'Content-Type' => 'application/json',
-            ])->post('https://api.workos.com/user_management/invitations', [
+            // Step 1: Create Laravel user first (without WorkOS ID)
+            $user = User::create([
+                'name' => $inviteData['first_name'] . ' ' . $inviteData['last_name'],
                 'email' => $inviteData['email'],
-                'organization_id' => env('WORKOS_ORGID'),
-                'expires_in_days' => 7,
-                'inviter_user_id' => Auth::user()->workos_id ?? (string)Auth::id(),
-                'role_slug' => $inviteData['role']
+                'workos_id' => null, // Will be updated after WorkOS invitation
+                'avatar' => null,
             ]);
 
+            Log::info('Laravel user created', [
+                'user_id' => $user->id,
+                'email' => $user->email,
+                'name' => $user->name
+            ]);
 
-
-            if (!$workosResponse->successful()) {
-                DB::rollBack();
-                return back()->with('error', 'Failed to send invitation');
-            }
-
-            $workosData = $workosResponse->json();
-
-            // Create user in local database
-            $user = User::firstOrCreate(
-                ['email' => $inviteData['email']],
-                [
-                    'name' => $inviteData['first_name'] . ' ' . $inviteData['last_name'],
-                    'workos_id' => 'inv_' . $workosData['id'],
-                    'avatar' => null,
-                ]
-            );
-
-
-
-            // Create PTO policy if requested
+            // Step 2: Create PTO policy if requested (before WorkOS invite)
             if ($inviteData['create_pto_policy'] && $request->has('pto_policy')) {
                 $ptoPolicyData = $request->input('pto_policy');
                 $ptoType = PtoType::findOrFail($ptoPolicyData['pto_type_id']);
@@ -219,38 +197,73 @@ class UserManagementController extends Controller
 
                 // Create PTO balance if needed
                 if ($ptoType->uses_balance) {
-                    $existingBalance = PtoBalance::where('user_id', $user->id)
-                        ->where('pto_type_id', $ptoPolicyData['pto_type_id'])
-                        ->where('year', now()->year)
-                        ->first();
-
-                    if (!$existingBalance) {
-                        PtoBalance::create([
-                            'user_id' => $user->id,
-                            'pto_type_id' => $ptoPolicyData['pto_type_id'],
-                            'balance' => $ptoPolicyData['initial_days'] ?? 0,
-                            'pending_balance' => 0,
-                            'used_balance' => 0,
-                            'year' => now()->year,
-                        ]);
-                    }
+                    PtoBalance::create([
+                        'user_id' => $user->id,
+                        'pto_type_id' => $ptoPolicyData['pto_type_id'],
+                        'balance' => $ptoPolicyData['initial_days'] ?? 0,
+                        'pending_balance' => 0,
+                        'used_balance' => 0,
+                        'year' => now()->year,
+                    ]);
                 }
             }
 
+            // Step 3: Send WorkOS invitation
+            $workosResponse = Http::withHeaders([
+                'Authorization' => 'Bearer ' . env('WORKOS_API_KEY'),
+                'Content-Type' => 'application/json',
+            ])->post('https://api.workos.com/user_management/invitations', [
+                'email' => $inviteData['email'],
+                'organization_id' => env('WORKOS_ORGID'),
+                'expires_in_days' => 7,
+                'inviter_user_id' => Auth::user()->workos_id ?? (string)Auth::id(),
+                'role_slug' => $inviteData['role']
+            ]);
+
+            if (!$workosResponse->successful()) {
+                Log::error('WorkOS invitation failed', [
+                    'user_id' => $user->id,
+                    'email' => $user->email,
+                    'workos_response' => $workosResponse->body()
+                ]);
+
+                // Rollback the transaction since WorkOS failed
+                DB::rollBack();
+                return back()->with('error', 'Failed to send WorkOS invitation. User creation has been cancelled.');
+            }
+
+            $workosData = $workosResponse->json();
+
+            // Step 4: Update user with WorkOS invitation ID
+            $user->update([
+                'workos_id' => 'inv_' . $workosData['id']
+            ]);
+
+            Log::info('WorkOS invitation sent and user updated', [
+                'user_id' => $user->id,
+                'email' => $user->email,
+                'workos_invitation_id' => $workosData['id'],
+                'workos_id' => $user->workos_id
+            ]);
+
             DB::commit();
 
-            $message = 'User invited successfully';
+            $message = 'User created and invited successfully';
             if ($inviteData['create_pto_policy']) {
                 $message .= ' with PTO policy';
             }
 
-            // Simply return back with success message
             return back()->with('success', $message);
 
         } catch (\Exception $e) {
             DB::rollBack();
-            Log::error('Invite error: ' . $e->getMessage());
-            return back()->with('error', 'Failed to invite user');
+            Log::error('User invitation process failed', [
+                'email' => $inviteData['email'] ?? 'unknown',
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return back()->with('error', 'Failed to create and invite user: ' . $e->getMessage());
         }
     }
 

@@ -96,142 +96,162 @@ export default function Dashboard({ articles }: Props) {
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Dashboard" />
-            <div className="flex h-full max-h-screen flex-1 flex-col gap-4 rounded-xl p-4">
-                <div className="grid auto-rows-min gap-2 md:grid-cols-6">
+            <div className="flex h-full max-h-screen flex-1 flex-col gap-4 rounded-xl p-2 sm:p-4">
+                {/* Stats Cards Grid */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3 sm:gap-4">
                     {/* Total Sales This Month */}
-                    <div className="border-sidebar-border/70 dark:border-sidebar-border relative aspect-video overflow-hidden rounded-xl border">
-                        <div className="p-4 pb-2">
-                            <p className="text-sm text-muted-foreground">Total Sales This Month</p>
-                            <h3 className="text-2xl font-semibold">${totalSalesThisMonth.toLocaleString()}</h3>
-                        </div>
-                        <div className="px-4 pb-4">
-                            <ChartContainer config={chartConfig} className="h-[80px] w-full">
-                                <LineChart data={monthlySalesData}>
-                                    <Line
-                                        dataKey="sales"
-                                        type="natural"
-                                        fill="var(--color-sales)"
-                                        fillOpacity={0.4}
-                                        stroke="var(--color-sales)"
-                                        strokeWidth={1.5}
-                                        dot-={"true"}
-                                    />
-                                </LineChart>
-                            </ChartContainer>
+                    <div className="col-span-1 sm:col-span-1 lg:col-span-1 xl:col-span-1">
+                        <div className="border-sidebar-border/70 dark:border-sidebar-border relative overflow-hidden rounded-xl border bg-card">
+                            <div className="p-4 pb-2">
+                                <p className="text-xs sm:text-sm text-muted-foreground">Total Sales This Month</p>
+                                <h3 className="text-xl sm:text-2xl font-semibold">${totalSalesThisMonth.toLocaleString()}</h3>
+                            </div>
+                            <div className="px-4 pb-4">
+                                <ChartContainer config={chartConfig} className="h-[60px] sm:h-[80px] w-full">
+                                    <LineChart data={monthlySalesData}>
+                                        <Line
+                                            dataKey="sales"
+                                            type="natural"
+                                            fill="var(--color-sales)"
+                                            fillOpacity={0.4}
+                                            stroke="var(--color-sales)"
+                                            strokeWidth={1.5}
+                                            dot={false}
+                                        />
+                                    </LineChart>
+                                </ChartContainer>
+                            </div>
                         </div>
                     </div>
 
                     {/* Total Sales This Year */}
-                    <div className="border-sidebar-border/70 dark:border-sidebar-border relative aspect-video overflow-hidden rounded-xl border">
-                        <div className="p-4 pb-2">
-                            <p className="text-sm text-muted-foreground">Total Sales This Year</p>
-                            <h3 className="text-2xl font-semibold">${(totalSalesThisYear / 1000000).toFixed(1)}M</h3>
-                        </div>
-                        <div className="px-4 pb-4">
-                            <ChartContainer config={chartConfig} className="h-[80px] w-full">
-                                <LineChart data={yearlySalesData}>
-                                    <Line
-                                        dataKey="sales"
-                                        type="monotone"
-                                        stroke="var(--color-sales)"
-                                        strokeWidth={2}
-                                        dot={true}
-                                    />
-                                </LineChart>
-                            </ChartContainer>
+                    <div className="col-span-1 sm:col-span-1 lg:col-span-1 xl:col-span-1">
+                        <div className="border-sidebar-border/70 dark:border-sidebar-border relative overflow-hidden rounded-xl border bg-card">
+                            <div className="p-4 pb-2">
+                                <p className="text-xs sm:text-sm text-muted-foreground">Total Sales This Year</p>
+                                <h3 className="text-xl sm:text-2xl font-semibold">${(totalSalesThisYear / 1000000).toFixed(1)}M</h3>
+                            </div>
+                            <div className="px-4 pb-4">
+                                <ChartContainer config={chartConfig} className="h-[60px] sm:h-[80px] w-full">
+                                    <LineChart data={yearlySalesData}>
+                                        <Line
+                                            dataKey="sales"
+                                            type="monotone"
+                                            stroke="var(--color-sales)"
+                                            strokeWidth={2}
+                                            dot={false}
+                                        />
+                                    </LineChart>
+                                </ChartContainer>
+                            </div>
                         </div>
                     </div>
 
                     {/* Total Repeat Sales This Year */}
-                    <div className="border-sidebar-border/70 dark:border-sidebar-border relative aspect-video overflow-hidden rounded-xl border">
-                        <div className="p-4 pb-2">
-                            <p className="text-sm text-muted-foreground">Repeat Sales This Year</p>
-                            <h3 className="text-2xl font-semibold">${(totalRepeatSalesThisYear / 1000000).toFixed(1)}M</h3>
-                        </div>
-                        <div className="px-4 pb-4">
-                            <ChartContainer config={chartConfig} className="h-[80px] w-full">
-                                <LineChart data={yearlySalesData}
-                                           margin={{
-                                               top: 5,
-                                               right: 10,
-                                               left: 10,
-                                               bottom: 0,
-                                           }}
-                                >
-                                    <Line
-                                        dataKey="repeatSales"
-                                        type="monotone"
-                                        strokeWidth={2}
-                                        activeDot={{
-                                            r: 6,
-                                            fill: "var(--color-sales)",
-                                        }}
-                                        stroke="var(--color-sales)"
-                                    />
-                                </LineChart>
-                            </ChartContainer>
+                    <div className="col-span-1 sm:col-span-1 lg:col-span-1 xl:col-span-1">
+                        <div className="border-sidebar-border/70 dark:border-sidebar-border relative overflow-hidden rounded-xl border bg-card">
+                            <div className="p-4 pb-2">
+                                <p className="text-xs sm:text-sm text-muted-foreground">Repeat Sales This Year</p>
+                                <h3 className="text-xl sm:text-2xl font-semibold">${(totalRepeatSalesThisYear / 1000000).toFixed(1)}M</h3>
+                            </div>
+                            <div className="px-4 pb-4">
+                                <ChartContainer config={chartConfig} className="h-[60px] sm:h-[80px] w-full">
+                                    <LineChart data={yearlySalesData}
+                                               margin={{
+                                                   top: 5,
+                                                   right: 10,
+                                                   left: 10,
+                                                   bottom: 0,
+                                               }}
+                                    >
+                                        <Line
+                                            dataKey="repeatSales"
+                                            type="monotone"
+                                            strokeWidth={2}
+                                            activeDot={{
+                                                r: 6,
+                                                fill: "var(--color-sales)",
+                                            }}
+                                            stroke="var(--color-sales)"
+                                            dot={false}
+                                        />
+                                    </LineChart>
+                                </ChartContainer>
+                            </div>
                         </div>
                     </div>
 
-                    {/* Empty placeholder */}
-                    <div className="relative aspect-video overflow-hidden rounded-xl">
+                    {/* Empty placeholder - hidden on mobile */}
+                    <div className="hidden xl:block col-span-1">
                     </div>
 
                     {/* Machine Training Completed Current Month */}
-                    <div className="border-sidebar-border/70 dark:border-sidebar-border relative aspect-video overflow-hidden rounded-xl border">
-                        <div className="p-4 pb-2">
-                            <p className="text-sm text-muted-foreground">Training Completed This Month</p>
-                            <h3 className="text-2xl font-semibold">{trainingCompletedThisMonth}</h3>
-                        </div>
-                        <div className="px-4 pb-4">
-                            <ChartContainer config={chartConfig} className="h-[80px] w-full">
-                                <BarChart data={trainingData}>
-                                    <Bar dataKey="current" fill="var(--color-current)" radius={2} />
-                                </BarChart>
-                            </ChartContainer>
+                    <div className="col-span-1 sm:col-span-1 lg:col-span-1 xl:col-span-1">
+                        <div className="border-sidebar-border/70 dark:border-sidebar-border relative overflow-hidden rounded-xl border bg-card">
+                            <div className="p-4 pb-2">
+                                <p className="text-xs sm:text-sm text-muted-foreground">Training This Month</p>
+                                <h3 className="text-xl sm:text-2xl font-semibold">{trainingCompletedThisMonth}</h3>
+                            </div>
+                            <div className="px-4 pb-4">
+                                <ChartContainer config={chartConfig} className="h-[60px] sm:h-[80px] w-full">
+                                    <BarChart data={trainingData}>
+                                        <Bar dataKey="current" fill="var(--color-current)" radius={2} />
+                                    </BarChart>
+                                </ChartContainer>
+                            </div>
                         </div>
                     </div>
 
                     {/* Machine Training Completed Overall */}
-                    <div className="border-sidebar-border/70 dark:border-sidebar-border relative aspect-video overflow-hidden rounded-xl border">
-                        <div className="p-4 pb-2">
-                            <p className="text-sm text-muted-foreground">Training Completed Overall</p>
-                            <h3 className="text-2xl font-semibold">{trainingCompletedOverall.toLocaleString()}</h3>
-                        </div>
-                        <div className="px-4 pb-4">
-                            <ChartContainer config={chartConfig} className="h-[80px] w-full">
-                                <AreaChart data={trainingData}>
-                                    <Area
-                                        dataKey="overall"
-                                        type="natural"
-                                        fill="var(--color-overall)"
-                                        fillOpacity={0.4}
-                                        stroke="var(--color-overall)"
-                                        strokeWidth={2}
-                                    />
-                                </AreaChart>
-                            </ChartContainer>
+                    <div className="col-span-1 sm:col-span-1 lg:col-span-1 xl:col-span-1">
+                        <div className="border-sidebar-border/70 dark:border-sidebar-border relative overflow-hidden rounded-xl border bg-card">
+                            <div className="p-4 pb-2">
+                                <p className="text-xs sm:text-sm text-muted-foreground">Training Overall</p>
+                                <h3 className="text-xl sm:text-2xl font-semibold">{trainingCompletedOverall.toLocaleString()}</h3>
+                            </div>
+                            <div className="px-4 pb-4">
+                                <ChartContainer config={chartConfig} className="h-[60px] sm:h-[80px] w-full">
+                                    <AreaChart data={trainingData}>
+                                        <Area
+                                            dataKey="overall"
+                                            type="natural"
+                                            fill="var(--color-overall)"
+                                            fillOpacity={0.4}
+                                            stroke="var(--color-overall)"
+                                            strokeWidth={2}
+                                        />
+                                    </AreaChart>
+                                </ChartContainer>
+                            </div>
                         </div>
                     </div>
+                </div>
 
-                    <div className="flex flex-col col-span-3 gap-4">
-                        <div className="border-sidebar-border/70 dark:border-sidebar-border relative overflow-hidden rounded-xl border">
+                {/* Main Content Grid */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 flex-1 min-h-0">
+                    {/* Blog Feed */}
+                    <div className="order-1 lg:order-1">
+                        <div className="border-sidebar-border/70 dark:border-sidebar-border h-full overflow-hidden rounded-xl border bg-card">
                             <BlogFeed articles={articles} limit={5} />
                         </div>
                     </div>
 
-                    <div className="border-sidebar-border/70 dark:border-sidebar-border relative col-span-3 aspect-video overflow-hidden rounded-xl border">
-                        <iframe
-                            src="https://calendar.google.com/calendar/embed?src=c_d04929a76af5cbda23fefabe83c2f7fafe68be53c7391c74f28fa1fa93b4e535%40group.calendar.google.com&ctz=America%2FNew_York&color=%23af0000"
-                            className="h-full w-full min-w-120"
-                            width="auto"
-                            height="600"
-                            frameBorder="0"
-                            scrolling="no"
-                        />
+                    {/* Calendar */}
+                    <div className="order-2 lg:order-2">
+                        <div className="border-sidebar-border/70 dark:border-sidebar-border relative h-full min-h-[400px] lg:min-h-[500px] overflow-hidden rounded-xl border bg-card">
+                            <div className="h-full w-full">
+                                <iframe
+                                    src="https://calendar.google.com/calendar/embed?src=c_d04929a76af5cbda23fefabe83c2f7fafe68be53c7391c74f28fa1fa93b4e535%40group.calendar.google.com&ctz=America%2FNew_York&color=%23af0000"
+                                    className="h-full w-full"
+                                    width="100%"
+                                    height="100%"
+                                    frameBorder="0"
+                                    scrolling="no"
+                                    title="Google Calendar"
+                                />
+                            </div>
+                        </div>
                     </div>
-                </div>
-                <div className="border-sidebar-border/70 dark:border-sidebar-border">
                 </div>
             </div>
         </AppLayout>

@@ -75,6 +75,12 @@ class User extends Authenticatable
             ->dontSubmitEmptyLogs();
     }
 
+
+
+
+
+
+
     public function departments(): BelongsToMany
     {
         return $this->belongsToMany(Department::class)->withPivot('assigned_at')->withTimestamps();
@@ -338,12 +344,22 @@ class User extends Authenticatable
             $query->whereIn('departments.id', $this->departments->pluck('id'));
         })->with(['departments', 'currentPosition'])->get();
     }
+
+    /**
+     * Check if the user has a WorkOS account
+     */
+    public function hasWorkosAccount(): bool
+    {
+        return !empty($this->workos_id);
+    }
+
+
     /**
      * Check if the user has a temporary WorkOS ID (invitation pending)
      */
     public function hasPendingInvitation(): bool
     {
-        return str_starts_with($this->workos_id, 'inv_');
+        return !empty($this->workos_id) && str_starts_with($this->workos_id, 'inv_');
     }
 
     /**
@@ -351,9 +367,23 @@ class User extends Authenticatable
      */
     public function hasAcceptedInvitation(): bool
     {
-        return !$this->hasPendingInvitation() && !empty($this->workos_id);
+        return !empty($this->workos_id) && !str_starts_with($this->workos_id, 'inv_');
     }
-
+    /**
+     * Check if the user needs a WorkOS invitation
+     */
+    public function needsWorkosInvitation(): bool
+    {
+        return empty($this->workos_id);
+    }
+    /**
+     * Update WorkOS ID when user accepts invitation or is created
+     */
+    public function updateWorkosId(string $workosId): void
+    {
+        $this->update(['workos_id' => $workosId]);
+        Log::info("WorkOS ID updated for user {$this->email}: {$workosId}");
+    }
     /**
      * Get the user's first name from the full name
      */
@@ -371,16 +401,7 @@ class User extends Authenticatable
         return count($nameParts) > 1 ? array_slice($nameParts, 1)[0] : '';
     }
 
-    /**
-     * Update WorkOS ID when user accepts invitation
-     */
-    public function updateWorkosId(string $workosId): void
-    {
-        if ($this->hasPendingInvitation()) {
-            $this->update(['workos_id' => $workosId]);
-            \Log::info("WorkOS ID updated for user {$this->email}: {$workosId}");
-        }
-    }
+
 
 
 
@@ -601,4 +622,6 @@ class User extends Authenticatable
     {
         return $this->hasRole('admin') || $this->hasPermissionTo('create blog articles');
     }
+
+
 }
