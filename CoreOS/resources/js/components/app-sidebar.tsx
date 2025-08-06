@@ -159,7 +159,7 @@ const footerNavItems: NavItem[] = [
     // { title: 'Repository', href: 'https://github.com/laravel/react-starter-kit', icon: Folder, external: true, description: null },
     // { title: 'Documentation', href: 'https://laravel.com/docs/starter-kits#react', icon: BookOpen, external: true, description: null },
     // { title: 'Shadcn Component explore', href: 'https://shipixen.com/component-explorer-shadcn', icon: BookOpen, external: true, description: null },
-    { title: 'HR Dashboard', href: '/hr/dashboard', icon: Users, roles: '', description: null },
+    { title: 'HR Dashboard', href: '/hr/dashboard', icon: Users, roles: '[Human Resources Employee, Developer]', description: null },
     { title: 'Admin Dashboard', href: '/admin', icon: ShieldCheck, roles: '', description: null },
 
 ];
@@ -178,24 +178,58 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         return user.permissions.includes(permissionName);
     };
 
-    const hasRole = (roleName: string): boolean => {
+    const hasRole = (roles: string | string[]): boolean => {
         if (!user || !user.roles) {
             return false;
         }
-        return user.roles.includes(roleName);
+
+        // Extract role names from role objects
+        const userRoleNames = user.roles.map(role => role.name);
+        console.log('User role names:', userRoleNames);
+
+        // Handle single role (string)
+        if (typeof roles === 'string') {
+            if (roles === '') return true;
+
+            // Check if it's a string that looks like an array [Role1, Role2]
+            if (roles.startsWith('[') && roles.endsWith(']')) {
+                const roleString = roles.slice(1, -1);
+                const roleArray = roleString.split(',').map(role => role.trim());
+                console.log('Parsed roles:', roleArray);
+                const hasMatch = roleArray.some(role => userRoleNames.includes(role));
+                console.log('Has match:', hasMatch);
+                return hasMatch;
+            }
+
+            return userRoleNames.includes(roles);
+        }
+
+        // Handle multiple roles (array)
+        if (Array.isArray(roles)) {
+            return roles.some(role => userRoleNames.includes(role));
+        }
+
+        return false;
     };
 
     // Filter individual nav items
     const filterNavItems = (items: NavItem[]): NavItem[] => {
+        console.log('Filtering items:', items);
+        console.log('User object:', user);
+        console.log('User roles:', user?.roles);
+        console.log('User permissions:', user?.permissions);
+
         return items.filter((item) => {
-            if (item.roles) {
+            console.log('Checking item:', item.title, 'roles:', item.roles);
+
+            if (item.roles !== undefined) {
                 return hasRole(item.roles);
             }
             if (item.permission !== undefined) {
-                if (item.permission === '') return true; // Explicitly show if permission is empty string
+                if (item.permission === '') return true;
                 return can(item.permission);
             }
-            return true; // Default to show if no specific role or permission property is present
+            return true;
         });
     };
 
