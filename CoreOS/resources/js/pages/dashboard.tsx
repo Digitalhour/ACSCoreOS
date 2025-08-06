@@ -5,7 +5,7 @@ import BlogFeed from "@/components/BlogFeed";
 import {useEffect, useState} from 'react';
 
 import {ChartConfig, ChartContainer, ChartTooltip, ChartTooltipContent} from "@/components/ui/chart";
-import {Area, AreaChart, Bar, BarChart, Line, LineChart} from "recharts";
+import {Line, LineChart, XAxis} from "recharts";
 
 interface User {
     id: number;
@@ -51,43 +51,25 @@ const breadcrumbs: BreadcrumbItem[] = [
     },
 ];
 
-const yearlySalesData = [
-    { month: "Jan", sales: 245000, repeatSales: 89000 },
-    { month: "Feb", sales: 289000, repeatSales: 112000 },
-    { month: "Mar", sales: 321000, repeatSales: 145000 },
-    { month: "Apr", sales: 298000, repeatSales: 134000 },
-    { month: "May", sales: 367000, repeatSales: 178000 },
-    { month: "Jun", sales: 412000, repeatSales: 203000 },
-    { month: "Jul", sales: 389000, repeatSales: 189000 },
-    { month: "Aug", sales: 445000, repeatSales: 234000 },
-];
-
-const trainingData = [
-    { week: "Week 1", current: 23, overall: 156 },
-    { week: "Week 2", current: 31, overall: 187 },
-    { week: "Week 3", current: 28, overall: 215 },
-    { week: "Week 4", current: 35, overall: 250 },
-];
-
 const chartConfig = {
     sales: {
-        label: "Actual Sales",
+        label: " Actual Sales",
         color: "var(--chart-1)",
     },
     target: {
-        label: "Target",
+        label: " Target",
         color: "var(--chart-5)",
     },
     repeatSales: {
-        label: "Repeat Sales",
+        label: " Repeat Sales",
         color: "var(--chart-2)",
     },
     current: {
-        label: "Current Month",
+        label: " Current Month",
         color: "var(--chart-3)",
     },
     overall: {
-        label: "Overall",
+        label: " Overall",
         color: "var(--chart-4)",
     },
 } satisfies ChartConfig;
@@ -99,8 +81,6 @@ export default function Dashboard({ articles }: Props) {
     const [yearlySalesData, setYearlySalesData] = useState<YearlySalesData[]>([]);
     const [totalSalesThisYear, setTotalSalesThisYear] = useState<number>(0);
     const [totalRepeatSalesThisYear, setTotalRepeatSalesThisYear] = useState<number>(0);
-    const trainingCompletedThisMonth = 117;
-    const trainingCompletedOverall = 2847;
 
     useEffect(() => {
         // Get current month date range
@@ -143,29 +123,35 @@ export default function Dashboard({ articles }: Props) {
                 {/* Stats Cards Grid */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3 sm:gap-4">
                     {/* Total Sales This Month */}
-                    <div className="col-span-1 sm:col-span-1 lg:col-span-1 xl:col-span-1">
+                    <div className="col-span-1 sm:col-span-1 lg:col-span-3 xl:col-span-3">
                         <div className="border-sidebar-border/70 dark:border-sidebar-border relative overflow-hidden rounded-xl border bg-card">
                             <div className="p-4 pb-2">
                                 <p className="text-xs sm:text-sm text-muted-foreground">Total Sales This Month</p>
                                 <h3 className="text-xl sm:text-2xl font-semibold">${totalSalesThisMonth.toLocaleString()}</h3>
                             </div>
                             <div className="px-4 pb-4">
-                                <ChartContainer config={chartConfig} className="h-[60px] sm:h-[80px] w-full">
+                                <ChartContainer config={chartConfig} className="h-[80px] sm:h-[100px] w-full">
                                     <LineChart
                                         data={monthlySalesData}
                                         margin={{
                                             top: 5,
                                             right: 10,
                                             left: 10,
-                                            bottom: 0,
+                                            bottom: 25,
                                         }}
                                     >
+                                        <XAxis
+                                            dataKey="day"
+                                            axisLine={false}
+                                            tickLine={false}
+                                            tick={{ fontSize: 12 }}
+                                        />
                                         <ChartTooltip
                                             cursor={{ stroke: "var(--color-sales)", strokeWidth: 1, strokeDasharray: "3 3" }}
                                             content={<ChartTooltipContent
                                                 labelFormatter={(value) => `Day ${value}`}
                                                 formatter={(value: number, name: string) => [
-                                                    `${value.toLocaleString()}`,
+                                                    `$${value.toLocaleString()}`,
                                                     chartConfig[name as keyof typeof chartConfig]?.label || name
                                                 ]}
                                             />}
@@ -194,29 +180,35 @@ export default function Dashboard({ articles }: Props) {
                     </div>
 
                     {/* Total Sales This Year */}
-                    <div className="col-span-1 sm:col-span-1 lg:col-span-1 xl:col-span-1">
+                    <div className="col-span-3 sm:col-span-1 lg:col-span-3 xl:col-span-3">
                         <div className="border-sidebar-border/70 dark:border-sidebar-border relative overflow-hidden rounded-xl border bg-card">
                             <div className="p-4 pb-2">
                                 <p className="text-xs sm:text-sm text-muted-foreground">Total Sales This Year</p>
                                 <h3 className="text-xl sm:text-2xl font-semibold">${(totalSalesThisYear / 1000000).toFixed(1)}M</h3>
                             </div>
                             <div className="px-4 pb-4">
-                                <ChartContainer config={chartConfig} className="h-[60px] sm:h-[80px] w-full">
+                                <ChartContainer config={chartConfig} className="h-[80px] sm:h-[100px] w-full">
                                     <LineChart
                                         data={yearlySalesData}
                                         margin={{
                                             top: 5,
                                             right: 10,
                                             left: 10,
-                                            bottom: 0,
+                                            bottom: 25,
                                         }}
                                     >
+                                        <XAxis
+                                            dataKey="month"
+                                            axisLine={false}
+                                            tickLine={false}
+                                            tick={{ fontSize: 12 }}
+                                        />
                                         <ChartTooltip
                                             cursor={{ stroke: "var(--color-sales)", strokeWidth: 1, strokeDasharray: "3 3" }}
                                             content={<ChartTooltipContent
                                                 labelFormatter={(value) => `${value}`}
                                                 formatter={(value, name) => [
-                                                    `${Number(value).toLocaleString()}`,
+                                                    `$${Number(value).toLocaleString()}`,
                                                     chartConfig[name as keyof typeof chartConfig]?.label || name
                                                 ]}
                                             />}
@@ -230,85 +222,6 @@ export default function Dashboard({ articles }: Props) {
                                             activeDot={{ r: 4, fill: "var(--color-sales)", stroke: "white", strokeWidth: 2 }}
                                         />
                                     </LineChart>
-                                </ChartContainer>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Total Repeat Sales This Year */}
-                    <div className="col-span-1 sm:col-span-1 lg:col-span-1 xl:col-span-1">
-                        <div className="border-sidebar-border/70 dark:border-sidebar-border relative overflow-hidden rounded-xl border bg-card">
-                            <div className="p-4 pb-2">
-                                <p className="text-xs sm:text-sm text-muted-foreground">Repeat Sales This Year</p>
-                                <h3 className="text-xl sm:text-2xl font-semibold">${(totalRepeatSalesThisYear / 1000000).toFixed(1)}M</h3>
-                            </div>
-                            <div className="px-4 pb-4">
-                                <ChartContainer config={chartConfig} className="h-[60px] sm:h-[80px] w-full">
-                                    <LineChart data={yearlySalesData}
-                                               margin={{
-                                                   top: 5,
-                                                   right: 10,
-                                                   left: 10,
-                                                   bottom: 0,
-                                               }}
-                                    >
-                                        <Line
-                                            dataKey="repeatSales"
-                                            type="monotone"
-                                            strokeWidth={2}
-                                            activeDot={{
-                                                r: 6,
-                                                fill: "var(--color-sales)",
-                                            }}
-                                            stroke="var(--color-sales)"
-                                            dot={false}
-                                        />
-                                    </LineChart>
-                                </ChartContainer>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Empty placeholder - hidden on mobile */}
-                    <div className="hidden xl:block col-span-1">
-                    </div>
-
-                    {/* Machine Training Completed Current Month */}
-                    <div className="col-span-1 sm:col-span-1 lg:col-span-1 xl:col-span-1">
-                        <div className="border-sidebar-border/70 dark:border-sidebar-border relative overflow-hidden rounded-xl border bg-card">
-                            <div className="p-4 pb-2">
-                                <p className="text-xs sm:text-sm text-muted-foreground">Training This Month</p>
-                                <h3 className="text-xl sm:text-2xl font-semibold">{trainingCompletedThisMonth}</h3>
-                            </div>
-                            <div className="px-4 pb-4">
-                                <ChartContainer config={chartConfig} className="h-[60px] sm:h-[80px] w-full">
-                                    <BarChart data={trainingData}>
-                                        <Bar dataKey="current" fill="var(--color-current)" radius={2} />
-                                    </BarChart>
-                                </ChartContainer>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Machine Training Completed Overall */}
-                    <div className="col-span-1 sm:col-span-1 lg:col-span-1 xl:col-span-1">
-                        <div className="border-sidebar-border/70 dark:border-sidebar-border relative overflow-hidden rounded-xl border bg-card">
-                            <div className="p-4 pb-2">
-                                <p className="text-xs sm:text-sm text-muted-foreground">Training Overall</p>
-                                <h3 className="text-xl sm:text-2xl font-semibold">{trainingCompletedOverall.toLocaleString()}</h3>
-                            </div>
-                            <div className="px-4 pb-4">
-                                <ChartContainer config={chartConfig} className="h-[60px] sm:h-[80px] w-full">
-                                    <AreaChart data={trainingData}>
-                                        <Area
-                                            dataKey="overall"
-                                            type="natural"
-                                            fill="var(--color-overall)"
-                                            fillOpacity={0.4}
-                                            stroke="var(--color-overall)"
-                                            strokeWidth={2}
-                                        />
-                                    </AreaChart>
                                 </ChartContainer>
                             </div>
                         </div>
