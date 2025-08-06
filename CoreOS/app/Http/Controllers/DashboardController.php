@@ -18,7 +18,7 @@ class DashboardController extends Controller
         $startDate = Carbon::parse($request->start_date);
         $endDate = Carbon::parse($request->end_date);
 
-        // Get sales data
+        // Get sales data from all the lovely little tables
         $salesData = DB::connection('acsdatawarehouse')
             ->select("
                 SELECT
@@ -73,7 +73,7 @@ class DashboardController extends Controller
                 $endDate->format('Y-m-d')
             ]);
 
-        // Get target data for the month
+        // Get target data for the current "NOW" month
         $targetData = DB::connection('acsdatawarehouse')
             ->select("
                 SELECT
@@ -86,7 +86,7 @@ class DashboardController extends Controller
                 $startDate->startOfMonth()->format('Y-m-d')
             ]);
 
-        // Calculate daily target amount
+        // Calculate daily goal amount idk if needed but its nice
         $dailyTarget = 0;
         if (!empty($targetData)) {
             $monthlyTarget = $targetData[0]->target_amount;
@@ -94,14 +94,14 @@ class DashboardController extends Controller
             $dailyTarget = $monthlyTarget / $daysInMonth;
         }
 
-        // Create complete dataset with all days in range
+        // Create complete dataset with all days in range and slap it in an array
         $result = [];
         $current = $startDate->copy();
 
         while ($current <= $endDate) {
             $dayNumber = $current->day;
 
-            // Find actual sales for this day
+            // Find actual sales for this/they/them day
             $actualSales = 0;
             foreach ($salesData as $sale) {
                 if ($sale->day == $dayNumber) {
@@ -173,7 +173,7 @@ class DashboardController extends Controller
                 ORDER BY month_number ASC
             ", [$year, $year, $year]);
 
-        // Create complete year dataset
+
         $months = [
             1 => 'Jan', 2 => 'Feb', 3 => 'Mar', 4 => 'Apr',
             5 => 'May', 6 => 'Jun', 7 => 'Jul', 8 => 'Aug',
@@ -187,7 +187,7 @@ class DashboardController extends Controller
             $result[] = [
                 'month' => $monthAbbr,
                 'sales' => (int) round($monthData->sales ?? 0),
-                'repeatSales' => 0 // Temporarily set to 0 for speed
+                'repeatSales' => 0 // Repeat takes fcuking for ever!
             ];
         }
 

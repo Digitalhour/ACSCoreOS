@@ -119,7 +119,7 @@ export default function Dashboard({ articles }: Props) {
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Dashboard" />
-            <div className="flex h-full max-h-screen flex-1 flex-col gap-4 rounded-xl p-2 sm:p-4">
+            <div className="flex h-full max-h-screen flex-col gap-4 rounded-xl p-2 sm:p-4">
                 {/* Stats Cards Grid */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3 sm:gap-4">
                     {/* Total Sales This Month */}
