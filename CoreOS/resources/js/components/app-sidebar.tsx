@@ -99,7 +99,7 @@ const navigationCategories: NavCategory[] = [
         title: "Human Resources",
         icon: Users,
         items: [
-            { title: 'HR Dashboard', href: '/hr/dashboard', icon: Users, description: null },
+
             { title: 'Holiday', href: '/holidays', icon: Users, description: null },
             { title: 'ACS blog Admin', href: '/admin/blog', icon: ShipWheel, description: null },
             { title: 'Company Documents', href: '/employee/documents', icon: BookOpenText, description: null },
@@ -159,6 +159,7 @@ const footerNavItems: NavItem[] = [
     // { title: 'Repository', href: 'https://github.com/laravel/react-starter-kit', icon: Folder, external: true, description: null },
     // { title: 'Documentation', href: 'https://laravel.com/docs/starter-kits#react', icon: BookOpen, external: true, description: null },
     // { title: 'Shadcn Component explore', href: 'https://shipixen.com/component-explorer-shadcn', icon: BookOpen, external: true, description: null },
+    { title: 'HR Dashboard', href: '/hr/dashboard', icon: Users, roles: 'HR-Manager', description: null },
     { title: 'Admin Dashboard', href: '/admin', icon: ShieldCheck, roles: '', description: null },
 
 ];
