@@ -11,12 +11,10 @@ use App\Http\Controllers\BillyAIController;
 use App\Http\Controllers\BlogController;
 use App\Http\Controllers\BlogTemplateController;
 use App\Http\Controllers\DepartmentTimeOffController;
-use App\Http\Controllers\DeviceAliasController;
 use App\Http\Controllers\HolidayController;
 use App\Http\Controllers\ProductPictureManagerController;
 use App\Http\Controllers\RolePermissionController;
 use App\Http\Controllers\UserManagementController;
-use App\Http\Controllers\VibetrackController;
 use App\Http\Controllers\WidgetController;
 use App\Http\Controllers\WikiAttachmentController;
 use App\Http\Controllers\WikiBookController;
@@ -59,23 +57,15 @@ Route::middleware([
         ]);
     })->name('dashboard');
 
-    Route::prefix('vibetrack')->name('vibetrack.')->group(function () {
-        Route::get('/', [VibetrackController::class, 'index'])->name('index');
-        Route::get('/admin', [DeviceAliasController::class, 'index'])->name('admin.index');
-        Route::post('/admin', [DeviceAliasController::class, 'store'])->name('admin.store');
-        Route::put('/admin/{alias}', [DeviceAliasController::class, 'update'])->name('admin.update');
-        Route::delete('/admin/{alias}', [DeviceAliasController::class, 'destroy'])->name('admin.destroy');
-        Route::patch('/admin/{alias}/restore', [DeviceAliasController::class, 'restore'])->name('admin.restore');
-        Route::get('/charts/data', [VibetrackController::class, 'charts'])->name('charts');
-        // NOTE: The dynamic route '{vibetrack}' is placed last to avoid conflicts with static routes like '/admin'.
-        Route::get('/{vibetrack}', [VibetrackController::class, 'show'])->name('show');
-
-    });
 
 
     Route::middleware(['auth', 'verified'])->group(function () {
 
+        Route::get('/dashboard/monthly-sales-data', [App\Http\Controllers\DashboardController::class, 'monthlySalesData'])
+            ->name('dashboard.monthly-sales-data');
 
+        Route::get('/dashboard/yearly-sales-data', [App\Http\Controllers\DashboardController::class, 'yearlySalesData'])
+            ->name('dashboard.yearly-sales-data');
 
         Route::prefix('wiki')->name('wiki.')->group(function () {
 
@@ -878,4 +868,6 @@ require __DIR__.'/api.php';
 require __DIR__.'/auth.php';
 require __DIR__.'/hr-routes.php';
 require __DIR__.'/channels.php';
+require __DIR__.'/vibtrack.php';
+require __DIR__.'/wiki.php';
 require __DIR__.'/debug-routes.php';

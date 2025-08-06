@@ -44,7 +44,7 @@ import {NavHeader} from "@/components/nav-header";
 
 interface AuthenticatedUser extends User {
     permissions?: string[];
-    roles?: string[];
+    roles?: { name: string; id: number | string }[];
 }
 
 interface PageProps {
@@ -58,10 +58,11 @@ interface NavCategory {
     title: string;
     icon: any;
     items: NavItem[];
+    roles?: string | string[];
+    permission?: string;
 }
 
 // Header Nav items
-
 const headerNavItems: NavItem[] = [
     { title: 'Dashboard', href: '/dashboard', icon: LayoutDashboard, roles: '', description: null },
     { title: 'Billy The AI', href: '/billy', icon: BotMessageSquareIcon, description: null },
@@ -72,18 +73,14 @@ const headerNavItems: NavItem[] = [
     { title: 'ACS Wiki', href: '/wiki', icon: BookOpenText, roles: '', description: null },
 ];
 
-
 // Organize navigation items into categories
 const navigationCategories: NavCategory[] = [
-
     {
         title: "Time PTO Management",
         icon: Clock,
+        roles: '[Human Resources Employee, Inside Sales Manager, Warehouse Manager]',
         items: [
-
-
             { title: 'Department PTO', href: '/department-pto', icon: Users, description: null },
-
             { title: 'Timesheet Manager Dash', href: '/time-clock/manager/dashboard', icon: BookOpenText, description: null },
             { title: 'Timesheet Payroll Dash', href: '/time-clock/payroll/dashboard', icon: BookOpenText, description: null },
         ]
@@ -91,6 +88,7 @@ const navigationCategories: NavCategory[] = [
     {
         title: "Time & PTO Payroll",
         icon: DollarSign,
+        roles: '[Finance Executive, Finance Employee]',
         items: [
             { title: 'Timesheet Payroll Dash', href: '/time-clock/payroll/dashboard', icon: BookOpenText, description: null },
         ]
@@ -98,35 +96,35 @@ const navigationCategories: NavCategory[] = [
     {
         title: "Human Resources",
         icon: Users,
+        roles: '[Human Resources Employee, Developer]',
         items: [
-
             { title: 'Holiday', href: '/holidays', icon: Users, description: null },
             { title: 'ACS blog Admin', href: '/admin/blog', icon: ShipWheel, description: null },
             { title: 'Company Documents', href: '/employee/documents', icon: BookOpenText, description: null },
             { title: 'Admin Documents', href: '/folders', icon: BookOpenText, description: null },
-
         ]
     },
     {
         title: "Warehouse",
         icon: Package,
+        roles: '[Warehouse Manager, Warehouse Employee, Developer]',
         items: [
             { title: 'Product Picture Manager', href: '/product-picture-manager', icon: ImageUp, permission: '', description: null },
         ]
-
     },
     {
         title: "Content & Documents",
         icon: FileText,
+        roles: '[Warehouse Manager, Warehouse Employee, Developer]',
         items: [
             { title: 'Company Documents', href: '/employee/documents', icon: BookOpenText, description: null },
             { title: 'Admin Documents', href: '/folders', icon: BookOpenText, description: null },
-
         ]
     },
     {
         title: "Vibetrack",
         icon: Heart,
+        roles: '[Warehouse Manager, Warehouse Employee, Developer]',
         items: [
             { title: 'Vibetrack', href: '/vibetrack', icon: Smartphone, roles: '', description: null },
             { title: 'Vibetrack Admin', href: '/vibetrack/admin', icon: LayoutList, roles: '', description: null },
@@ -135,36 +133,30 @@ const navigationCategories: NavCategory[] = [
     {
         title: "Training & Learning",
         icon: GraduationCap,
+        roles: '[Human Resources Employee, Developer]',
         items: [
-            // { title: 'Your Training', href: '/training', icon: BookOpenText, description: null },
-            // { title: 'Training Dashboard', href: '/admin/reports', icon: BookOpenText, description: null },
             { title: 'Training Dashboard', href: '/old-style-training-tracking', icon: BookOpenText, description: null },
         ]
     },
     {
         title: "Tools & Resources",
         icon: Cog,
+        roles: 'Developer',
         items: [
-
-            // { title: 'ACS Organization', href: '/acs-org', icon: Users, permission: '', description: null},
-            // { title: 'ACS PermissionTest', href: '/test', icon: Users, permission: 'AdminMenu', description: null },
-            // { title: 'ACS RoleTest', href: '/Roletest', icon: Users, roles: '', description: null},
-            // { title: 'Articles', href: '/articles', icon: Users, description: null },
-            // { title: 'Roles and Permissions', href: '/roles-permissions', icon: Users, description: null },
+        //
+        //     // { title: 'ACS Organization', href: '/acs-org', icon: Users, permission: '', description: null},
+        //     // { title: 'ACS PermissionTest', href: '/test', icon: Users, permission: 'AdminMenu', description: null },
+        //     // { title: 'ACS RoleTest', href: '/Roletest', icon: Users, roles: '', description: null},
+        //     // { title: 'Articles', href: '/articles', icon: Users, description: null },
+        //     // { title: 'Roles and Permissions', href: '/roles-permissions', icon: Users, description: null },
         ]
     }
 ];
 
 const footerNavItems: NavItem[] = [
-    // { title: 'Repository', href: 'https://github.com/laravel/react-starter-kit', icon: Folder, external: true, description: null },
-    // { title: 'Documentation', href: 'https://laravel.com/docs/starter-kits#react', icon: BookOpen, external: true, description: null },
-    // { title: 'Shadcn Component explore', href: 'https://shipixen.com/component-explorer-shadcn', icon: BookOpen, external: true, description: null },
     { title: 'HR Dashboard', href: '/hr/dashboard', icon: Users, roles: '[Human Resources Employee, Developer]', description: null },
     { title: 'Admin Dashboard', href: '/admin', icon: ShieldCheck, roles: '', description: null },
-
 ];
-
-
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     const page = usePage<PageProps>();
@@ -185,7 +177,6 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
 
         // Extract role names from role objects
         const userRoleNames = user.roles.map(role => role.name);
-        console.log('User role names:', userRoleNames);
 
         // Handle single role (string)
         if (typeof roles === 'string') {
@@ -195,9 +186,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             if (roles.startsWith('[') && roles.endsWith(']')) {
                 const roleString = roles.slice(1, -1);
                 const roleArray = roleString.split(',').map(role => role.trim());
-                console.log('Parsed roles:', roleArray);
                 const hasMatch = roleArray.some(role => userRoleNames.includes(role));
-                console.log('Has match:', hasMatch);
                 return hasMatch;
             }
 
@@ -212,16 +201,21 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         return false;
     };
 
+    // Check if user can access a category
+    const canAccessCategory = (category: NavCategory): boolean => {
+        if (category.roles !== undefined) {
+            return hasRole(category.roles);
+        }
+        if (category.permission !== undefined) {
+            if (category.permission === '') return true;
+            return can(category.permission);
+        }
+        return true; // Default to accessible if no restrictions
+    };
+
     // Filter individual nav items
     const filterNavItems = (items: NavItem[]): NavItem[] => {
-        console.log('Filtering items:', items);
-        console.log('User object:', user);
-        console.log('User roles:', user?.roles);
-        console.log('User permissions:', user?.permissions);
-
         return items.filter((item) => {
-            console.log('Checking item:', item.title, 'roles:', item.roles);
-
             if (item.roles !== undefined) {
                 return hasRole(item.roles);
             }
@@ -236,6 +230,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     // Filter categories and their items
     const filterCategories = (categories: NavCategory[]): NavCategory[] => {
         return categories
+            .filter(category => canAccessCategory(category)) // Filter by category access
             .map(category => ({
                 ...category,
                 items: filterNavItems(category.items)
@@ -290,7 +285,6 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             </SidebarHeader>
 
             <SidebarContent>
-
                 <SidebarGroup>
                     <NavHeader items={filteredHeaderNavItems} currentUrl={currentUrl} className="mt-auto" />
                     <SidebarMenu>

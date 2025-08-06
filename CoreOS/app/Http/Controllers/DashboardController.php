@@ -1,0 +1,241 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use Carbon\Carbon;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+
+class DashboardController extends Controller
+{
+    public function monthlySalesData(Request $request)
+    {
+        $request->validate([
+            'start_date' => 'required|date',
+            'end_date' => 'required|date|after_or_equal:start_date',
+        ]);
+
+        $startDate = Carbon::parse($request->start_date);
+        $endDate = Carbon::parse($request->end_date);
+
+        // Get sales data
+        $salesData = DB::connection('acsdatawarehouse')
+            ->select("
+                SELECT
+                    DATE(combined_date) as date,
+                    DAY(combined_date) as day,
+                    SUM(
+                        COALESCE(sales_amount, 0) +
+                        COALESCE(return_amount, 0) -
+                        COALESCE(cancelled_amount, 0)
+                    ) as sales
+                FROM (
+                    -- Sales Orders (ADD)
+                    SELECT
+                        so.date as combined_date,
+                        (so.amount - so.etail_tax_amount) as sales_amount,
+                        0 as return_amount,
+                        0 as cancelled_amount
+                    FROM nssalesorder so
+                    WHERE DATE(so.date) BETWEEN ? AND ?
+
+                    UNION ALL
+
+                    -- Return Orders (ADD)
+                    SELECT
+                        ro.date_refunded as combined_date,
+                        0 as sales_amount,
+                        (ro.amount - ro.tax_amount) as return_amount,
+                        0 as cancelled_amount
+                    FROM nsreturnorder ro
+                    WHERE DATE(ro.date_refunded) BETWEEN ? AND ?
+                    AND ro.order_status IN ('Closed', 'Refunded')
+
+                    UNION ALL
+
+                    -- Cancelled Order Lines (SUBTRACT)
+                    SELECT
+                        col.cancelled_date as combined_date,
+                        0 as sales_amount,
+                        0 as return_amount,
+                        (col.cancelled_qty * col.unit_sold_price) as cancelled_amount
+                    FROM nscancelledorderlines col
+                    WHERE DATE(col.cancelled_date) BETWEEN ? AND ?
+                ) combined_sales
+                GROUP BY DATE(combined_date), DAY(combined_date)
+                ORDER BY date ASC
+            ", [
+                $startDate->format('Y-m-d'),
+                $endDate->format('Y-m-d'),
+                $startDate->format('Y-m-d'),
+                $endDate->format('Y-m-d'),
+                $startDate->format('Y-m-d'),
+                $endDate->format('Y-m-d')
+            ]);
+
+        // Get target data for the month
+        $targetData = DB::connection('acsdatawarehouse')
+            ->select("
+                SELECT
+                    st.month_start_date,
+                    st.target_amount,
+                    DAY(LAST_DAY(st.month_start_date)) as days_in_month
+                FROM salestargets st
+                WHERE st.month_start_date = ?
+            ", [
+                $startDate->startOfMonth()->format('Y-m-d')
+            ]);
+
+        // Calculate daily target amount
+        $dailyTarget = 0;
+        if (!empty($targetData)) {
+            $monthlyTarget = $targetData[0]->target_amount;
+            $daysInMonth = $targetData[0]->days_in_month;
+            $dailyTarget = $monthlyTarget / $daysInMonth;
+        }
+
+        // Create complete dataset with all days in range
+        $result = [];
+        $current = $startDate->copy();
+
+        while ($current <= $endDate) {
+            $dayNumber = $current->day;
+
+            // Find actual sales for this day
+            $actualSales = 0;
+            foreach ($salesData as $sale) {
+                if ($sale->day == $dayNumber) {
+                    $actualSales = $sale->sales;
+                    break;
+                }
+            }
+
+            $result[] = [
+                'day' => (string) $dayNumber,
+                'sales' => (int) round($actualSales),
+                'target' => (int) round($dailyTarget)
+            ];
+
+            $current->addDay();
+        }
+
+        return response()->json($result);
+    }
+
+    public function yearlySalesData(Request $request)
+    {
+        $year = $request->input('year', date('Y'));
+
+        $salesData = DB::connection('acsdatawarehouse')
+            ->select("
+                SELECT
+                    MONTH(combined_date) as month_number,
+                    MONTHNAME(combined_date) as month_name,
+                    SUM(
+                        COALESCE(sales_amount, 0) +
+                        COALESCE(return_amount, 0) -
+                        COALESCE(cancelled_amount, 0)
+                    ) as sales,
+                    SUM(
+                        CASE WHEN is_repeat = 1 THEN
+                            COALESCE(sales_amount, 0) +
+                            COALESCE(return_amount, 0) -
+                            COALESCE(cancelled_amount, 0)
+                        ELSE 0 END
+                    ) as repeat_sales
+                FROM (
+                    -- Sales Orders
+                    SELECT
+                        so.date as combined_date,
+                        (so.amount - so.etail_tax_amount) as sales_amount,
+                        0 as return_amount,
+                        0 as cancelled_amount,
+                        CASE WHEN first_orders.id IS NULL THEN 1 ELSE 0 END as is_repeat
+                    FROM nssalesorder so
+                    LEFT JOIN (
+                        SELECT nssalesorder.id
+                        FROM nssalesorder
+                        JOIN (
+                            SELECT nscustomer_id, MIN(date) AS First_Order
+                            FROM nssalesorder
+                            GROUP BY nscustomer_id
+                        ) AS first_order_dates
+                        ON nssalesorder.nscustomer_id = first_order_dates.nscustomer_id
+                        AND nssalesorder.date = first_order_dates.First_Order
+                    ) AS first_orders ON so.id = first_orders.id
+                    WHERE YEAR(so.date) = ?
+
+                    UNION ALL
+
+                    -- Return Orders
+                    SELECT
+                        ro.date_refunded as combined_date,
+                        0 as sales_amount,
+                        (ro.amount - ro.tax_amount) as return_amount,
+                        0 as cancelled_amount,
+                        CASE WHEN first_orders.id IS NULL THEN 1 ELSE 0 END as is_repeat
+                    FROM nsreturnorder ro
+                    LEFT JOIN nssalesorder so ON so.order_id = ro.order_id
+                    LEFT JOIN (
+                        SELECT nssalesorder.id
+                        FROM nssalesorder
+                        JOIN (
+                            SELECT nscustomer_id, MIN(date) AS First_Order
+                            FROM nssalesorder
+                            GROUP BY nscustomer_id
+                        ) AS first_order_dates
+                        ON nssalesorder.nscustomer_id = first_order_dates.nscustomer_id
+                        AND nssalesorder.date = first_order_dates.First_Order
+                    ) AS first_orders ON so.id = first_orders.id
+                    WHERE YEAR(ro.date_refunded) = ?
+                    AND ro.order_status IN ('Closed', 'Refunded')
+
+                    UNION ALL
+
+                    -- Cancelled Order Lines
+                    SELECT
+                        col.cancelled_date as combined_date,
+                        0 as sales_amount,
+                        0 as return_amount,
+                        (col.cancelled_qty * col.unit_sold_price) as cancelled_amount,
+                        CASE WHEN first_orders.id IS NULL THEN 1 ELSE 0 END as is_repeat
+                    FROM nscancelledorderlines col
+                    LEFT JOIN nssalesorder so ON so.order_id = col.order_id
+                    LEFT JOIN (
+                        SELECT nssalesorder.id
+                        FROM nssalesorder
+                        JOIN (
+                            SELECT nscustomer_id, MIN(date) AS First_Order
+                            FROM nssalesorder
+                            GROUP BY nscustomer_id
+                        ) AS first_order_dates
+                        ON nssalesorder.nscustomer_id = first_order_dates.nscustomer_id
+                        AND nssalesorder.date = first_order_dates.First_Order
+                    ) AS first_orders ON so.id = first_orders.id
+                    WHERE YEAR(col.cancelled_date) = ?
+                ) combined_sales
+                GROUP BY MONTH(combined_date), MONTHNAME(combined_date)
+                ORDER BY month_number ASC
+            ", [$year, $year, $year]);
+
+        // Create complete year dataset
+        $months = [
+            1 => 'Jan', 2 => 'Feb', 3 => 'Mar', 4 => 'Apr',
+            5 => 'May', 6 => 'Jun', 7 => 'Jul', 8 => 'Aug',
+            9 => 'Sep', 10 => 'Oct', 11 => 'Nov', 12 => 'Dec'
+        ];
+
+        $result = [];
+        foreach ($months as $monthNum => $monthAbbr) {
+            $monthData = collect($salesData)->firstWhere('month_number', $monthNum);
+
+            $result[] = [
+                'month' => $monthAbbr,
+                'sales' => (int) round($monthData->sales ?? 0),
+                'repeatSales' => (int) round($monthData->repeat_sales ?? 0)
+            ];
+        }
+
+        return response()->json($result);
+    }
+}

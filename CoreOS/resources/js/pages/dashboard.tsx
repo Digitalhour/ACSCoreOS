@@ -2,8 +2,9 @@ import AppLayout from '@/layouts/app-layout';
 import {type BreadcrumbItem} from '@/types';
 import {Head} from '@inertiajs/react';
 import BlogFeed from "@/components/BlogFeed";
+import {useEffect, useState} from 'react';
 
-import {ChartConfig, ChartContainer} from "@/components/ui/chart";
+import {ChartConfig, ChartContainer, ChartTooltip, ChartTooltipContent} from "@/components/ui/chart";
 import {Area, AreaChart, Bar, BarChart, Line, LineChart} from "recharts";
 
 interface User {
@@ -27,6 +28,18 @@ interface Article {
     approved_comments_count: number;
 }
 
+interface SalesData {
+    day: string;
+    sales: number;
+    target: number;
+}
+
+interface YearlySalesData {
+    month: string;
+    sales: number;
+    repeatSales: number;
+}
+
 interface Props {
     articles: Article[];
 }
@@ -36,17 +49,6 @@ const breadcrumbs: BreadcrumbItem[] = [
         title: 'Dashboard',
         href: '/dashboard',
     },
-];
-
-// Mock data
-const monthlySalesData = [
-    { day: "1", sales: 12000 },
-    { day: "5", sales: 15000 },
-    { day: "10", sales: 6000 },
-    { day: "15", sales: 20000 },
-    { day: "20", sales: 5000 },
-    { day: "25", sales: 28000 },
-    { day: "30", sales: 22000 },
 ];
 
 const yearlySalesData = [
@@ -69,8 +71,12 @@ const trainingData = [
 
 const chartConfig = {
     sales: {
-        label: "Sales",
+        label: "Actual Sales",
         color: "var(--chart-1)",
+    },
+    target: {
+        label: "Target",
+        color: "var(--chart-5)",
     },
     repeatSales: {
         label: "Repeat Sales",
@@ -87,11 +93,48 @@ const chartConfig = {
 } satisfies ChartConfig;
 
 export default function Dashboard({ articles }: Props) {
-    const totalSalesThisMonth = 32000;
-    const totalSalesThisYear = 2766000;
-    const totalRepeatSalesThisYear = 1284000;
+    const [monthlySalesData, setMonthlySalesData] = useState<SalesData[]>([]);
+    const [totalSalesThisMonth, setTotalSalesThisMonth] = useState<number>(0);
+    const [targetSalesThisMonth, setTargetSalesThisMonth] = useState<number>(0);
+    const [yearlySalesData, setYearlySalesData] = useState<YearlySalesData[]>([]);
+    const [totalSalesThisYear, setTotalSalesThisYear] = useState<number>(0);
+    const [totalRepeatSalesThisYear, setTotalRepeatSalesThisYear] = useState<number>(0);
     const trainingCompletedThisMonth = 117;
     const trainingCompletedOverall = 2847;
+
+    useEffect(() => {
+        // Get current month date range
+        const now = new Date();
+        const startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+        const endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+
+        const startDateStr = startDate.toISOString().split('T')[0];
+        const endDateStr = endDate.toISOString().split('T')[0];
+
+        // Fetch monthly sales data
+        fetch(`/dashboard/monthly-sales-data?start_date=${startDateStr}&end_date=${endDateStr}`)
+            .then(response => response.json())
+            .then((data: SalesData[]) => {
+                setMonthlySalesData(data);
+                const totalSales = data.reduce((sum, item) => sum + item.sales, 0);
+                const totalTarget = data.reduce((sum, item) => sum + item.target, 0);
+                setTotalSalesThisMonth(totalSales);
+                setTargetSalesThisMonth(totalTarget);
+            })
+            .catch(error => console.error('Error fetching sales data:', error));
+
+        // Fetch yearly sales data
+        fetch(`/dashboard/yearly-sales-data?year=${now.getFullYear()}`)
+            .then(response => response.json())
+            .then((data: YearlySalesData[]) => {
+                setYearlySalesData(data);
+                const totalSales = data.reduce((sum, item) => sum + item.sales, 0);
+                const totalRepeatSales = data.reduce((sum, item) => sum + item.repeatSales, 0);
+                setTotalSalesThisYear(totalSales);
+                setTotalRepeatSalesThisYear(totalRepeatSales);
+            })
+            .catch(error => console.error('Error fetching yearly sales data:', error));
+    }, []);
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
@@ -108,15 +151,41 @@ export default function Dashboard({ articles }: Props) {
                             </div>
                             <div className="px-4 pb-4">
                                 <ChartContainer config={chartConfig} className="h-[60px] sm:h-[80px] w-full">
-                                    <LineChart data={monthlySalesData}>
+                                    <LineChart
+                                        data={monthlySalesData}
+                                        margin={{
+                                            top: 5,
+                                            right: 10,
+                                            left: 10,
+                                            bottom: 0,
+                                        }}
+                                    >
+                                        <ChartTooltip
+                                            cursor={{ stroke: "var(--color-sales)", strokeWidth: 1, strokeDasharray: "3 3" }}
+                                            content={<ChartTooltipContent
+                                                labelFormatter={(value) => `Day ${value}`}
+                                                formatter={(value: number, name: string) => [
+                                                    `${value.toLocaleString()}`,
+                                                    chartConfig[name as keyof typeof chartConfig]?.label || name
+                                                ]}
+                                            />}
+                                        />
                                         <Line
                                             dataKey="sales"
-                                            type="natural"
-                                            fill="var(--color-sales)"
-                                            fillOpacity={0.4}
+                                            type="monotone"
                                             stroke="var(--color-sales)"
+                                            strokeWidth={2}
+                                            dot={{ r: 2, fill: "var(--color-sales)" }}
+                                            activeDot={{ r: 4, fill: "var(--color-sales)", stroke: "white", strokeWidth: 2 }}
+                                        />
+                                        <Line
+                                            dataKey="target"
+                                            type="monotone"
+                                            stroke="var(--color-target)"
                                             strokeWidth={1.5}
+                                            strokeDasharray="3 3"
                                             dot={false}
+                                            activeDot={{ r: 3, fill: "var(--color-target)" }}
                                         />
                                     </LineChart>
                                 </ChartContainer>
@@ -133,13 +202,32 @@ export default function Dashboard({ articles }: Props) {
                             </div>
                             <div className="px-4 pb-4">
                                 <ChartContainer config={chartConfig} className="h-[60px] sm:h-[80px] w-full">
-                                    <LineChart data={yearlySalesData}>
+                                    <LineChart
+                                        data={yearlySalesData}
+                                        margin={{
+                                            top: 5,
+                                            right: 10,
+                                            left: 10,
+                                            bottom: 0,
+                                        }}
+                                    >
+                                        <ChartTooltip
+                                            cursor={{ stroke: "var(--color-sales)", strokeWidth: 1, strokeDasharray: "3 3" }}
+                                            content={<ChartTooltipContent
+                                                labelFormatter={(value) => `${value}`}
+                                                formatter={(value, name) => [
+                                                    `${Number(value).toLocaleString()}`,
+                                                    chartConfig[name as keyof typeof chartConfig]?.label || name
+                                                ]}
+                                            />}
+                                        />
                                         <Line
                                             dataKey="sales"
                                             type="monotone"
                                             stroke="var(--color-sales)"
                                             strokeWidth={2}
-                                            dot={false}
+                                            dot={{ r: 2, fill: "var(--color-sales)" }}
+                                            activeDot={{ r: 4, fill: "var(--color-sales)", stroke: "white", strokeWidth: 2 }}
                                         />
                                     </LineChart>
                                 </ChartContainer>
