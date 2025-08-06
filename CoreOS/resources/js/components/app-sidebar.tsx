@@ -159,7 +159,7 @@ const footerNavItems: NavItem[] = [
     // { title: 'Repository', href: 'https://github.com/laravel/react-starter-kit', icon: Folder, external: true, description: null },
     // { title: 'Documentation', href: 'https://laravel.com/docs/starter-kits#react', icon: BookOpen, external: true, description: null },
     // { title: 'Shadcn Component explore', href: 'https://shipixen.com/component-explorer-shadcn', icon: BookOpen, external: true, description: null },
-    { title: 'HR Dashboard', href: '/hr/dashboard', icon: Users, roles: 'HR-Manager', description: null },
+    { title: 'HR Dashboard', href: '/hr/dashboard', icon: Users, roles: 'Human Resources Employee, Developer ', description: null },
     { title: 'Admin Dashboard', href: '/admin', icon: ShieldCheck, roles: '', description: null },
 
 ];
