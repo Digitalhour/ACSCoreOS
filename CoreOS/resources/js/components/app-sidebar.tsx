@@ -79,7 +79,7 @@ const navigationCategories: NavCategory[] = [
     {
         title: "Time PTO Management",
         icon: Clock,
-        roles: '[Human Resources Employee, Inside Sales Manager, Warehouse Manager, Developer]',
+        roles: '[Developer]',
         items: [
             { title: 'Department PTO', href: '/department-pto', icon: Users, description: null },
             { title: 'Timesheet Manager Dash', href: '/time-clock/manager/dashboard', icon: BookOpenText, description: null },
@@ -88,7 +88,7 @@ const navigationCategories: NavCategory[] = [
     {
         title: "Time & PTO Payroll",
         icon: DollarSign,
-        roles: '[Finance Executive, Finance Employee, Developer]',
+        roles: '[Developer]',
         items: [
             { title: 'Timesheet Payroll Dash', href: '/time-clock/payroll/dashboard', icon: BookOpenText, description: null },
         ]
@@ -122,7 +122,7 @@ const navigationCategories: NavCategory[] = [
     {
         title: "Vibetrack",
         icon: Activity,
-        // roles: '[Warehouse Manager, Warehouse Employee, Developer]',
+        roles: '[Warehouse Manager, Warehouse Employee, Developer]',
         permission: 'vibetrack-view',
         items: [
             { title: 'Vibetrack', href: '/vibetrack', icon: Smartphone, roles: '', description: null },
