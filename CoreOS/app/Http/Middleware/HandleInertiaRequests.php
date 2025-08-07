@@ -50,7 +50,7 @@ $user = Auth::user();
                         'id' => $request->user()->id,
                         'name' => $request->user()->name,
                         'email' => $request->user()->email,
-                        'permissions' => $request->user()->getPermissionNames(), // Laravel Collection of strings
+                        'permissions' => $request->user()->getAllPermissions()->pluck('name'), // Laravel Collection of strings
                         'roles' => $request->user()->getRoleNames(), // Add this line
                     ]
                     : null,

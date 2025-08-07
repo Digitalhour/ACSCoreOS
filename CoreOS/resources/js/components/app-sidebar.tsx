@@ -20,6 +20,7 @@ import {
 import {type NavItem, type User} from '@/types';
 import {Link, usePage} from '@inertiajs/react';
 import {
+    Activity,
     BookOpenText,
     BotMessageSquareIcon,
     ChevronDown,
@@ -29,7 +30,6 @@ import {
     DollarSign,
     FileText,
     GraduationCap,
-    Heart,
     ImageUp,
     LayoutDashboard,
     LayoutList,
@@ -79,17 +79,16 @@ const navigationCategories: NavCategory[] = [
     {
         title: "Time PTO Management",
         icon: Clock,
-        roles: '[Human Resources Employee, Inside Sales Manager, Warehouse Manager]',
+        roles: '[Human Resources Employee, Inside Sales Manager, Warehouse Manager, Developer]',
         items: [
             { title: 'Department PTO', href: '/department-pto', icon: Users, description: null },
             { title: 'Timesheet Manager Dash', href: '/time-clock/manager/dashboard', icon: BookOpenText, description: null },
-            { title: 'Timesheet Payroll Dash', href: '/time-clock/payroll/dashboard', icon: BookOpenText, description: null },
         ]
     },
     {
         title: "Time & PTO Payroll",
         icon: DollarSign,
-        roles: '[Finance Executive, Finance Employee]',
+        roles: '[Finance Executive, Finance Employee, Developer]',
         items: [
             { title: 'Timesheet Payroll Dash', href: '/time-clock/payroll/dashboard', icon: BookOpenText, description: null },
         ]
@@ -101,7 +100,6 @@ const navigationCategories: NavCategory[] = [
         items: [
             { title: 'Holiday', href: '/holidays', icon: Users, description: null },
             { title: 'ACS blog Admin', href: '/admin/blog', icon: ShipWheel, description: null },
-            { title: 'Company Documents', href: '/employee/documents', icon: BookOpenText, description: null },
             { title: 'Admin Documents', href: '/folders', icon: BookOpenText, description: null },
         ]
     },
@@ -116,16 +114,15 @@ const navigationCategories: NavCategory[] = [
     {
         title: "Content & Documents",
         icon: FileText,
-        roles: '[Warehouse Manager, Warehouse Employee, Developer]',
         items: [
             { title: 'Company Documents', href: '/employee/documents', icon: BookOpenText, description: null },
-            { title: 'Admin Documents', href: '/folders', icon: BookOpenText, description: null },
+
         ]
     },
     {
         title: "Vibetrack",
-        icon: Heart,
-        roles: '[Warehouse Manager, Warehouse Employee, Developer]',
+        icon: Activity,
+        // roles: '[Warehouse Manager, Warehouse Employee, Developer]',
         permission: 'vibetrack-view',
         items: [
             { title: 'Vibetrack', href: '/vibetrack', icon: Smartphone, roles: '', description: null },

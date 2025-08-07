@@ -7,8 +7,7 @@ use App\Http\Controllers\Api\PtoApi\PtoOverviewController;
 use App\Http\Controllers\Api\PtoApi\PtoPolicyController;
 use App\Http\Controllers\Api\PtoApi\PTOSubmitHistoricalController;
 use App\Http\Controllers\DepartmentController;
-use App\Http\Controllers\DocumentController;
-use App\Http\Controllers\FolderController;
+use App\Http\Controllers\HolidayController;
 use App\Http\Controllers\HumanResources\LessonContentController;
 use App\Http\Controllers\HumanResources\LessonController;
 use App\Http\Controllers\HumanResources\ModuleController;
@@ -17,33 +16,55 @@ use App\Http\Controllers\HumanResources\QuizController;
 use App\Http\Controllers\HumanResources\ReportController;
 use App\Http\Controllers\HumanResources\TestController;
 use App\Http\Controllers\HumanResources\TestQuestionController;
-use App\Http\Controllers\ManagerTimeClockController;
-use App\Http\Controllers\OldStyleTrainingTrackingController;
-use App\Http\Controllers\PayrollTimeClockController;
-use App\Http\Controllers\TagController;
+use App\Http\Controllers\RolePermissionController;
 use App\Http\Controllers\Team;
-use App\Http\Controllers\TimeClockController;
 use App\Http\Controllers\Training\TrainingController;
 use App\Http\Controllers\UserManagementController;
 use Illuminate\Support\Facades\Route;
-use Inertia\Inertia;
 use Laravel\WorkOS\Http\Middleware\ValidateSessionWithWorkOS;
 
 //use App\Http\Controllers\TrainingController;
 
 
 Route::middleware(['auth', ValidateSessionWithWorkOS::class,])->group(function () {
+    Route::middleware(['role:HR-Manager|Developer'])->group(function () {
+    Route::resource('holidays', HolidayController::class)->names('holidays');
+    Route::get('/team', [Team::class, 'index'])->name('team.index');
+
+
+        Route::get('/roles-permissions', [RolePermissionController::class, 'index'])->name('roles-permissions.index');
+
+        // Permissions management
+        Route::post('/permissions', [RolePermissionController::class, 'storePermission'])->name('permissions.store');
+        Route::put('/permissions/{permission}',
+            [RolePermissionController::class, 'updatePermission'])->name('permissions.update');
+        Route::delete('/permissions/{permission}',
+            [RolePermissionController::class, 'destroyPermission'])->name('permissions.destroy');
+
+        // Roles management
+        Route::post('/roles', [RolePermissionController::class, 'storeRole'])->name('roles.store');
+        Route::put('/roles/{role}', [RolePermissionController::class, 'updateRole'])->name('roles.update');
+        Route::delete('/roles/{role}', [RolePermissionController::class, 'destroyRole'])->name('roles.destroy');
+        Route::post('/roles/permissions',
+            [RolePermissionController::class, 'updateRolePermissions'])->name('roles.permissions.update');
+
+        // User roles & permissions
+        Route::post('/users/sync-roles', [RolePermissionController::class, 'syncUserRoles'])->name('users.roles.sync');
+        Route::post('/users/sync-direct-permissions',
+            [RolePermissionController::class, 'syncUserDirectPermissions'])->name('users.syncDirectPermissions');
+
+
 
 
     // Time Clock
-    Route::get('/timeclock', function () {
-        return Inertia::render('TimeClock/Index');
-    })->name('timeclock.index');
-
-    // Employee Timesheet
-    Route::get('/timesheet', function () {
-        return Inertia::render('Timesheet/Employee');
-    })->name('timesheet.employee');
+//    Route::get('/timeclock', function () {
+//        return Inertia::render('TimeClock/Index');
+//    })->name('timeclock.index');
+//
+//    // Employee Timesheet
+//    Route::get('/timesheet', function () {
+//        return Inertia::render('Timesheet/Employee');
+//    })->name('timesheet.employee');
 
     // Manager Views
 //    Route::get('/timesheet/manage', function () {
@@ -67,64 +88,6 @@ Route::middleware(['auth', ValidateSessionWithWorkOS::class,])->group(function (
 //    Route::get('/api/timesheet/weekly-data', [TimesheetManagerController::class, 'getWeeklyData']);
 //
 
-    Route::prefix('time-clock')->group(function () {
-
-        // Employee routes (existing)
-        Route::get('/employee', [TimeClockController::class, 'employee'])->name('time-clock.employee');
-        Route::post('/clock-in', [TimeClockController::class, 'clockIn'])->name('time-clock.clock-in');
-        Route::post('/clock-out', [TimeClockController::class, 'clockOut'])->name('time-clock.clock-out');
-        Route::post('/start-break', [TimeClockController::class, 'startBreak'])->name('time-clock.start-break');
-        Route::post('/end-break', [TimeClockController::class, 'endBreak'])->name('time-clock.end-break');
-        Route::get('/status', [TimeClockController::class, 'status'])->name('time-clock.status');
-
-        // Timesheet submission routes (existing)
-        Route::post('/submit-timesheet', [TimeClockController::class, 'submitTimesheet'])->name('time-clock.submit-timesheet');
-        Route::post('/withdraw-timesheet', [TimeClockController::class, 'withdrawTimesheet'])->name('time-clock.withdraw-timesheet');
-        Route::get('/week-timesheet', [TimeClockController::class, 'getWeekTimesheet'])->name('time-clock.week-timesheet');
-
-        // Manager routes (NEW)
-        Route::prefix('manager')->group(function () {
-            Route::get('/dashboard', [ManagerTimeClockController::class, 'dashboard'])->name('time-clock.manager.dashboard');
-            Route::get('/timesheets', [ManagerTimeClockController::class, 'timesheets'])->name('time-clock.manager.timesheets');
-            Route::post('/approve/{timesheet}', [ManagerTimeClockController::class, 'approve'])->name('time-clock.manager.approve');
-
-            Route::get('/timesheet/{timesheet}', [ManagerTimeClockController::class, 'show'])->name('time-clock.manager.timesheet.show');
-            Route::post('/resubmit/{timesheet}', [ManagerTimeClockController::class, 'resubmit'])->name('manager.resubmit');
-
-            Route::get('/day-entries', [ManagerTimeClockController::class, 'getDayEntries'])->name('time-clock.manager.day-entries');
-            Route::post('/clock-out/{timeClock}', [ManagerTimeClockController::class, 'clockOutEntry'])->name('time-clock.manager.clock-out');
-            Route::post('/add-entry', [ManagerTimeClockController::class, 'addEntry'])->name('time-clock.manager.add-entry');
-            Route::post('/update-entry/{timeClock}', [ManagerTimeClockController::class, 'updateEntry'])->name('time-clock.manager.update-entry');
-            Route::delete('/delete-entry/{timeClock}', [ManagerTimeClockController::class, 'deleteEntry'])->name('time-clock.manager.delete-entry');
-            Route::get('/day-entries-modal', [ManagerTimeClockController::class, 'getDayEntriesModal'])->name('time-clock.manager.day-entries-modal');
-        });
-
-        Route::prefix('payroll')->group(function () {
-            Route::match(['get', 'post'], '/dashboard', [PayrollTimeClockController::class, 'dashboard'])->name('time-clock.payroll.dashboard');
-
-            Route::post('/process/{timesheet}', [PayrollTimeClockController::class, 'process'])->name('time-clock.payroll.process');
-            Route::post('/bulk-process', [PayrollTimeClockController::class, 'bulkProcess'])->name('time-clock.payroll.bulk-process');
-            Route::get('/export', [PayrollTimeClockController::class, 'export'])->name('time-clock.payroll.export');
-            Route::get('/reports', [PayrollTimeClockController::class, 'reports'])->name('time-clock.payroll.reports');
-            Route::get('/timesheet/{timesheet}/punches', [PayrollTimeClockController::class, 'timesheetPunches'])->name('time-clock.payroll.timesheet.punches');
-            Route::put('/punch/{timeClock}/edit', [PayrollTimeClockController::class, 'editPunch'])->name('time-clock.payroll.punch.edit');
-            Route::put('/break/{audit}/edit', [PayrollTimeClockController::class, 'editBreak'])->name('time-clock.payroll.break.edit');
-            Route::delete('/punch/{timeClock}/delete', [PayrollTimeClockController::class, 'deletePunch'])->name('time-clock.payroll.punch.delete');
-            Route::delete('/break/{audit}/delete', [PayrollTimeClockController::class, 'deleteBreak'])->name('time-clock.payroll.break.delete');
-            Route::post('/punch/create', [PayrollTimeClockController::class, 'addEntry'])->name('time-clock.payroll.punch.create');
-            Route::post('/punch/{timeClock}/clock-out', [PayrollTimeClockController::class, 'clockOut'])->name('time-clock.payroll.punch.clock-out');
-            Route::get('/export-punches', [PayrollTimeClockController::class, 'exportPunches'])->name('time-clock.payroll.export-punches');
-            Route::post('/reject/{timesheet}', [PayrollTimeClockController::class, 'reject'])->name('payroll.reject');
-            Route::post('/bulk-reject', [PayrollTimeClockController::class, 'bulkReject'])->name('payroll.bulk-reject');
-            Route::post('/update-entry/{timeClock}', [PayrollTimeClockController::class, 'updateEntry'])->name('time-clock.payroll.update-entry');
-            Route::post('/add-entry', [PayrollTimeClockController::class, 'addEntry'])->name('time-clock.payroll.add-entry');
-        });
-
-
-    });
-
-
-Route::get('/team', [Team::class, 'index'])->name('team.index');
 
 
 
@@ -132,24 +95,10 @@ Route::get('/team', [Team::class, 'index'])->name('team.index');
 
 
 
-// Old Style Training Tracking Routes
-    Route::get('/old-style-training-tracking', [OldStyleTrainingTrackingController::class, 'index'])
-        ->name('old-style-training-tracking.index');
 
-    Route::post('/old-style-training-tracking', [OldStyleTrainingTrackingController::class, 'store'])
-        ->name('old-style-training-tracking.store');
 
-    Route::put('/old-style-training-tracking/{type}/{id}', [OldStyleTrainingTrackingController::class, 'update'])
-        ->name('old-style-training-tracking.update');
 
-    Route::delete('/old-style-training-tracking/{type}/{id}', [OldStyleTrainingTrackingController::class, 'destroy'])
-        ->name('old-style-training-tracking.destroy');
 
-    Route::get('/old-style-training-tracking/export-data', [OldStyleTrainingTrackingController::class, 'exportData'])
-        ->name('old-style-training-tracking.export-data');
-
-    Route::get('/old-style-training-tracking/export-logs', [OldStyleTrainingTrackingController::class, 'exportLogs'])
-        ->name('old-style-training-tracking.export-logs');
 
 //    // Document Routes
 //    Route::prefix('documents')->name('documents.')->group(function () {
@@ -175,82 +124,7 @@ Route::get('/team', [Team::class, 'index'])->name('team.index');
 //        Route::delete('/{folder}', [FolderController::class, 'destroy'])->name('destroy');
 //    });
 //
-    // Tag Routes
-    Route::prefix('tags')->name('tags.')->group(function () {
-        Route::get('/', [TagController::class, 'index'])->name('index');
-        Route::get('/create', [TagController::class, 'create'])->name('create');
-        Route::post('/', [TagController::class, 'store'])->name('store');
-        Route::get('/{tag}', [TagController::class, 'show'])->name('show');
-        Route::get('/{tag}/edit', [TagController::class, 'edit'])->name('edit');
-        Route::put('/{tag}', [TagController::class, 'update'])->name('update');
-        Route::delete('/{tag}', [TagController::class, 'destroy'])->name('destroy');
 
-        // AJAX search route for tags
-        Route::get('/search/ajax', [TagController::class, 'search'])->name('search');
-    });
-
-    /*
-    |--------------------------------------------------------------------------
-    | Additional API-like routes for AJAX operations
-    |--------------------------------------------------------------------------
-    */
-
-
-    /*
-       |--------------------------------------------------------------------------
-       | Unified Folder Management (includes documents)
-       |--------------------------------------------------------------------------
-       */
-    Route::get('/employee/documents', [FolderController::class, 'employeeIndex'])
-        ->name('employee.folders.index');
-    // Main folder management routes
-    Route::resource('folders', FolderController::class);
-
-    // Additional folder routes
-    Route::get('/folders/{document}/document', [FolderController::class, 'showDocument'])
-        ->name('folders.show-document');
-
-    // Bulk operations
-    Route::post('/folders/bulk-delete', [FolderController::class, 'bulkDelete'])
-        ->name('folders.bulk-delete');
-    Route::post('/folders/bulk-move', [FolderController::class, 'bulkMove'])
-        ->name('folders.bulk-move');
-
-    /*
-    |--------------------------------------------------------------------------
-    | Document Operations (Backend + Show page)
-    |--------------------------------------------------------------------------
-    */
-
-    // Document show page (keep existing)
-    Route::get('/documents/{document}', [DocumentController::class, 'show'])
-        ->name('documents.show');
-    Route::get('/documents/{document}/edit', [DocumentController::class, 'edit'])
-        ->name('documents.edit');
-
-    // Document CRUD operations (called from folder interface)
-    Route::post('/documents', [DocumentController::class, 'store'])
-        ->name('documents.store');
-    Route::put('/documents/{document}', [DocumentController::class, 'update'])
-        ->name('documents.update');
-    Route::delete('/documents/{document}', [DocumentController::class, 'destroy'])
-        ->name('documents.destroy');
-
-    // Document access operations
-    Route::get('/documents/{document}/download', [DocumentController::class, 'download'])
-        ->name('documents.download');
-    Route::get('/documents/{document}/view', [DocumentController::class, 'view'])
-        ->name('documents.view');
-
-    Route::get('/employee/documents/{document}/view', [DocumentController::class, 'employeeView'])
-        ->name('employee.documents.view');
-
-    Route::prefix('manager/folders')->name('manager.folders.')->group(function () {
-        Route::get('create', [FolderController::class, 'managerCreate'])->name('create');
-        Route::post('/', [FolderController::class, 'managerStore'])->name('store');
-        Route::get('{folder}/edit', [FolderController::class, 'managerEdit'])->name('edit');
-        Route::put('{folder}', [FolderController::class, 'managerUpdate'])->name('update');
-    });
 
     // Employee document browsing routes
 //    Route::prefix('employee')->name('employee.')->group(function () {
@@ -263,19 +137,15 @@ Route::get('/team', [Team::class, 'index'])->name('team.index');
 
 
 
-    Route::get('/user-management', [UserManagementController::class, 'index'])
-        ->name('user-management.index');
+    Route::get('/user-management', [UserManagementController::class, 'index'])->name('user-management.index');
 
-    Route::get('/user-management/onboard', [UserManagementController::class, 'onboard'])
-        ->name('user-management.onboard');
+    Route::get('/user-management/onboard', [UserManagementController::class, 'onboard'])->name('user-management.onboard');
 
 // Main invite route - returns back to same page with wizard data
-    Route::post('/user-management/invite-user', [UserManagementController::class, 'inviteUserWithPto'])
-        ->name('user-management.invite-user');
+    Route::post('/user-management/invite-user', [UserManagementController::class, 'inviteUserWithPto'])->name('user-management.invite-user');
 
 // Department routes
-    Route::post('/departments/{department}/add-user', [DepartmentController::class, 'addUser'])
-        ->name('departments.add-user');
+    Route::post('/departments/{department}/add-user', [DepartmentController::class, 'addUser'])->name('departments.add-user');
 
 
 
@@ -386,6 +256,8 @@ Route::get('/team', [Team::class, 'index'])->name('team.index');
 
 
 
+
+    });
 
 
 

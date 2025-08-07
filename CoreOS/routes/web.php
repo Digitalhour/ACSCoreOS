@@ -8,13 +8,9 @@ use App\Http\Controllers\Api\PtoApi\PtoApprovalRuleController;
 use App\Http\Controllers\Api\PtoApi\PtoOverviewController;
 use App\Http\Controllers\Api\UserPtoController;
 use App\Http\Controllers\BillyAIController;
-use App\Http\Controllers\BlogController;
-use App\Http\Controllers\BlogTemplateController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DepartmentTimeOffController;
-use App\Http\Controllers\HolidayController;
 use App\Http\Controllers\ProductPictureManagerController;
-use App\Http\Controllers\RolePermissionController;
 use App\Http\Controllers\UserManagementController;
 use App\Http\Controllers\WidgetController;
 use App\Models\BlogArticle;
@@ -120,37 +116,6 @@ Route::middleware([
 
 
         // blog routes (public)
-        Route::get('/blog', [BlogController::class, 'index'])->name('blog.index');
-         // blog management routes
-            Route::get('/blog/create', [BlogController::class, 'create'])->name('blog.create');
-            Route::post('/blog', [BlogController::class, 'store'])->name('blog.store');
-            Route::get('/blog/{blogArticle}/edit', [BlogController::class, 'edit'])->name('blog.edit');
-            Route::put('/blog/{blogArticle}', [BlogController::class, 'update'])->name('blog.update');
-            Route::delete('/blog/{blogArticle}', [BlogController::class, 'destroy'])->name('blog.destroy');
-            Route::post('/blog/upload-image', [BlogController::class, 'uploadEditorImage'])->name('blog.upload-image');
-            // blog comment routes
-            Route::post('/blog/{blogArticle}/comments', [BlogController::class, 'storeComment'])->name('blog.comments.store');
-            Route::put('/blog-comments/{blogComment}', [BlogController::class, 'updateComment'])->name('blog.comments.update');
-            Route::delete('/blog-comments/{blogComment}', [BlogController::class, 'destroyComment'])->name('blog.comments.destroy');
-
-            // Admin blog management
-            Route::get('/admin/blog', [BlogController::class, 'manage'])->name('admin.blog.manage');
-
-        Route::get('/blog/{blogArticle}', [BlogController::class, 'show'])->name('blog.show');
-
-        Route::prefix('admin')->group(function () {
-            Route::get('/blog-templates', [BlogTemplateController::class, 'index'])->name('admin.blog-templates.index');
-            Route::get('/blog-templates/create', [BlogTemplateController::class, 'create'])->name('admin.blog-templates.create');
-            Route::post('/blog-templates', [BlogTemplateController::class, 'store'])->name('admin.blog-templates.store');
-            Route::get('/blog-templates/{blogTemplate}', [BlogTemplateController::class, 'show'])->name('admin.blog-templates.show');
-            Route::get('/blog-templates/{blogTemplate}/edit', [BlogTemplateController::class, 'edit'])->name('admin.blog-templates.edit');
-            Route::put('/blog-templates/{blogTemplate}', [BlogTemplateController::class, 'update'])->name('admin.blog-templates.update');
-            Route::delete('/blog-templates/{blogTemplate}', [BlogTemplateController::class, 'destroy'])->name('admin.blog-templates.destroy');
-        });
-
-// API route for SunEditor to fetch templates
-        Route::get('/api/blog-templates', [BlogTemplateController::class, 'apiIndex'])->name('api.blog-templates.index');
-
 
 //
 //        Route::resource('articles', ArticleController::class);
@@ -197,7 +162,7 @@ Route::middleware([
         Route::get('/activity-log/{activity}', [ActivityLogController::class, 'show'])->name('activity-log.show');
 
 
-        Route::resource('holidays', HolidayController::class)->names('holidays');
+
 
         /*
     |--------------------------------------------------------------------------
@@ -591,26 +556,6 @@ Route::middleware([
         |--------------------------------------------------------------------------
         */
         // Main roles & permissions page
-        Route::get('/roles-permissions', [RolePermissionController::class, 'index'])->name('roles-permissions.index');
-
-        // Permissions management
-        Route::post('/permissions', [RolePermissionController::class, 'storePermission'])->name('permissions.store');
-        Route::put('/permissions/{permission}',
-            [RolePermissionController::class, 'updatePermission'])->name('permissions.update');
-        Route::delete('/permissions/{permission}',
-            [RolePermissionController::class, 'destroyPermission'])->name('permissions.destroy');
-
-        // Roles management
-        Route::post('/roles', [RolePermissionController::class, 'storeRole'])->name('roles.store');
-        Route::put('/roles/{role}', [RolePermissionController::class, 'updateRole'])->name('roles.update');
-        Route::delete('/roles/{role}', [RolePermissionController::class, 'destroyRole'])->name('roles.destroy');
-        Route::post('/roles/permissions',
-            [RolePermissionController::class, 'updateRolePermissions'])->name('roles.permissions.update');
-
-        // User roles & permissions
-        Route::post('/users/sync-roles', [RolePermissionController::class, 'syncUserRoles'])->name('users.roles.sync');
-        Route::post('/users/sync-direct-permissions',
-            [RolePermissionController::class, 'syncUserDirectPermissions'])->name('users.syncDirectPermissions');
 
         /*
         |--------------------------------------------------------------------------
@@ -862,4 +807,8 @@ require __DIR__.'/hr-routes.php';
 require __DIR__.'/channels.php';
 require __DIR__.'/vibtrack.php';
 require __DIR__.'/wiki.php';
+require __DIR__.'/blog-routes.php';
+require __DIR__.'/training.php';
+require __DIR__.'/payroll-routes.php';
+require __DIR__.'/company-documents-route.php';
 require __DIR__.'/debug-routes.php';
