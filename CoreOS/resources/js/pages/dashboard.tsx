@@ -293,23 +293,21 @@ export default function Dashboard({ articles }: Props) {
                                                 />
                                             }
                                         />
-                                        {/* Net Sales Area (base layer) */}
+                                        {/* Net Sales Area */}
                                         <Area
                                             dataKey="netSales"
                                             type="monotone"
                                             fill="url(#fillNetSales)"
                                             stroke="var(--color-netSales)"
                                             strokeWidth={2}
-                                            stackId="1"
                                         />
-                                        {/* Returns Area (stacked on top) */}
+                                        {/* Returns Area - separate, not stacked */}
                                         <Area
                                             dataKey="returns"
                                             type="monotone"
                                             fill="url(#fillReturns)"
                                             stroke="var(--color-returns)"
                                             strokeWidth={2}
-                                            stackId="1"
                                         />
                                         {/* Target Line */}
                                         <Line
