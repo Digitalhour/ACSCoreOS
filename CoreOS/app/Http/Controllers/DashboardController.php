@@ -24,11 +24,14 @@ class DashboardController extends Controller
                 SELECT
                     DATE(combined_date) as date,
                     DAY(combined_date) as day,
+                    SUM(COALESCE(sales_amount, 0)) as gross_sales,
+                    SUM(COALESCE(return_amount, 0)) as returns,
+                    SUM(COALESCE(cancelled_amount, 0)) as cancelled,
                     SUM(
-                        COALESCE(sales_amount, 0) +
-                        COALESCE(return_amount, 0) -
+                        COALESCE(sales_amount, 0) -
+                        ABS(COALESCE(return_amount, 0)) -
                         COALESCE(cancelled_amount, 0)
-                    ) as sales
+                    ) as net_sales
                 FROM (
                     -- Sales Orders (ADD)
                     SELECT
@@ -41,11 +44,11 @@ class DashboardController extends Controller
 
                     UNION ALL
 
-                    -- Return Orders (ADD)
+                    -- Return Orders (SUBTRACT from sales)
                     SELECT
                         ro.date_refunded as combined_date,
                         0 as sales_amount,
-                        (ro.amount - ro.tax_amount) as return_amount,
+                        -(ro.amount - ro.tax_amount) as return_amount,
                         0 as cancelled_amount
                     FROM nsreturnorder ro
                     WHERE DATE(ro.date_refunded) BETWEEN ? AND ?
@@ -53,7 +56,7 @@ class DashboardController extends Controller
 
                     UNION ALL
 
-                    -- Cancelled Order Lines (SUBTRACT)
+                    -- Cancelled Order Lines (SUBTRACT from sales)
                     SELECT
                         col.cancelled_date as combined_date,
                         0 as sales_amount,
@@ -86,7 +89,7 @@ class DashboardController extends Controller
                 $startDate->startOfMonth()->format('Y-m-d')
             ]);
 
-        // Calculate daily goal amount idk if needed but its nice
+        // Calculate daily goal amount
         $dailyTarget = 0;
         if (!empty($targetData)) {
             $monthlyTarget = $targetData[0]->target_amount;
@@ -94,25 +97,38 @@ class DashboardController extends Controller
             $dailyTarget = $monthlyTarget / $daysInMonth;
         }
 
-        // Create complete dataset with all days in range and slap it in an array
+        // Create complete dataset with all days in range
         $result = [];
         $current = $startDate->copy();
 
         while ($current <= $endDate) {
             $dayNumber = $current->day;
 
-            // Find actual sales for this/they/them day
-            $actualSales = 0;
+            // Find actual sales for this day
+            $dayData = null;
             foreach ($salesData as $sale) {
                 if ($sale->day == $dayNumber) {
-                    $actualSales = $sale->sales;
+                    $dayData = $sale;
                     break;
                 }
             }
 
+            // If no data for this day, use zeros
+            if (!$dayData) {
+                $dayData = (object)[
+                    'gross_sales' => 0,
+                    'returns' => 0,
+                    'cancelled' => 0,
+                    'net_sales' => 0
+                ];
+            }
+
             $result[] = [
                 'day' => (string) $dayNumber,
-                'sales' => (int) round($actualSales),
+                'grossSales' => (int) round($dayData->gross_sales),
+                'returns' => (int) round(abs($dayData->returns)), // Make positive for display
+                'cancelled' => (int) round($dayData->cancelled),
+                'netSales' => (int) round($dayData->net_sales),
                 'target' => (int) round($dailyTarget)
             ];
 

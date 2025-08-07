@@ -11,23 +11,6 @@ use Illuminate\Support\Facades\Route;
 
 Route::middleware(['auth', 'verified'])->group(function () {
 
-//    Route::prefix('vibetrack')->name('vibetrack.')->group(function () {
-//
-//        Route::middleware(['can:vibetrack-view'])->group(function () {
-//            Route::get('/', [VibetrackController::class, 'index'])->name('index');
-//            Route::get('/admin', [DeviceAliasController::class, 'index'])->name('admin.index');
-//            Route::post('/admin', [DeviceAliasController::class, 'store'])->name('admin.store');
-//            Route::put('/admin/{alias}', [DeviceAliasController::class, 'update'])->name('admin.update');
-//            Route::delete('/admin/{alias}', [DeviceAliasController::class, 'destroy'])->name('admin.destroy');
-//            Route::patch('/admin/{alias}/restore', [DeviceAliasController::class, 'restore'])->name('admin.restore');
-//            Route::get('/charts/data', [VibetrackController::class, 'charts'])->name('charts');
-//            // NOTE: The dynamic route '{vibetrack}' is placed last to avoid conflicts with static routes like '/admin'.
-//            Route::get('/{vibetrack}', [VibetrackController::class, 'show'])->name('show');
-//        });
-//
-//
-//    });
-
     Route::prefix('wiki')->name('wiki.')->group(function () {
         // Public routes (read-only)
         Route::get('/', [WikiController::class, 'index'])->name('index');
@@ -38,7 +21,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/attachments/{attachment}/download', [WikiAttachmentController::class, 'download'])->name('attachments.download');
 
         // Create permissions
-        Route::middleware(['can:wiki-create'])->group(function () {
+        Route::middleware(['permission:wiki-create'])->group(function () {
             Route::post('/upload-image', [WikiController::class, 'uploadImage'])->name('upload-image');
             Route::get('/books/create', [WikiBookController::class, 'create'])->name('books.create');
             Route::post('/books', [WikiBookController::class, 'store'])->name('books.store');
@@ -52,7 +35,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         });
 
         // Edit permissions
-        Route::middleware(['can:wiki-edit'])->group(function () {
+        Route::middleware(['can:wiki-create'])->group(function () {
             Route::get('/books/{book}/edit', [WikiBookController::class, 'edit'])->name('books.edit');
             Route::put('/books/{book}', [WikiBookController::class, 'update'])->name('books.update');
             Route::get('/templates/{template}/edit', [WikiTemplateController::class, 'edit'])->name('templates.edit');
@@ -65,7 +48,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         });
 
         // Delete permissions
-        Route::middleware(['can:wiki-delete'])->group(function () {
+        Route::middleware(['can:wiki-create'])->group(function () {
             Route::delete('/books/{book}', [WikiBookController::class, 'destroy'])->name('books.destroy');
             Route::delete('/templates/{template}', [WikiTemplateController::class, 'destroy'])->name('templates.destroy');
             Route::delete('/{book}/{chapter}', [WikiChapterController::class, 'destroy'])->name('chapters.destroy');

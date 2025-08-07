@@ -5,6 +5,7 @@ import {Card, CardContent, CardHeader, CardTitle} from '@/components/ui/card';
 import {Badge} from '@/components/ui/badge';
 import {Calendar, Edit, Eye, FileText, Plus, User} from 'lucide-react';
 import {type BreadcrumbItem} from '@/types';
+import {usePermission} from "@/hooks/usePermission";
 
 interface User {
     id: number;
@@ -46,6 +47,7 @@ interface Props {
 }
 
 export default function WikiChapterShow({ book, chapter }: Props) {
+    const { hasPermission, hasRole, hasAnyRole } = usePermission();
     const breadcrumbs: BreadcrumbItem[] = [
         { title: 'Dashboard', href: '/dashboard' },
         { title: 'Wiki', href: '/wiki' },
@@ -88,6 +90,7 @@ export default function WikiChapterShow({ book, chapter }: Props) {
                             </div>
                         </div>
                     </div>
+                    {hasPermission('wiki-create') && (
                     <div className="flex gap-2">
                         <Link
                             href={`/wiki/${book.slug}/${chapter.slug}/edit`}
@@ -104,6 +107,7 @@ export default function WikiChapterShow({ book, chapter }: Props) {
                             Add Page
                         </Link>
                     </div>
+                        )}
                 </div>
 
                 {/* Pages Section */}

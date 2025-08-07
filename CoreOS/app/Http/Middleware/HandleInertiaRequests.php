@@ -45,7 +45,15 @@ $user = Auth::user();
             'name' => config('app.name'),
             'quote' => ['message' => trim($message), 'author' => trim($author)],
             'auth' => [
-                'user' => $request->user() ? $request->user()->load(['roles', 'permissions']) : null,
+                'user' => $request->user()
+                    ? [
+                        'id' => $request->user()->id,
+                        'name' => $request->user()->name,
+                        'email' => $request->user()->email,
+                        'permissions' => $request->user()->getPermissionNames(), // Laravel Collection of strings
+                        'roles' => $request->user()->getRoleNames(), // Add this line
+                    ]
+                    : null,
             ],
             'isImpersonating' => $user && method_exists($user, 'isImpersonated') ? $user->isImpersonated() : false,
             'ziggy' => fn (): array => [

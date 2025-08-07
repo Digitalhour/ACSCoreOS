@@ -110,6 +110,15 @@
     --chart-vibetreck-4: oklch(0.627 0.265 303.9);
     --chart-vibetreck-5: oklch(0.645 0.246 16.439);
     --chart-vibetreck-6: oklch(0.704 0.116 264.777);
+
+    --chart-1-blue: var(--color-blue-300);
+    --chart-2-blue: var(--color-blue-500);
+    --chart-3-blue: var(--color-blue-600);
+    --chart-4-blue: var(--color-blue-700);
+    --chart-5-blue: var(--color-blue-800);
+
+
+
     --radius: 0.625rem;
     --sidebar: oklch(0.985 0 0);
     --sidebar-foreground: oklch(0.145 0 0);

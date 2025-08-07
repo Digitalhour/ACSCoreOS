@@ -9,6 +9,7 @@ import {Tabs, TabsContent, TabsList, TabsTrigger} from '@/components/ui/tabs';
 import {Edit, History, Paperclip, User} from 'lucide-react';
 import {type BreadcrumbItem} from '@/types';
 import 'suneditor/dist/css/suneditor.min.css';
+import {usePermission} from "@/hooks/usePermission";
 
 interface User {
     id: number;
@@ -73,6 +74,7 @@ interface Props {
 }
 
 export default function WikiPageShow({ book, chapter, page }: Props) {
+    const { hasPermission, hasRole, hasAnyRole } = usePermission();
     const [attachments, setAttachments] = useState<WikiAttachment[]>(page.attachments || []);
 
     const breadcrumbs: BreadcrumbItem[] = [
@@ -101,20 +103,25 @@ export default function WikiPageShow({ book, chapter, page }: Props) {
                         <Badge variant={page.status === 'published' ? 'default' : 'secondary'}>
                             {page.status}
                         </Badge>
-                        <Link
-                            href={`/wiki/${book.slug}/${chapter.slug}/${page.slug}/versions`}
-                            className="inline-flex items-center justify-center rounded-md border border-input bg-background px-4 py-2 text-sm font-medium shadow-sm transition-colors hover:bg-accent hover:text-accent-foreground"
-                        >
-                            <History className="mr-2 h-4 w-4" />
-                            History
-                        </Link>
-                        <Link
+                        {hasPermission('wiki-create') && (
+                            <>
+                            <Link
+                                href={`/wiki/${book.slug}/${chapter.slug}/${page.slug}/versions`}
+                                className="inline-flex items-center justify-center rounded-md border border-input bg-background px-4 py-2 text-sm font-medium shadow-sm transition-colors hover:bg-accent hover:text-accent-foreground"
+                            >
+                                <History className="mr-2 h-4 w-4" />
+                                History
+                            </Link>
+                            <Link
                             href={`/wiki/${book.slug}/${chapter.slug}/${page.slug}/edit`}
-                            className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow transition-colors hover:bg-primary/90"
-                        >
-                            <Edit className="mr-2 h-4 w-4" />
-                            Edit Page
-                        </Link>
+                        className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow transition-colors hover:bg-primary/90"
+                    >
+                        <Edit className="mr-2 h-4 w-4" />
+                        Edit Page
+                    </Link>
+                            </>
+                        )}
+
                     </div>
                 </div>
 

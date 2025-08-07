@@ -4,6 +4,7 @@ import {Head, Link} from '@inertiajs/react';
 import {Badge} from '@/components/ui/badge';
 import {Book, Calendar, CircleSmall, Edit, FileText, Plus, User} from 'lucide-react';
 import {type BreadcrumbItem} from '@/types';
+import {usePermission} from "@/hooks/usePermission";
 
 interface User {
     id: number;
@@ -51,6 +52,7 @@ interface Props {
 }
 
 export default function WikiBookShow({ book }: Props) {
+    const { hasPermission, hasRole, hasAnyRole } = usePermission();
     const breadcrumbs: BreadcrumbItem[] = [
         { title: 'Dashboard', href: '/dashboard' },
         { title: 'Wiki', href: '/wiki' },
@@ -102,6 +104,7 @@ export default function WikiBookShow({ book }: Props) {
                             </div>
                         </div>
                     </div>
+                    {hasPermission('wiki-create') && (
                     <div className="flex gap-2">
                         <Link
                             href={`/wiki/books/${book.slug}/edit`}
@@ -118,6 +121,7 @@ export default function WikiBookShow({ book }: Props) {
                             Add Chapter
                         </Link>
                     </div>
+                    )}
                 </div>
 
                 {/* Chapters Grid */}

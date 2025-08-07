@@ -33,30 +33,31 @@ import {
     ImageUp,
     LayoutDashboard,
     LayoutList,
+    LucideIcon,
     Package,
     ShieldCheck,
     ShipWheel,
     Smartphone,
-    Users,
+    Users
 } from 'lucide-react';
 import AppLogo from './app-logo';
 import {NavHeader} from "@/components/nav-header";
 
 interface AuthenticatedUser extends User {
     permissions?: string[];
-    roles?: { name: string; id: number | string }[];
+    roles?: string[];
 }
 
 interface PageProps {
     auth: {
         user: AuthenticatedUser | null;
     };
-    [key: string]: any;
+    [key: string]: unknown;
 }
 
 interface NavCategory {
     title: string;
-    icon: any;
+    icon: LucideIcon;
     items: NavItem[];
     roles?: string | string[];
     permission?: string;
@@ -125,6 +126,7 @@ const navigationCategories: NavCategory[] = [
         title: "Vibetrack",
         icon: Heart,
         roles: '[Warehouse Manager, Warehouse Employee, Developer]',
+        permission: 'vibetrack-view',
         items: [
             { title: 'Vibetrack', href: '/vibetrack', icon: Smartphone, roles: '', description: null },
             { title: 'Vibetrack Admin', href: '/vibetrack/admin', icon: LayoutList, roles: '', description: null },
@@ -175,8 +177,8 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             return false;
         }
 
-        // Extract role names from role objects
-        const userRoleNames = user.roles.map(role => role.name);
+        // User roles are already strings
+        const userRoleNames = user.roles;
 
         // Handle single role (string)
         if (typeof roles === 'string') {

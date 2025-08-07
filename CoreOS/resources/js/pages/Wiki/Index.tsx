@@ -183,12 +183,13 @@
 // }
 import React, {useState} from 'react';
 import AppLayout from '@/layouts/app-layout';
-import {Head, Link, router} from '@inertiajs/react';
+import {Head, Link, router, usePage} from '@inertiajs/react';
 import {Input} from '@/components/ui/input';
 import {Button} from '@/components/ui/button';
 import {Badge} from '@/components/ui/badge';
 import {Book, CircleSmall, FileText, Plus, Search, User} from 'lucide-react';
 import {type BreadcrumbItem} from '@/types';
+import {usePermission} from '@/hooks/usePermission';
 
 interface User {
     id: number;
@@ -209,6 +210,7 @@ interface WikiChapter {
     pages?: any[];
 }
 
+
 interface WikiBook {
     id: number;
     name: string;
@@ -226,6 +228,7 @@ interface WikiBook {
 }
 
 interface Props {
+
     books: {
         data: WikiBook[];
         links: any[];
@@ -240,6 +243,7 @@ const breadcrumbs: BreadcrumbItem[] = [
 ];
 
 export default function WikiIndex({ books, search }: Props) {
+    const { auth } = usePage().props;
     const [searchTerm, setSearchTerm] = useState(search || '');
 
     const handleSearch = (e: React.FormEvent) => {
@@ -259,7 +263,7 @@ export default function WikiIndex({ books, search }: Props) {
     const getPublishedChapters = (chapters: WikiChapter[]) => {
         return chapters.filter(chapter => chapter.status === 'published');
     };
-
+    const { hasPermission, hasRole, hasAnyRole } = usePermission();
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="ACS Wiki" />
@@ -272,13 +276,16 @@ export default function WikiIndex({ books, search }: Props) {
                             Find answers to common technical questions.
                         </p>
                     </div>
-                    <Link
-                        href="/wiki/books/create"
-                        className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow transition-colors hover:bg-primary/90"
-                    >
-                        <Plus className="mr-2 h-4 w-4" />
-                        Create Book
-                    </Link>
+
+                    {hasPermission('wiki-create') && (
+                        <Link
+                            href="/wiki/books/create"
+                            className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow transition-colors hover:bg-primary/90"
+                        >
+                            <Plus className="mr-2 h-4 w-4" />
+                            Create Book
+                        </Link>
+                    )}
                 </div>
 
                 {/* Search */}

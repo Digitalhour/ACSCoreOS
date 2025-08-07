@@ -2,10 +2,18 @@ import AppLayout from '@/layouts/app-layout';
 import {type BreadcrumbItem} from '@/types';
 import {Head} from '@inertiajs/react';
 import BlogFeed from "@/components/BlogFeed";
-import {useEffect, useState} from 'react';
+import React, {useEffect, useState} from 'react';
 
-import {ChartConfig, ChartContainer, ChartTooltip, ChartTooltipContent} from "@/components/ui/chart";
-import {Line, LineChart, XAxis} from "recharts";
+import {
+    ChartConfig,
+    ChartContainer,
+    ChartLegend,
+    ChartLegendContent,
+    ChartTooltip,
+    ChartTooltipContent
+} from "@/components/ui/chart";
+import {Area, AreaChart, CartesianGrid, Line, LineChart, XAxis, YAxis} from "recharts";
+import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue,} from "@/components/ui/select";
 
 interface User {
     id: number;
@@ -30,7 +38,10 @@ interface Article {
 
 interface SalesData {
     day: string;
-    sales: number;
+    grossSales: number;
+    returns: number;
+    cancelled: number;
+    netSales: number;
     target: number;
 }
 
@@ -52,41 +63,70 @@ const breadcrumbs: BreadcrumbItem[] = [
 ];
 
 const chartConfig = {
-    sales: {
-        label: " Actual Sales",
-        color: "var(--chart-1)",
+    netSales: {
+        label: " Net Sales",
+        color: "var(--chart-1-blue)",
+    },
+    returns: {
+        label: " Returns",
+        color: "var(--chart-2-blue)",
+    },
+    grossSales: {
+        label: " Gross Sales",
+        color: "var(--chart-3-blue)",
     },
     target: {
         label: " Target",
-        color: "var(--chart-5)",
+        color: "var(--chart-4-blue)",
+    },
+    sales: {
+        label: " Sales",
+        color: "var(--chart-1-blue)",
     },
     repeatSales: {
         label: " Repeat Sales",
-        color: "var(--chart-2)",
-    },
-    current: {
-        label: " Current Month",
-        color: "var(--chart-3)",
-    },
-    overall: {
-        label: " Overall",
-        color: "var(--chart-4)",
+        color: "var(--chart-3-blue)",
     },
 } satisfies ChartConfig;
 
 export default function Dashboard({ articles }: Props) {
     const [monthlySalesData, setMonthlySalesData] = useState<SalesData[]>([]);
-    const [totalSalesThisMonth, setTotalSalesThisMonth] = useState<number>(0);
+    const [totalNetSales, setTotalNetSales] = useState<number>(0);
+    const [totalGrossSales, setTotalGrossSales] = useState<number>(0);
+    const [totalReturns, setTotalReturns] = useState<number>(0);
     const [targetSalesThisMonth, setTargetSalesThisMonth] = useState<number>(0);
     const [yearlySalesData, setYearlySalesData] = useState<YearlySalesData[]>([]);
     const [totalSalesThisYear, setTotalSalesThisYear] = useState<number>(0);
     const [totalRepeatSalesThisYear, setTotalRepeatSalesThisYear] = useState<number>(0);
+    const [timeRange, setTimeRange] = useState<string>("30d");
 
     useEffect(() => {
-        // Get current month date range
+        fetchSalesData();
+    }, [timeRange]);
+
+    const fetchSalesData = () => {
+        // Calculate date range based on timeRange selection
         const now = new Date();
-        const startDate = new Date(now.getFullYear(), now.getMonth(), 1);
-        const endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+        let startDate: Date;
+        let endDate: Date;
+
+        switch (timeRange) {
+            case "7d":
+                startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 6);
+                endDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+                break;
+            case "30d":
+                startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+                endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+                break;
+            case "90d":
+                startDate = new Date(now.getFullYear(), now.getMonth() - 2, 1);
+                endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+                break;
+            default:
+                startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+                endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+        }
 
         const startDateStr = startDate.toISOString().split('T')[0];
         const endDateStr = endDate.toISOString().split('T')[0];
@@ -96,9 +136,16 @@ export default function Dashboard({ articles }: Props) {
             .then(response => response.json())
             .then((data: SalesData[]) => {
                 setMonthlySalesData(data);
-                const totalSales = data.reduce((sum, item) => sum + item.sales, 0);
+
+                // Calculate totals
+                const totalNet = data.reduce((sum, item) => sum + item.netSales, 0);
+                const totalGross = data.reduce((sum, item) => sum + item.grossSales, 0);
+                const totalRet = data.reduce((sum, item) => sum + item.returns, 0);
                 const totalTarget = data.reduce((sum, item) => sum + item.target, 0);
-                setTotalSalesThisMonth(totalSales);
+
+                setTotalNetSales(totalNet);
+                setTotalGrossSales(totalGross);
+                setTotalReturns(totalRet);
                 setTargetSalesThisMonth(totalTarget);
             })
             .catch(error => console.error('Error fetching sales data:', error));
@@ -114,7 +161,16 @@ export default function Dashboard({ articles }: Props) {
                 setTotalRepeatSalesThisYear(totalRepeatSales);
             })
             .catch(error => console.error('Error fetching yearly sales data:', error));
-    }, []);
+    };
+
+    const getTimeRangeLabel = () => {
+        switch (timeRange) {
+            case "7d": return "Last 7 days";
+            case "30d": return "This month";
+            case "90d": return "Last 3 months";
+            default: return "This month";
+        }
+    };
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
@@ -122,58 +178,150 @@ export default function Dashboard({ articles }: Props) {
             <div className="flex h-full max-h-screen flex-col gap-4 rounded-xl p-2 sm:p-4">
                 {/* Stats Cards Grid */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3 sm:gap-4">
-                    {/* Total Sales This Month */}
+                    {/* Interactive Area Chart - Total Sales */}
                     <div className="col-span-1 sm:col-span-1 lg:col-span-3 xl:col-span-3">
                         <div className="border-sidebar-border/70 dark:border-sidebar-border relative overflow-hidden rounded-xl border bg-card">
-                            <div className="p-4 pb-2">
-                                <p className="text-xs sm:text-sm text-muted-foreground">Total Sales This Month</p>
-                                <h3 className="text-xl sm:text-2xl font-semibold">${totalSalesThisMonth.toLocaleString()}</h3>
-                            </div>
-                            <div className="px-4 pb-4">
-                                <ChartContainer config={chartConfig} className="h-[80px] sm:h-[100px] w-full">
-                                    <LineChart
-                                        data={monthlySalesData}
-                                        margin={{
-                                            top: 5,
-                                            right: 10,
-                                            left: 10,
-                                            bottom: 25,
-                                        }}
+                            <div className="flex items-center gap-2 space-y-0 border-b p-4 pb-4 sm:flex-row">
+                                <div className="grid flex-1 gap-1">
+                                    <h3 className="text-lg font-semibold">Sales Performance</h3>
+                                    <p className="text-sm text-muted-foreground">
+                                        {getTimeRangeLabel()} - Net, Gross & Returns
+                                    </p>
+                                    <div className="flex gap-4 text-sm">
+                                        <div>
+                                            <span className="text-muted-foreground">Net: </span>
+                                            <span className="font-semibold">${totalNetSales.toLocaleString()}</span>
+                                        </div>
+                                        <div>
+                                            <span className="text-muted-foreground">Returns: </span>
+                                            <span className="font-semibold text-destructive">${totalReturns.toLocaleString()}</span>
+                                        </div>
+                                        <div>
+                                            <span className="text-muted-foreground">Target: </span>
+                                            <span className="font-semibold">${targetSalesThisMonth.toLocaleString()}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <Select value={timeRange} onValueChange={setTimeRange}>
+                                    <SelectTrigger
+                                        className="w-[140px] rounded-lg"
+                                        aria-label="Select time range"
                                     >
+                                        <SelectValue placeholder={getTimeRangeLabel()} />
+                                    </SelectTrigger>
+                                    <SelectContent className="rounded-xl">
+                                        <SelectItem value="90d" className="rounded-lg">
+                                            Last 3 months
+                                        </SelectItem>
+                                        <SelectItem value="30d" className="rounded-lg">
+                                            This month
+                                        </SelectItem>
+                                        <SelectItem value="7d" className="rounded-lg">
+                                            Last 7 days
+                                        </SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            <div className="px-2 pt-4 pb-4 sm:px-6 sm:pt-6">
+                                <ChartContainer
+                                    config={chartConfig}
+                                    className="aspect-auto h-[250px] w-full"
+                                >
+                                    <AreaChart
+                                        data={monthlySalesData}
+                                        margin={{ top: 10, right: 10, bottom: 0, left: 0 }}
+                                    >
+                                        <defs>
+                                            <linearGradient id="fillNetSales" x1="0" y1="0" x2="0" y2="1">
+                                                <stop
+                                                    offset="5%"
+                                                    stopColor="var(--color-netSales)"
+                                                    stopOpacity={0.8}
+                                                />
+                                                <stop
+                                                    offset="95%"
+                                                    stopColor="var(--color-netSales)"
+                                                    stopOpacity={0.1}
+                                                />
+                                            </linearGradient>
+                                            <linearGradient id="fillReturns" x1="0" y1="0" x2="0" y2="1">
+                                                <stop
+                                                    offset="5%"
+                                                    stopColor="var(--color-returns)"
+                                                    stopOpacity={0.8}
+                                                />
+                                                <stop
+                                                    offset="95%"
+                                                    stopColor="var(--color-returns)"
+                                                    stopOpacity={0.1}
+                                                />
+                                            </linearGradient>
+                                        </defs>
+                                        <CartesianGrid vertical={false} strokeDasharray="3 3" />
                                         <XAxis
                                             dataKey="day"
-                                            axisLine={false}
                                             tickLine={false}
-                                            tick={{ fontSize: 12 }}
+                                            axisLine={false}
+                                            tickMargin={8}
+                                            minTickGap={16}
+                                            tickFormatter={(value) => {
+                                                if (timeRange === "7d" || timeRange === "30d") {
+                                                    return `${value}`;
+                                                }
+                                                return value;
+                                            }}
+                                        />
+                                        <YAxis
+                                            tickLine={false}
+                                            axisLine={false}
+                                            tickMargin={8}
+                                            tickFormatter={(value) => `$${(value / 1000).toFixed(0)}k`}
                                         />
                                         <ChartTooltip
-                                            cursor={{ stroke: "var(--color-sales)", strokeWidth: 1, strokeDasharray: "3 3" }}
-                                            content={<ChartTooltipContent
-                                                labelFormatter={(value) => `Day ${value}`}
-                                                formatter={(value: number, name: string) => [
-                                                    `$${value.toLocaleString()}`,
-                                                    chartConfig[name as keyof typeof chartConfig]?.label || name
-                                                ]}
-                                            />}
+                                            cursor={{ strokeDasharray: '3 3' }}
+                                            content={
+                                                <ChartTooltipContent
+                                                    labelFormatter={(value) => `Day ${value}`}
+                                                    formatter={(value: number, name: string) => {
+                                                        const label = chartConfig[name as keyof typeof chartConfig]?.label || name;
+                                                        return [
+                                                            `$${value.toLocaleString()}`,
+                                                            label
+                                                        ];
+                                                    }}
+                                                    indicator="dot"
+                                                />
+                                            }
                                         />
-                                        <Line
-                                            dataKey="sales"
+                                        {/* Net Sales Area (base layer) */}
+                                        <Area
+                                            dataKey="netSales"
                                             type="monotone"
-                                            stroke="var(--color-sales)"
+                                            fill="url(#fillNetSales)"
+                                            stroke="var(--color-netSales)"
                                             strokeWidth={2}
-                                            dot={{ r: 2, fill: "var(--color-sales)" }}
-                                            activeDot={{ r: 4, fill: "var(--color-sales)", stroke: "white", strokeWidth: 2 }}
+                                            stackId="1"
                                         />
+                                        {/* Returns Area (stacked on top) */}
+                                        <Area
+                                            dataKey="returns"
+                                            type="monotone"
+                                            fill="url(#fillReturns)"
+                                            stroke="var(--color-returns)"
+                                            strokeWidth={2}
+                                            stackId="1"
+                                        />
+                                        {/* Target Line */}
                                         <Line
                                             dataKey="target"
                                             type="monotone"
                                             stroke="var(--color-target)"
-                                            strokeWidth={1.5}
-                                            strokeDasharray="3 3"
+                                            strokeWidth={2}
+                                            strokeDasharray="5 5"
                                             dot={false}
-                                            activeDot={{ r: 3, fill: "var(--color-target)" }}
                                         />
-                                    </LineChart>
+                                        <ChartLegend content={<ChartLegendContent />} />
+                                    </AreaChart>
                                 </ChartContainer>
                             </div>
                         </div>
