@@ -132,7 +132,7 @@ const navigationCategories: NavCategory[] = [
     {
         title: "Training & Learning",
         icon: GraduationCap,
-        roles: '[Human Resources Employee, Developer]',
+        roles: '[Developer]',
         items: [
             { title: 'Training Dashboard', href: '/old-style-training-tracking', icon: BookOpenText, description: null },
         ]
