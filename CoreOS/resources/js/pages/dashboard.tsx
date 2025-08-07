@@ -65,27 +65,27 @@ const breadcrumbs: BreadcrumbItem[] = [
 const chartConfig = {
     netSales: {
         label: " Net Sales",
-        color: "var(--chart-1-blue)",
+        color: "var(--chart-1-red)",
     },
     returns: {
         label: " Returns",
-        color: "var(--chart-2-blue)",
+        color: "var(--chart-2-red)",
     },
     grossSales: {
         label: " Gross Sales",
-        color: "var(--chart-3-blue)",
+        color: "var(--chart-3-red)",
     },
     target: {
         label: " Target",
-        color: "var(--chart-4-blue)",
+        color: "var(--chart-4-red)",
     },
     sales: {
         label: " Sales",
-        color: "var(--chart-1-blue)",
+        color: "var(--chart-1-red)",
     },
     repeatSales: {
         label: " Repeat Sales",
-        color: "var(--chart-3-blue)",
+        color: "var(--chart-3-red)",
     },
 } satisfies ChartConfig;
 
@@ -189,12 +189,16 @@ export default function Dashboard({ articles }: Props) {
                                     </p>
                                     <div className="flex gap-4 text-sm">
                                         <div>
-                                            <span className="text-muted-foreground">Net: </span>
-                                            <span className="font-semibold">${totalNetSales.toLocaleString()}</span>
+                                            <span className="text-muted-foreground">Gross: </span>
+                                            <span className="font-semibold">${totalGrossSales.toLocaleString()}</span>
                                         </div>
                                         <div>
                                             <span className="text-muted-foreground">Returns: </span>
                                             <span className="font-semibold text-destructive">${totalReturns.toLocaleString()}</span>
+                                        </div>
+                                        <div>
+                                            <span className="text-muted-foreground">Net: </span>
+                                            <span className="font-semibold">${totalNetSales.toLocaleString()}</span>
                                         </div>
                                         <div>
                                             <span className="text-muted-foreground">Target: </span>

@@ -116,7 +116,11 @@
     --chart-3-blue: var(--color-blue-600);
     --chart-4-blue: var(--color-blue-700);
     --chart-5-blue: var(--color-blue-800);
-
+    --chart-1-red: var(--color-red-300);
+    --chart-2-red: var(--color-red-500);
+    --chart-3-red: var(--color-red-600);
+    --chart-4-red: var(--color-red-700);
+    --chart-5-red: var(--color-red-800);
 
 
     --radius: 0.625rem;
