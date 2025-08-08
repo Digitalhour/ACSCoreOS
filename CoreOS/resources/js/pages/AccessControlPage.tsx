@@ -1,6 +1,6 @@
 import React, {useEffect, useMemo, useState} from 'react';
 import {Button} from '@/components/ui/button';
-import {Head, useForm} from '@inertiajs/react';
+import {Head, router, useForm} from '@inertiajs/react';
 import {Card, CardContent} from '@/components/ui/card';
 import {Input} from '@/components/ui/input';
 import {Badge} from '@/components/ui/badge';
@@ -117,6 +117,7 @@ export default function AccessControlPage({
     const [expandedGroups, setExpandedGroups] = useState<{ [key: string]: boolean }>({});
     const [hasRolePermChanges, setHasRolePermChanges] = useState(false);
     const [hasUserRoleChanges, setHasUserRoleChanges] = useState(false);
+    const [isProcessing, setIsProcessing] = useState(false);
 
     // Modal states
     const [permissionModal, setPermissionModal] = useState({
@@ -163,14 +164,6 @@ export default function AccessControlPage({
     });
 
     // Forms
-    const { setData: setRolePermData, post: postRolePerm, processing: rolePermProcessing } = useForm({
-        matrix: rolePermissionMatrix
-    });
-
-    const { setData: setUserRoleData, post: postUserRole, processing: userRoleProcessing } = useForm({
-        matrix: userRoleMatrix
-    });
-
     const { data: permissionData, setData: setPermissionData, post: postPermission, put: putPermission, delete: deletePermission, processing: permissionProcessing, reset: resetPermission, errors: permissionErrors } = useForm({ name: '' });
 
     const { data: roleData, setData: setRoleData, post: postRole, put: putRole, delete: deleteRole, processing: roleProcessing, reset: resetRole, errors: roleErrors } = useForm({ name: '' });
@@ -365,29 +358,43 @@ export default function AccessControlPage({
         });
     };
 
-    // Save functions
+    // Save functions using router
     const saveRolePermissions = () => {
-        setRolePermData('matrix', rolePermissionMatrix);
-        postRolePerm('/access-control/role-permissions', {
-            onSuccess: () => {
-                toast.success('Role permissions updated successfully!');
-                setHasRolePermChanges(false);
-            },
-            onError: () => toast.error('Failed to update permissions'),
-            preserveScroll: true,
-        });
+        setIsProcessing(true);
+        router.post('/access-control/role-permissions',
+            { matrix: rolePermissionMatrix },
+            {
+                onSuccess: () => {
+                    toast.success('Role permissions updated successfully!');
+                    setHasRolePermChanges(false);
+                    setIsProcessing(false);
+                },
+                onError: () => {
+                    toast.error('Failed to update permissions');
+                    setIsProcessing(false);
+                },
+                preserveScroll: true,
+            }
+        );
     };
 
     const saveUserRoles = () => {
-        setUserRoleData('matrix', userRoleMatrix);
-        postUserRole('/access-control/user-roles', {
-            onSuccess: () => {
-                toast.success('User roles updated successfully!');
-                setHasUserRoleChanges(false);
-            },
-            onError: () => toast.error('Failed to update user roles'),
-            preserveScroll: true,
-        });
+        setIsProcessing(true);
+        router.post('/access-control/user-roles',
+            { matrix: userRoleMatrix },
+            {
+                onSuccess: () => {
+                    toast.success('User roles updated successfully!');
+                    setHasUserRoleChanges(false);
+                    setIsProcessing(false);
+                },
+                onError: () => {
+                    toast.error('Failed to update user roles');
+                    setIsProcessing(false);
+                },
+                preserveScroll: true,
+            }
+        );
     };
 
     // Get permissions user has through roles
@@ -572,7 +579,7 @@ export default function AccessControlPage({
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Access Control Management" />
-            <div className="flex  flex-col gap-4 rounded-xl p-2 sm:p-4">
+            <div className="flex flex-col gap-4 rounded-xl p-2 sm:p-4">
                 <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
                     <TabsList className="grid w-full grid-cols-2">
                         <TabsTrigger value="role-permissions">Role Permissions</TabsTrigger>
@@ -622,31 +629,31 @@ export default function AccessControlPage({
                                         Reset
                                     </Button>
                                 )}
-                                <Button onClick={saveRolePermissions} disabled={!hasRolePermChanges || rolePermProcessing} variant="secondary">
+                                <Button onClick={saveRolePermissions} disabled={!hasRolePermChanges || isProcessing} variant="secondary">
                                     <Save className="h-4 w-4 mr-2" />
-                                    {rolePermProcessing ? 'Saving...' : 'Save Changes'}
+                                    {isProcessing ? 'Saving...' : 'Save Changes'}
                                 </Button>
                             </div>
                         </div>
+
                         {/* Stats Cards */}
                         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
                             <div className="text-center">
-                                <p className="text-lg font-bold ">{rolePermStats.totalCategories}</p>
+                                <p className="text-lg font-bold">{rolePermStats.totalCategories}</p>
                                 <p className="text-xs text-muted-foreground">Categories</p>
                             </div>
                             <div className="text-center">
-                                <p className="text-lg font-bold ">{rolePermStats.totalPermissions}</p>
+                                <p className="text-lg font-bold">{rolePermStats.totalPermissions}</p>
                                 <p className="text-xs text-muted-foreground">Permissions</p>
                             </div>
                             <div className="text-center">
-                                <p className="text-lg font-bold ">{rolePermStats.totalRoles}</p>
+                                <p className="text-lg font-bold">{rolePermStats.totalRoles}</p>
                                 <p className="text-xs text-muted-foreground">Roles</p>
                             </div>
                             <div className="text-center">
-                                <p className="text-lg font-bold ">{rolePermStats.totalAssignments}</p>
+                                <p className="text-lg font-bold">{rolePermStats.totalAssignments}</p>
                                 <p className="text-xs text-muted-foreground">Assignments</p>
                             </div>
-
                         </div>
 
                         {/* Search */}
@@ -657,7 +664,7 @@ export default function AccessControlPage({
                             </div>
                         </div>
 
-                        {/* Role-Permission Matrix - CONVERTED TO TABLE */}
+                        {/* Role-Permission Matrix */}
                         <Card>
                             <CardContent className="p-0">
                                 <div className="overflow-x-auto">
@@ -692,7 +699,7 @@ export default function AccessControlPage({
                                             ))}
                                         </tr>
                                         </thead>
-                                        <tbody className="bg-background divide-y divide-gray-200 ">
+                                        <tbody className="bg-background divide-y divide-gray-200">
                                         {filteredCategories.map(category => (
                                             <React.Fragment key={category.name}>
                                                 <tr className="bg-muted/20">
@@ -724,7 +731,7 @@ export default function AccessControlPage({
                                                                     <DropdownMenuItem onClick={() => openEditPermissionModal(permission)}>
                                                                         <Edit className="h-3 w-3 mr-2" />Edit
                                                                     </DropdownMenuItem>
-                                                                    <DropdownMenuItem onClick={() => openDeleteDialog('permission', permission)} variant={"destructive"}>
+                                                                    <DropdownMenuItem onClick={() => openDeleteDialog('permission', permission)} className="text-red-600">
                                                                         <Trash2 className="h-3 w-3 mr-2" />Delete
                                                                     </DropdownMenuItem>
                                                                 </DropdownMenuContent>
@@ -784,9 +791,9 @@ export default function AccessControlPage({
                                     <Download className="h-4 w-4 mr-2" />
                                     Export
                                 </Button>
-                                <Button onClick={saveUserRoles} disabled={!hasUserRoleChanges || userRoleProcessing} variant={"secondary"}>
+                                <Button onClick={saveUserRoles} disabled={!hasUserRoleChanges || isProcessing} variant="secondary">
                                     <Save className="h-4 w-4 mr-2" />
-                                    {userRoleProcessing ? 'Saving...' : 'Save Changes'}
+                                    {isProcessing ? 'Saving...' : 'Save Changes'}
                                 </Button>
                             </div>
                         </div>
@@ -794,23 +801,23 @@ export default function AccessControlPage({
                         {/* Stats Cards */}
                         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
                             <div className="text-center">
-                                <p className="text-lg font-bold ">{userRoleStats.totalGroups}</p>
+                                <p className="text-lg font-bold">{userRoleStats.totalGroups}</p>
                                 <p className="text-xs text-muted-foreground">Groups</p>
                             </div>
                             <div className="text-center">
-                                <p className="text-lg font-bold ">{userRoleStats.totalUsers}</p>
+                                <p className="text-lg font-bold">{userRoleStats.totalUsers}</p>
                                 <p className="text-xs text-muted-foreground">Users</p>
                             </div>
                             <div className="text-center">
-                                <p className="text-lg font-bold ">{userRoleStats.totalRoles}</p>
+                                <p className="text-lg font-bold">{userRoleStats.totalRoles}</p>
                                 <p className="text-xs text-muted-foreground">Roles</p>
                             </div>
                             <div className="text-center">
-                                <p className="text-lg font-bold ">{userRoleStats.totalAssignments}</p>
+                                <p className="text-lg font-bold">{userRoleStats.totalAssignments}</p>
                                 <p className="text-xs text-muted-foreground">Assignments</p>
                             </div>
                             <div className="text-center">
-                                <p className="text-lg font-bold ">{userRoleStats.usersWithRoles}</p>
+                                <p className="text-lg font-bold">{userRoleStats.usersWithRoles}</p>
                                 <p className="text-xs text-muted-foreground">With Roles</p>
                             </div>
                         </div>
@@ -823,7 +830,7 @@ export default function AccessControlPage({
                             </div>
                         </div>
 
-                        {/* User-Role Matrix - CONVERTED TO TABLE */}
+                        {/* User-Role Matrix */}
                         <Card>
                             <CardContent className="p-0">
                                 <div className="overflow-x-auto">
@@ -841,7 +848,7 @@ export default function AccessControlPage({
                                             ))}
                                         </tr>
                                         </thead>
-                                        <tbody className=" divide-y divide-gray-200">
+                                        <tbody className="divide-y divide-gray-200">
                                         {filteredGroups.map(group => (
                                             <React.Fragment key={group.name}>
                                                 <tr className="bg-muted/20">
@@ -908,7 +915,7 @@ export default function AccessControlPage({
                                     <div className="text-sm text-orange-800 dark:text-orange-200">
                                         You have unsaved changes
                                     </div>
-                                    <Button size="sm" onClick={activeTab === 'role-permissions' ? saveRolePermissions : saveUserRoles} disabled={activeTab === 'role-permissions' ? rolePermProcessing : userRoleProcessing} className="bg-orange-600 hover:bg-orange-700">
+                                    <Button size="sm" onClick={activeTab === 'role-permissions' ? saveRolePermissions : saveUserRoles} disabled={isProcessing} className="bg-orange-600 hover:bg-orange-700">
                                         <Save className="h-3 w-3 mr-1" />
                                         Save
                                     </Button>
@@ -949,7 +956,7 @@ export default function AccessControlPage({
                                                             checked={hasFromRole || isDirectlyAssigned}
                                                             disabled={hasFromRole}
                                                             onCheckedChange={(checked) => {
-                                                                if (hasFromRole) return; // Prevent changes if permission comes from role
+                                                                if (hasFromRole) return;
 
                                                                 const newPermissions = checked
                                                                     ? [...userPermData.permissions, permission.id.toString()]
