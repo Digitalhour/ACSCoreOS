@@ -42,6 +42,7 @@ import {
 import {toast} from 'sonner';
 import AppLayout from '@/layouts/app-layout';
 
+// Interface definitions
 interface Permission {
     id: number | string;
     name: string;
@@ -571,103 +572,148 @@ export default function AccessControlPage({
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Access Control Management" />
-                <div className="flex h-full max-h-screen flex-col gap-4 rounded-xl p-2 sm:p-4">
-                    <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-                        <TabsList className="grid w-full grid-cols-2">
-                            <TabsTrigger value="role-permissions">Role Permissions</TabsTrigger>
-                            <TabsTrigger value="user-roles">User Roles</TabsTrigger>
-                        </TabsList>
+            <div className="flex  flex-col gap-4 rounded-xl p-2 sm:p-4">
+                <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+                    <TabsList className="grid w-full grid-cols-2">
+                        <TabsTrigger value="role-permissions">Role Permissions</TabsTrigger>
+                        <TabsTrigger value="user-roles">User Roles</TabsTrigger>
+                    </TabsList>
 
-                        {/* Role-Permission Matrix Tab */}
-                        <TabsContent value="role-permissions" className="space-y-2">
-                            {/* Header */}
-                            <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-2">
-                                    <Button variant="outline" size="sm" onClick={() => setExpandedCategories({})}>
-                                        Expand All
-                                    </Button>
+                    {/* Role-Permission Matrix Tab */}
+                    <TabsContent value="role-permissions" className="space-y-2">
+                        {/* Header */}
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                                <Button variant="outline" size="sm" onClick={() => setExpandedCategories({})}>
+                                    Expand All
+                                </Button>
+                                <Button variant="outline" size="sm" onClick={() => {
+                                    const collapsed: { [key: string]: boolean } = {};
+                                    permissionCategories.forEach(cat => collapsed[cat.name] = false);
+                                    setExpandedCategories(collapsed);
+                                }}>
+                                    Collapse All
+                                </Button>
+                            </div>
+
+                            <div className="flex items-center gap-2">
+                                <Button variant="outline" size="sm" onClick={openCreatePermissionModal}>
+                                    <Plus className="h-4 w-4 mr-2" />
+                                    Add Permission
+                                </Button>
+                                <Button variant="outline" size="sm" onClick={openCreateRoleModal}>
+                                    <Plus className="h-4 w-4 mr-2" />
+                                    Add Role
+                                </Button>
+                                {hasRolePermChanges && (
                                     <Button variant="outline" size="sm" onClick={() => {
-                                        const collapsed: { [key: string]: boolean } = {};
-                                        permissionCategories.forEach(cat => collapsed[cat.name] = false);
-                                        setExpandedCategories(collapsed);
-                                    }}>
-                                        Collapse All
-                                    </Button>
-                                </div>
-
-                                <div className="flex items-center gap-2">
-                                    <Button variant="outline" size="sm" onClick={openCreatePermissionModal}>
-                                        <Plus className="h-4 w-4 mr-2" />
-                                        Add Permission
-                                    </Button>
-                                    <Button variant="outline" size="sm" onClick={openCreateRoleModal}>
-                                        <Plus className="h-4 w-4 mr-2" />
-                                        Add Role
-                                    </Button>
-                                    {hasRolePermChanges && (
-                                        <Button variant="outline" size="sm" onClick={() => {
-                                            // Reset to original state
-                                            const originalMatrix: RolePermissionMatrix = {};
-                                            initialRoles.forEach(role => {
-                                                originalMatrix[role.id] = {};
-                                                initialPermissions.forEach(permission => {
-                                                    originalMatrix[role.id][permission.id] = role.permissions?.some(p => p.id === permission.id) || false;
-                                                });
+                                        // Reset to original state
+                                        const originalMatrix: RolePermissionMatrix = {};
+                                        initialRoles.forEach(role => {
+                                            originalMatrix[role.id] = {};
+                                            initialPermissions.forEach(permission => {
+                                                originalMatrix[role.id][permission.id] = role.permissions?.some(p => p.id === permission.id) || false;
                                             });
-                                            setRolePermissionMatrix(originalMatrix);
-                                            setHasRolePermChanges(false);
-                                        }}>
-                                            <RotateCcw className="h-4 w-4 mr-2" />
-                                            Reset
-                                        </Button>
-                                    )}
-                                    <Button onClick={saveRolePermissions} disabled={!hasRolePermChanges || rolePermProcessing} variant="secondary">
-                                        <Save className="h-4 w-4 mr-2" />
-                                        {rolePermProcessing ? 'Saving...' : 'Save Changes'}
+                                        });
+                                        setRolePermissionMatrix(originalMatrix);
+                                        setHasRolePermChanges(false);
+                                    }}>
+                                        <RotateCcw className="h-4 w-4 mr-2" />
+                                        Reset
                                     </Button>
-                                </div>
+                                )}
+                                <Button onClick={saveRolePermissions} disabled={!hasRolePermChanges || rolePermProcessing} variant="secondary">
+                                    <Save className="h-4 w-4 mr-2" />
+                                    {rolePermProcessing ? 'Saving...' : 'Save Changes'}
+                                </Button>
                             </div>
-                            {/* Stats Cards */}
-                            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-                               <div className="text-center">
-                                   <p className="text-lg font-bold ">{rolePermStats.totalCategories}</p>
-                                   <p className="text-xs text-muted-foreground">Categories</p>
-                               </div>
-                              <div className="text-center">
-                                  <p className="text-lg font-bold ">{rolePermStats.totalPermissions}</p>
-                                  <p className="text-xs text-muted-foreground">Permissions</p>
-                              </div>
-                                <div className="text-center">
-                                    <p className="text-lg font-bold ">{rolePermStats.totalRoles}</p>
-                                    <p className="text-xs text-muted-foreground">Roles</p>
-                                </div>
-                               <div className="text-center">
-                                   <p className="text-lg font-bold ">{rolePermStats.totalAssignments}</p>
-                                   <p className="text-xs text-muted-foreground">Assignments</p>
-                               </div>
-
+                        </div>
+                        {/* Stats Cards */}
+                        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+                            <div className="text-center">
+                                <p className="text-lg font-bold ">{rolePermStats.totalCategories}</p>
+                                <p className="text-xs text-muted-foreground">Categories</p>
                             </div>
-
-                            {/* Search */}
-                            <div className="flex gap-4">
-                                <div className="flex-1 relative">
-                                    <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                                    <Input placeholder="Search permissions and categories..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-10" />
-                                </div>
+                            <div className="text-center">
+                                <p className="text-lg font-bold ">{rolePermStats.totalPermissions}</p>
+                                <p className="text-xs text-muted-foreground">Permissions</p>
+                            </div>
+                            <div className="text-center">
+                                <p className="text-lg font-bold ">{rolePermStats.totalRoles}</p>
+                                <p className="text-xs text-muted-foreground">Roles</p>
+                            </div>
+                            <div className="text-center">
+                                <p className="text-lg font-bold ">{rolePermStats.totalAssignments}</p>
+                                <p className="text-xs text-muted-foreground">Assignments</p>
                             </div>
 
-                            {/* Role-Permission Matrix */}
-                            <Card>
-                                <CardContent className="p-0">
-                                    <div className="overflow-x-auto">
-                                        <div className="min-w-full">
-                                            {/* Header Row */}
-                                            <div className="flex border-b bg-muted/30">
-                                                <div className="w-80 p-4 font-medium border-r bg-background">Permissions</div>
-                                                {initialRoles.map(role => (
-                                                    <div key={role.id} className="w-40 p-4 text-center border-r bg-background">
-                                                        <div className="flex items-center justify-center gap-1 mb-2">
-                                                            <span className="font-medium text-sm">{role.name}</span>
+                        </div>
+
+                        {/* Search */}
+                        <div className="flex gap-4">
+                            <div className="flex-1 relative">
+                                <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                                <Input placeholder="Search permissions and categories..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-10" />
+                            </div>
+                        </div>
+
+                        {/* Role-Permission Matrix - CONVERTED TO TABLE */}
+                        <Card>
+                            <CardContent className="p-0">
+                                <div className="overflow-x-auto">
+                                    <table className="min-w-full divide-y divide-gray-200">
+                                        <thead className="bg-muted/30 sticky top-0 z-20">
+                                        <tr>
+                                            <th className="sticky left-0 bg-background w-80 p-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r z-30">
+                                                Permissions
+                                            </th>
+                                            {initialRoles.map(role => (
+                                                <th key={role.id} className="w-40 p-4 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-r bg-muted/30">
+                                                    <div className="flex items-center justify-center gap-1 mb-2">
+                                                        <span className="font-medium text-sm truncate" title={role.name}>{role.name}</span>
+                                                        <DropdownMenu>
+                                                            <DropdownMenuTrigger asChild>
+                                                                <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
+                                                                    <MoreVertical className="h-3 w-3" />
+                                                                </Button>
+                                                            </DropdownMenuTrigger>
+                                                            <DropdownMenuContent>
+                                                                <DropdownMenuItem onClick={() => openEditRoleModal(role)}>
+                                                                    <Edit className="h-3 w-3 mr-2" />Edit
+                                                                </DropdownMenuItem>
+                                                                <DropdownMenuItem onClick={() => openDeleteDialog('role', role)} className="text-red-600">
+                                                                    <Trash2 className="h-3 w-3 mr-2" />Delete
+                                                                </DropdownMenuItem>
+                                                            </DropdownMenuContent>
+                                                        </DropdownMenu>
+                                                    </div>
+                                                    <Checkbox checked={initialPermissions.every(p => rolePermissionMatrix[role.id]?.[p.id])} onCheckedChange={(checked) => toggleAllForRole(role.id, checked as boolean)} />
+                                                </th>
+                                            ))}
+                                        </tr>
+                                        </thead>
+                                        <tbody className="bg-background divide-y divide-gray-200 ">
+                                        {filteredCategories.map(category => (
+                                            <React.Fragment key={category.name}>
+                                                <tr className="bg-muted/20">
+                                                    <td className="sticky left-0 bg-muted w-80 p-3 border-r cursor-pointer hover:bg-muted/80 flex items-center gap-2 z-20" onClick={() => toggleCategory(category.name)}>
+                                                        {category.expanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                                                        <span className="font-medium">{category.name}</span>
+                                                        <Badge variant="outline" className="ml-auto">{category.permissions.length}</Badge>
+                                                    </td>
+                                                    {initialRoles.map(role => {
+                                                        const status = getCategoryStatus(category.name, role.id);
+                                                        return (
+                                                            <td key={role.id} className="w-40 p-3 text-center border-r">
+                                                                <Checkbox checked={status.indeterminate ? 'indeterminate' : status.checked} onCheckedChange={(checked) => toggleAllInCategory(category.name, role.id, Boolean(checked))} />
+                                                            </td>
+                                                        );
+                                                    })}
+                                                </tr>
+                                                {category.expanded && category.permissions.map(permission => (
+                                                    <tr key={permission.id} className="hover:bg-muted/30">
+                                                        <td className="sticky left-0 bg-background w-80 p-3 border-r pl-8 flex items-center justify-between z-20">
+                                                            <span className="text-sm">{permission.name.split('-').slice(1).join('-') || permission.name}</span>
                                                             <DropdownMenu>
                                                                 <DropdownMenuTrigger asChild>
                                                                     <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
@@ -675,393 +721,352 @@ export default function AccessControlPage({
                                                                     </Button>
                                                                 </DropdownMenuTrigger>
                                                                 <DropdownMenuContent>
-                                                                    <DropdownMenuItem onClick={() => openEditRoleModal(role)}>
+                                                                    <DropdownMenuItem onClick={() => openEditPermissionModal(permission)}>
                                                                         <Edit className="h-3 w-3 mr-2" />Edit
                                                                     </DropdownMenuItem>
-                                                                    <DropdownMenuItem onClick={() => openDeleteDialog('role', role)} className="text-red-600">
+                                                                    <DropdownMenuItem onClick={() => openDeleteDialog('permission', permission)} variant={"destructive"}>
                                                                         <Trash2 className="h-3 w-3 mr-2" />Delete
                                                                     </DropdownMenuItem>
                                                                 </DropdownMenuContent>
                                                             </DropdownMenu>
-                                                        </div>
-                                                        <Checkbox checked={initialPermissions.every(p => rolePermissionMatrix[role.id]?.[p.id])} onCheckedChange={(checked) => toggleAllForRole(role.id, checked as boolean)} />
-                                                    </div>
+                                                        </td>
+                                                        {initialRoles.map(role => (
+                                                            <td key={role.id} className="w-40 p-3 text-center border-r">
+                                                                <Checkbox checked={rolePermissionMatrix[role.id]?.[permission.id] || false} onCheckedChange={() => togglePermission(role.id, permission.id)} />
+                                                            </td>
+                                                        ))}
+                                                    </tr>
                                                 ))}
-                                            </div>
+                                            </React.Fragment>
+                                        ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    </TabsContent>
 
-                                            {/* Categories and Permissions */}
-                                            {filteredCategories.map(category => (
-                                                <div key={category.name}>
-                                                    <div className="flex border-b bg-muted/20">
-                                                        <div className="w-80 p-3 border-r cursor-pointer hover:bg-muted/40 flex items-center gap-2" onClick={() => toggleCategory(category.name)}>
-                                                            {category.expanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-                                                            <span className="font-medium">{category.name}</span>
-                                                            <Badge variant="outline" className="ml-auto">{category.permissions.length}</Badge>
-                                                        </div>
-                                                        {initialRoles.map(role => {
-                                                            const status = getCategoryStatus(category.name, role.id);
-                                                            return (
-                                                                <div key={role.id} className="w-40 p-3 text-center border-r">
-                                                                    <Checkbox checked={status.indeterminate ? 'indeterminate' : status.checked} onCheckedChange={(checked) => toggleAllInCategory(category.name, role.id, Boolean(checked))} />
-                                                                </div>
-                                                            );
-                                                        })}
-                                                    </div>
+                    {/* User-Role Matrix Tab */}
+                    <TabsContent value="user-roles" className="space-y-4">
+                        {/* Header */}
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                                <Button variant="outline" size="sm" onClick={() => setExpandedGroups({})}>
+                                    Expand All
+                                </Button>
+                                <Button variant="outline" size="sm" onClick={() => {
+                                    const collapsed: { [key: string]: boolean } = {};
+                                    userGroups.forEach(group => collapsed[group.name] = false);
+                                    setExpandedGroups(collapsed);
+                                }}>
+                                    Collapse All
+                                </Button>
+                            </div>
 
-                                                    {category.expanded && category.permissions.map(permission => (
-                                                        <div key={permission.id} className="flex border-b hover:bg-muted/30">
-                                                            <div className="w-80 p-3 border-r pl-8 flex items-center justify-between">
-                                                                <span className="text-sm">{permission.name.split('-').slice(1).join('-') || permission.name}</span>
-                                                                <DropdownMenu>
-                                                                    <DropdownMenuTrigger asChild>
-                                                                        <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
-                                                                            <MoreVertical className="h-3 w-3" />
-                                                                        </Button>
-                                                                    </DropdownMenuTrigger>
-                                                                    <DropdownMenuContent>
-                                                                        <DropdownMenuItem onClick={() => openEditPermissionModal(permission)}>
-                                                                            <Edit className="h-3 w-3 mr-2" />Edit
-                                                                        </DropdownMenuItem>
-                                                                        <DropdownMenuItem onClick={() => openDeleteDialog('permission', permission)} variant={"destructive"}>
-                                                                            <Trash2 className="h-3 w-3 mr-2" />Delete
-                                                                        </DropdownMenuItem>
-                                                                    </DropdownMenuContent>
-                                                                </DropdownMenu>
-                                                            </div>
-                                                            {initialRoles.map(role => (
-                                                                <div key={role.id} className="w-40 p-3 text-center border-r">
-                                                                    <Checkbox checked={rolePermissionMatrix[role.id]?.[permission.id] || false} onCheckedChange={() => togglePermission(role.id, permission.id)} />
-                                                                </div>
-                                                            ))}
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </div>
-                                </CardContent>
-                            </Card>
-                        </TabsContent>
-
-                        {/* User-Role Matrix Tab */}
-                        <TabsContent value="user-roles" className="space-y-4">
-                            {/* Header */}
-                            <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-2">
-                                    <Button variant="outline" size="sm" onClick={() => setExpandedGroups({})}>
-                                        Expand All
-                                    </Button>
+                            <div className="flex items-center gap-2">
+                                {hasUserRoleChanges && (
                                     <Button variant="outline" size="sm" onClick={() => {
-                                        const collapsed: { [key: string]: boolean } = {};
-                                        userGroups.forEach(group => collapsed[group.name] = false);
-                                        setExpandedGroups(collapsed);
-                                    }}>
-                                        Collapse All
-                                    </Button>
-                                </div>
-
-                                <div className="flex items-center gap-2">
-                                    {hasUserRoleChanges && (
-                                        <Button variant="outline" size="sm" onClick={() => {
-                                            const originalMatrix: UserRoleMatrix = {};
-                                            initialUsers.forEach(user => {
-                                                originalMatrix[user.id] = {};
-                                                initialRoles.forEach(role => {
-                                                    originalMatrix[user.id][role.id] = user.roles?.some(r => r.id === role.id) || false;
-                                                });
+                                        const originalMatrix: UserRoleMatrix = {};
+                                        initialUsers.forEach(user => {
+                                            originalMatrix[user.id] = {};
+                                            initialRoles.forEach(role => {
+                                                originalMatrix[user.id][role.id] = user.roles?.some(r => r.id === role.id) || false;
                                             });
-                                            setUserRoleMatrix(originalMatrix);
-                                            setHasUserRoleChanges(false);
-                                        }}>
-                                            <RotateCcw className="h-4 w-4 mr-2" />
-                                            Reset
-                                        </Button>
-                                    )}
-                                    <Button variant="outline" size="sm">
-                                        <Download className="h-4 w-4 mr-2" />
-                                        Export
+                                        });
+                                        setUserRoleMatrix(originalMatrix);
+                                        setHasUserRoleChanges(false);
+                                    }}>
+                                        <RotateCcw className="h-4 w-4 mr-2" />
+                                        Reset
                                     </Button>
-                                    <Button onClick={saveUserRoles} disabled={!hasUserRoleChanges || userRoleProcessing} variant={"secondary"}>
-                                        <Save className="h-4 w-4 mr-2" />
-                                        {userRoleProcessing ? 'Saving...' : 'Save Changes'}
-                                    </Button>
-                                </div>
+                                )}
+                                <Button variant="outline" size="sm">
+                                    <Download className="h-4 w-4 mr-2" />
+                                    Export
+                                </Button>
+                                <Button onClick={saveUserRoles} disabled={!hasUserRoleChanges || userRoleProcessing} variant={"secondary"}>
+                                    <Save className="h-4 w-4 mr-2" />
+                                    {userRoleProcessing ? 'Saving...' : 'Save Changes'}
+                                </Button>
                             </div>
-
-                            {/* Stats Cards */}
-                            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-                                <div className="text-center">
-                                    <p className="text-lg font-bold ">{userRoleStats.totalGroups}</p>
-                                    <p className="text-xs text-muted-foreground">Groups</p>
-                                </div>
-                               <div className="text-center">
-                                   <p className="text-lg font-bold ">{userRoleStats.totalUsers}</p>
-                                   <p className="text-xs text-muted-foreground">Users</p>
-                               </div>
-                                <div className="text-center">
-                                    <p className="text-lg font-bold ">{userRoleStats.totalRoles}</p>
-                                    <p className="text-xs text-muted-foreground">Roles</p>
-                                </div>
-                                <div className="text-center">
-                                    <p className="text-lg font-bold ">{userRoleStats.totalAssignments}</p>
-                                    <p className="text-xs text-muted-foreground">Assignments</p>
-                                </div>
-                                <div className="text-center">
-                                    <p className="text-lg font-bold ">{userRoleStats.usersWithRoles}</p>
-                                    <p className="text-xs text-muted-foreground">With Roles</p>
-                                </div>
-                            </div>
-
-                            {/* Search */}
-                            <div className="flex gap-4">
-                                <div className="flex-1 relative">
-                                    <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                                    <Input placeholder="Search users, emails, and departments..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-10" />
-                                </div>
-                            </div>
-
-                            {/* User-Role Matrix */}
-                            <Card>
-                                <CardContent className="p-0">
-                                    <div className="overflow-x-auto">
-                                        <div className="min-w-full">
-                                            {/* Header Row */}
-                                            <div className="flex border-b bg-muted/30">
-                                                <div className="w-80 p-4 font-medium border-r bg-background">Users</div>
-                                                {initialRoles.map(role => (
-                                                    <div key={role.id} className="w-38 p-4 text-center border-r bg-background">
-                                                        <div className="font-medium text-sm mb-2">{role.name}</div>
-                                                        <Checkbox checked={initialUsers.every(u => userRoleMatrix[u.id]?.[role.id])} onCheckedChange={(checked) => toggleAllForUserRole(role.id, checked as boolean)} />
-                                                    </div>
-                                                ))}
-                                            </div>
-
-                                            {/* User Groups */}
-                                            {filteredGroups.map(group => (
-                                                <div key={group.name}>
-                                                    <div className="flex border-b bg-muted/20">
-                                                        <div className="w-80 p-3 border-r cursor-pointer hover:bg-muted/40 flex items-center gap-2" onClick={() => toggleGroup(group.name)}>
-                                                            {group.expanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-                                                            <span className="font-medium">{group.name}</span>
-                                                            <Badge variant="outline" className="ml-auto">{group.users.length}</Badge>
-                                                        </div>
-                                                        {initialRoles.map(role => {
-                                                            const status = getGroupRoleStatus(group.name, role.id);
-                                                            return (
-                                                                <div key={role.id} className="w-38 p-3 text-center border-r">
-                                                                    <Checkbox checked={status.indeterminate ? 'indeterminate' : status.checked} onCheckedChange={(checked) => toggleAllInGroup(group.name, role.id, Boolean(checked))} />
-                                                                </div>
-                                                            );
-                                                        })}
-                                                    </div>
-
-                                                    {group.expanded && group.users.map(user => (
-                                                        <div key={user.id} className="flex border-b hover:bg-muted/30">
-                                                            <div className="w-80 p-3 border-r pl-8 flex items-center justify-between">
-                                                                <div className="flex items-center gap-2">
-                                                                    <div>
-                                                                        <div className="font-medium text-sm flex items-center gap-2">
-                                                                            {user.name}
-                                                                            <div className="flex gap-1">
-                                                                                <Badge variant="outline" className="text-xs">
-                                                                                    {user.roles?.length || 0}R
-                                                                                </Badge>
-                                                                                <Badge variant="secondary" className="text-xs">
-                                                                                    {user.direct_permissions?.length || 0}P
-                                                                                </Badge>
-                                                                            </div>
-                                                                        </div>
-                                                                        <div className="text-xs text-muted-foreground">{user.email}</div>
-                                                                    </div>
-                                                                    <Button variant="ghost" size="sm" onClick={() => openUserPermissionModal(user)} className="h-6 w-6 p-0">
-                                                                        <User className="h-3 w-3" />
-                                                                    </Button>
-                                                                </div>
-                                                            </div>
-                                                            {initialRoles.map(role => (
-                                                                <div key={role.id} className="w-38 p-3 text-center border-r">
-                                                                    <Checkbox checked={userRoleMatrix[user.id]?.[role.id] || false} onCheckedChange={() => toggleUserRole(user.id, role.id)} />
-                                                                </div>
-                                                            ))}
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </div>
-                                </CardContent>
-                            </Card>
-                        </TabsContent>
-                    </Tabs>
-
-                    {/* Save Reminders */}
-                    {(hasRolePermChanges || hasUserRoleChanges) && (
-                        <div className="fixed bottom-6 right-6 z-50">
-                            <Card className="border-orange-200 bg-orange-50 dark:bg-orange-950 dark:border-orange-800">
-                                <CardContent className="p-4">
-                                    <div className="flex items-center gap-3">
-                                        <div className="text-sm text-orange-800 dark:text-orange-200">
-                                            You have unsaved changes
-                                        </div>
-                                        <Button size="sm" onClick={activeTab === 'role-permissions' ? saveRolePermissions : saveUserRoles} disabled={activeTab === 'role-permissions' ? rolePermProcessing : userRoleProcessing} className="bg-orange-600 hover:bg-orange-700">
-                                            <Save className="h-3 w-3 mr-1" />
-                                            Save
-                                        </Button>
-                                    </div>
-                                </CardContent>
-                            </Card>
                         </div>
-                    )}
-                </div>
 
-                {/* User Permissions Modal */}
-                <Dialog open={userPermissionModal.open} onOpenChange={(open) => setUserPermissionModal({ open, user: null })}>
-                    <DialogContent className="max-w-2xl">
-                        <DialogHeader>
-                            <DialogTitle>Direct Permissions for {userPermissionModal.user?.name}</DialogTitle>
-                            <DialogDescription>
-                                Assign permissions directly to this user. Grayed out permissions are already granted through roles.
-                            </DialogDescription>
-                        </DialogHeader>
+                        {/* Stats Cards */}
+                        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+                            <div className="text-center">
+                                <p className="text-lg font-bold ">{userRoleStats.totalGroups}</p>
+                                <p className="text-xs text-muted-foreground">Groups</p>
+                            </div>
+                            <div className="text-center">
+                                <p className="text-lg font-bold ">{userRoleStats.totalUsers}</p>
+                                <p className="text-xs text-muted-foreground">Users</p>
+                            </div>
+                            <div className="text-center">
+                                <p className="text-lg font-bold ">{userRoleStats.totalRoles}</p>
+                                <p className="text-xs text-muted-foreground">Roles</p>
+                            </div>
+                            <div className="text-center">
+                                <p className="text-lg font-bold ">{userRoleStats.totalAssignments}</p>
+                                <p className="text-xs text-muted-foreground">Assignments</p>
+                            </div>
+                            <div className="text-center">
+                                <p className="text-lg font-bold ">{userRoleStats.usersWithRoles}</p>
+                                <p className="text-xs text-muted-foreground">With Roles</p>
+                            </div>
+                        </div>
 
-                        <form onSubmit={handleUpdateUserPermissions}>
-                            <div className="space-y-4 max-h-96 overflow-y-auto">
-                                {permissionCategories.map(category => {
-                                    const userRolePermissions = userPermissionModal.user ? getUserRolePermissions(userPermissionModal.user) : new Set<string>();
+                        {/* Search */}
+                        <div className="flex gap-4">
+                            <div className="flex-1 relative">
+                                <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                                <Input placeholder="Search users, emails, and departments..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-10" />
+                            </div>
+                        </div>
 
-                                    return (
-                                        <div key={category.name}>
-                                            <h4 className="font-medium mb-2">{category.name}</h4>
-                                            <div className="grid grid-cols-2 gap-2">
-                                                {category.permissions.map(permission => {
-                                                    const hasFromRole = userRolePermissions.has(permission.id.toString());
-                                                    const isDirectlyAssigned = userPermData.permissions.includes(permission.id.toString());
+                        {/* User-Role Matrix - CONVERTED TO TABLE */}
+                        <Card>
+                            <CardContent className="p-0">
+                                <div className="overflow-x-auto">
+                                    <table className="min-w-full divide-y divide-gray-200">
+                                        <thead className="bg-muted/30 sticky top-0 z-20">
+                                        <tr>
+                                            <th className="sticky left-0 bg-background w-80 p-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r z-30">
+                                                Users
+                                            </th>
+                                            {initialRoles.map(role => (
+                                                <th key={role.id} className="w-38 p-4 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-r bg-muted/30">
+                                                    <div className="font-medium text-sm mb-2 truncate" title={role.name}>{role.name}</div>
+                                                    <Checkbox checked={initialUsers.every(u => userRoleMatrix[u.id]?.[role.id])} onCheckedChange={(checked) => toggleAllForUserRole(role.id, checked as boolean)} />
+                                                </th>
+                                            ))}
+                                        </tr>
+                                        </thead>
+                                        <tbody className=" divide-y divide-gray-200">
+                                        {filteredGroups.map(group => (
+                                            <React.Fragment key={group.name}>
+                                                <tr className="bg-muted/20">
+                                                    <td className="sticky left-0 bg-muted w-80 p-3 border-r cursor-pointer hover:bg-muted/80 flex items-center gap-2 z-20" onClick={() => toggleGroup(group.name)}>
+                                                        {group.expanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                                                        <span className="font-medium">{group.name}</span>
+                                                        <Badge variant="outline" className="ml-auto">{group.users.length}</Badge>
+                                                    </td>
+                                                    {initialRoles.map(role => {
+                                                        const status = getGroupRoleStatus(group.name, role.id);
+                                                        return (
+                                                            <td key={role.id} className="w-38 p-3 text-center border-r">
+                                                                <Checkbox checked={status.indeterminate ? 'indeterminate' : status.checked} onCheckedChange={(checked) => toggleAllInGroup(group.name, role.id, Boolean(checked))} />
+                                                            </td>
+                                                        );
+                                                    })}
+                                                </tr>
+                                                {group.expanded && group.users.map(user => (
+                                                    <tr key={user.id} className="hover:bg-muted/30">
+                                                        <td className="sticky left-0 bg-background w-80 p-3 border-r pl-8 z-20">
+                                                            <div className="flex items-center gap-2">
+                                                                <div className="flex-1">
+                                                                    <div className="font-medium text-sm flex items-center gap-2">
+                                                                        {user.name}
+                                                                        <div className="flex gap-1">
+                                                                            <Badge variant="outline" className="text-xs">
+                                                                                {user.roles?.length || 0}R
+                                                                            </Badge>
+                                                                            <Badge variant="secondary" className="text-xs">
+                                                                                {user.direct_permissions?.length || 0}P
+                                                                            </Badge>
+                                                                        </div>
+                                                                    </div>
+                                                                    <div className="text-xs text-muted-foreground">{user.email}</div>
+                                                                </div>
+                                                                <Button variant="ghost" size="sm" onClick={() => openUserPermissionModal(user)} className="h-6 w-6 p-0">
+                                                                    <User className="h-3 w-3" />
+                                                                </Button>
+                                                            </div>
+                                                        </td>
+                                                        {initialRoles.map(role => (
+                                                            <td key={role.id} className="w-38 p-3 text-center border-r">
+                                                                <Checkbox checked={userRoleMatrix[user.id]?.[role.id] || false} onCheckedChange={() => toggleUserRole(user.id, role.id)} />
+                                                            </td>
+                                                        ))}
+                                                    </tr>
+                                                ))}
+                                            </React.Fragment>
+                                        ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    </TabsContent>
+                </Tabs>
 
-                                                    return (
-                                                        <div key={permission.id} className="flex items-center space-x-2">
-                                                            <Checkbox
-                                                                id={`perm-${permission.id}`}
-                                                                checked={hasFromRole || isDirectlyAssigned}
-                                                                disabled={hasFromRole}
-                                                                onCheckedChange={(checked) => {
-                                                                    if (hasFromRole) return; // Prevent changes if permission comes from role
+                {/* Save Reminders */}
+                {(hasRolePermChanges || hasUserRoleChanges) && (
+                    <div className="fixed bottom-6 right-6 z-50">
+                        <Card className="border-orange-200 bg-orange-50 dark:bg-orange-950 dark:border-orange-800">
+                            <CardContent className="p-4">
+                                <div className="flex items-center gap-3">
+                                    <div className="text-sm text-orange-800 dark:text-orange-200">
+                                        You have unsaved changes
+                                    </div>
+                                    <Button size="sm" onClick={activeTab === 'role-permissions' ? saveRolePermissions : saveUserRoles} disabled={activeTab === 'role-permissions' ? rolePermProcessing : userRoleProcessing} className="bg-orange-600 hover:bg-orange-700">
+                                        <Save className="h-3 w-3 mr-1" />
+                                        Save
+                                    </Button>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    </div>
+                )}
+            </div>
 
-                                                                    const newPermissions = checked
-                                                                        ? [...userPermData.permissions, permission.id.toString()]
-                                                                        : userPermData.permissions.filter(p => p !== permission.id.toString());
-                                                                    setUserPermData('permissions', newPermissions);
-                                                                }}
-                                                            />
-                                                            <Label
-                                                                htmlFor={`perm-${permission.id}`}
-                                                                className={`text-sm flex items-center gap-1 ${hasFromRole ? 'text-muted-foreground' : ''}`}
-                                                            >
-                                                                {permission.name.split('-').slice(1).join('-') || permission.name}
-                                                                {hasFromRole && (
-                                                                    <Badge variant="secondary" className="text-xs">
-                                                                        via role
-                                                                    </Badge>
-                                                                )}
-                                                            </Label>
-                                                        </div>
-                                                    );
-                                                })}
-                                            </div>
+            {/* User Permissions Modal */}
+            <Dialog open={userPermissionModal.open} onOpenChange={(open) => setUserPermissionModal({ open, user: null })}>
+                <DialogContent className="max-w-2xl">
+                    <DialogHeader>
+                        <DialogTitle>Direct Permissions for {userPermissionModal.user?.name}</DialogTitle>
+                        <DialogDescription>
+                            Assign permissions directly to this user. Grayed out permissions are already granted through roles.
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <form onSubmit={handleUpdateUserPermissions}>
+                        <div className="space-y-4 max-h-96 overflow-y-auto">
+                            {permissionCategories.map(category => {
+                                const userRolePermissions = userPermissionModal.user ? getUserRolePermissions(userPermissionModal.user) : new Set<string>();
+
+                                return (
+                                    <div key={category.name}>
+                                        <h4 className="font-medium mb-2">{category.name}</h4>
+                                        <div className="grid grid-cols-2 gap-2">
+                                            {category.permissions.map(permission => {
+                                                const hasFromRole = userRolePermissions.has(permission.id.toString());
+                                                const isDirectlyAssigned = userPermData.permissions.includes(permission.id.toString());
+
+                                                return (
+                                                    <div key={permission.id} className="flex items-center space-x-2">
+                                                        <Checkbox
+                                                            id={`perm-${permission.id}`}
+                                                            checked={hasFromRole || isDirectlyAssigned}
+                                                            disabled={hasFromRole}
+                                                            onCheckedChange={(checked) => {
+                                                                if (hasFromRole) return; // Prevent changes if permission comes from role
+
+                                                                const newPermissions = checked
+                                                                    ? [...userPermData.permissions, permission.id.toString()]
+                                                                    : userPermData.permissions.filter(p => p !== permission.id.toString());
+                                                                setUserPermData('permissions', newPermissions);
+                                                            }}
+                                                        />
+                                                        <Label
+                                                            htmlFor={`perm-${permission.id}`}
+                                                            className={`text-sm flex items-center gap-1 ${hasFromRole ? 'text-muted-foreground' : ''}`}
+                                                        >
+                                                            {permission.name.split('-').slice(1).join('-') || permission.name}
+                                                            {hasFromRole && (
+                                                                <Badge variant="secondary" className="text-xs">
+                                                                    via role
+                                                                </Badge>
+                                                            )}
+                                                        </Label>
+                                                    </div>
+                                                );
+                                            })}
                                         </div>
-                                    );
-                                })}
+                                    </div>
+                                );
+                            })}
+                        </div>
+
+                        <DialogFooter className="mt-6">
+                            <Button type="button" variant="outline" onClick={() => setUserPermissionModal({ open: false, user: null })}>
+                                Cancel
+                            </Button>
+                            <Button type="submit" disabled={userPermProcessing}>
+                                {userPermProcessing ? 'Updating...' : 'Update Permissions'}
+                            </Button>
+                        </DialogFooter>
+                    </form>
+                </DialogContent>
+            </Dialog>
+
+            {/* Permission Management Modal */}
+            <Dialog open={permissionModal.open} onOpenChange={() => setPermissionModal({ open: false, mode: 'create', permission: null })}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>{permissionModal.mode === 'create' ? 'Create Permission' : 'Edit Permission'}</DialogTitle>
+                        <DialogDescription>
+                            {permissionModal.mode === 'create'
+                                ? 'Create a new permission. Use format "Category-Action" (e.g., "User-Create", "Report-Export").'
+                                : 'Update the permission name.'
+                            }
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <form onSubmit={permissionModal.mode === 'create' ? handleCreatePermission : handleUpdatePermission}>
+                        <div className="space-y-4">
+                            <div>
+                                <Label htmlFor="permission-name">Permission Name</Label>
+                                <Input id="permission-name" placeholder="e.g., User-Create, Menu-Edit, Report-Export" value={permissionData.name} onChange={(e) => setPermissionData('name', e.target.value)} className={permissionErrors.name ? 'border-red-500' : ''} />
+                                {permissionErrors.name && <p className="text-sm text-red-500 mt-1">{permissionErrors.name}</p>}
                             </div>
+                        </div>
+                        <DialogFooter className="mt-6">
+                            <Button type="button" variant="outline" onClick={() => setPermissionModal({ open: false, mode: 'create', permission: null })}>Cancel</Button>
+                            <Button type="submit" disabled={permissionProcessing}>
+                                {permissionProcessing ? (permissionModal.mode === 'create' ? 'Creating...' : 'Updating...') : (permissionModal.mode === 'create' ? 'Create Permission' : 'Update Permission')}
+                            </Button>
+                        </DialogFooter>
+                    </form>
+                </DialogContent>
+            </Dialog>
 
-                            <DialogFooter className="mt-6">
-                                <Button type="button" variant="outline" onClick={() => setUserPermissionModal({ open: false, user: null })}>
-                                    Cancel
-                                </Button>
-                                <Button type="submit" disabled={userPermProcessing}>
-                                    {userPermProcessing ? 'Updating...' : 'Update Permissions'}
-                                </Button>
-                            </DialogFooter>
-                        </form>
-                    </DialogContent>
-                </Dialog>
+            {/* Role Management Modal */}
+            <Dialog open={roleModal.open} onOpenChange={() => setRoleModal({ open: false, mode: 'create', role: null })}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>{roleModal.mode === 'create' ? 'Create Role' : 'Edit Role'}</DialogTitle>
+                        <DialogDescription>
+                            {roleModal.mode === 'create' ? 'Create a new role that can be assigned to users.' : 'Update the role name.'}
+                        </DialogDescription>
+                    </DialogHeader>
 
-                {/* Permission Management Modal */}
-                <Dialog open={permissionModal.open} onOpenChange={() => setPermissionModal({ open: false, mode: 'create', permission: null })}>
-                    <DialogContent>
-                        <DialogHeader>
-                            <DialogTitle>{permissionModal.mode === 'create' ? 'Create Permission' : 'Edit Permission'}</DialogTitle>
-                            <DialogDescription>
-                                {permissionModal.mode === 'create'
-                                    ? 'Create a new permission. Use format "Category-Action" (e.g., "User-Create", "Report-Export").'
-                                    : 'Update the permission name.'
-                                }
-                            </DialogDescription>
-                        </DialogHeader>
-
-                        <form onSubmit={permissionModal.mode === 'create' ? handleCreatePermission : handleUpdatePermission}>
-                            <div className="space-y-4">
-                                <div>
-                                    <Label htmlFor="permission-name">Permission Name</Label>
-                                    <Input id="permission-name" placeholder="e.g., User-Create, Menu-Edit, Report-Export" value={permissionData.name} onChange={(e) => setPermissionData('name', e.target.value)} className={permissionErrors.name ? 'border-red-500' : ''} />
-                                    {permissionErrors.name && <p className="text-sm text-red-500 mt-1">{permissionErrors.name}</p>}
-                                </div>
+                    <form onSubmit={roleModal.mode === 'create' ? handleCreateRole : handleUpdateRole}>
+                        <div className="space-y-4">
+                            <div>
+                                <Label htmlFor="role-name">Role Name</Label>
+                                <Input id="role-name" placeholder="e.g., Administrator, Manager, Editor" value={roleData.name} onChange={(e) => setRoleData('name', e.target.value)} className={roleErrors.name ? 'border-red-500' : ''} />
+                                {roleErrors.name && <p className="text-sm text-red-500 mt-1">{roleErrors.name}</p>}
                             </div>
-                            <DialogFooter className="mt-6">
-                                <Button type="button" variant="outline" onClick={() => setPermissionModal({ open: false, mode: 'create', permission: null })}>Cancel</Button>
-                                <Button type="submit" disabled={permissionProcessing}>
-                                    {permissionProcessing ? (permissionModal.mode === 'create' ? 'Creating...' : 'Updating...') : (permissionModal.mode === 'create' ? 'Create Permission' : 'Update Permission')}
-                                </Button>
-                            </DialogFooter>
-                        </form>
-                    </DialogContent>
-                </Dialog>
+                        </div>
 
-                {/* Role Management Modal */}
-                <Dialog open={roleModal.open} onOpenChange={() => setRoleModal({ open: false, mode: 'create', role: null })}>
-                    <DialogContent>
-                        <DialogHeader>
-                            <DialogTitle>{roleModal.mode === 'create' ? 'Create Role' : 'Edit Role'}</DialogTitle>
-                            <DialogDescription>
-                                {roleModal.mode === 'create' ? 'Create a new role that can be assigned to users.' : 'Update the role name.'}
-                            </DialogDescription>
-                        </DialogHeader>
+                        <DialogFooter className="mt-6">
+                            <Button type="button" variant="outline" onClick={() => setRoleModal({ open: false, mode: 'create', role: null })}>Cancel</Button>
+                            <Button type="submit" disabled={roleProcessing}>
+                                {roleProcessing ? (roleModal.mode === 'create' ? 'Creating...' : 'Updating...') : (roleModal.mode === 'create' ? 'Create Role' : 'Update Role')}
+                            </Button>
+                        </DialogFooter>
+                    </form>
+                </DialogContent>
+            </Dialog>
 
-                        <form onSubmit={roleModal.mode === 'create' ? handleCreateRole : handleUpdateRole}>
-                            <div className="space-y-4">
-                                <div>
-                                    <Label htmlFor="role-name">Role Name</Label>
-                                    <Input id="role-name" placeholder="e.g., Administrator, Manager, Editor" value={roleData.name} onChange={(e) => setRoleData('name', e.target.value)} className={roleErrors.name ? 'border-red-500' : ''} />
-                                    {roleErrors.name && <p className="text-sm text-red-500 mt-1">{roleErrors.name}</p>}
-                                </div>
-                            </div>
-
-                            <DialogFooter className="mt-6">
-                                <Button type="button" variant="outline" onClick={() => setRoleModal({ open: false, mode: 'create', role: null })}>Cancel</Button>
-                                <Button type="submit" disabled={roleProcessing}>
-                                    {roleProcessing ? (roleModal.mode === 'create' ? 'Creating...' : 'Updating...') : (roleModal.mode === 'create' ? 'Create Role' : 'Update Role')}
-                                </Button>
-                            </DialogFooter>
-                        </form>
-                    </DialogContent>
-                </Dialog>
-
-                {/* Delete Dialog */}
-                <AlertDialog open={deleteDialog.open} onOpenChange={() => setDeleteDialog({ open: false, type: 'permission', item: null })}>
-                    <AlertDialogContent>
-                        <AlertDialogHeader>
-                            <AlertDialogTitle>Delete {deleteDialog.type === 'permission' ? 'Permission' : 'Role'}</AlertDialogTitle>
-                            <AlertDialogDescription>
-                                Are you sure you want to delete the {deleteDialog.type} "{deleteDialog.item?.name}"?
-                                This action cannot be undone and will remove this {deleteDialog.type} from all {deleteDialog.type === 'permission' ? 'roles' : 'users'}.
-                            </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                            <AlertDialogCancel onClick={() => setDeleteDialog({ open: false, type: 'permission', item: null })}>Cancel</AlertDialogCancel>
-                            <AlertDialogAction onClick={handleDelete} className="bg-red-600 hover:bg-red-700" disabled={permissionProcessing || roleProcessing}>
-                                {(permissionProcessing || roleProcessing) ? 'Deleting...' : `Delete ${deleteDialog.type === 'permission' ? 'Permission' : 'Role'}`}
-                            </AlertDialogAction>
-                        </AlertDialogFooter>
-                    </AlertDialogContent>
-                </AlertDialog>
+            {/* Delete Dialog */}
+            <AlertDialog open={deleteDialog.open} onOpenChange={() => setDeleteDialog({ open: false, type: 'permission', item: null })}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Delete {deleteDialog.type === 'permission' ? 'Permission' : 'Role'}</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Are you sure you want to delete the {deleteDialog.type} "{deleteDialog.item?.name}"?
+                            This action cannot be undone and will remove this {deleteDialog.type} from all {deleteDialog.type === 'permission' ? 'roles' : 'users'}.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel onClick={() => setDeleteDialog({ open: false, type: 'permission', item: null })}>Cancel</AlertDialogCancel>
+                        <AlertDialogAction onClick={handleDelete} className="bg-red-600 hover:bg-red-700" disabled={permissionProcessing || roleProcessing}>
+                            {(permissionProcessing || roleProcessing) ? 'Deleting...' : `Delete ${deleteDialog.type === 'permission' ? 'Permission' : 'Role'}`}
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </AppLayout>
     );
 }
