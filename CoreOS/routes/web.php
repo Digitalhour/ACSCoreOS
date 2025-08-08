@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\AccessControlController;
 use App\Http\Controllers\ActivityLogController;
 use App\Http\Controllers\Admin\PtoAdminController;
 use App\Http\Controllers\Api\PositionController;
@@ -23,10 +24,9 @@ Route::get('/', function () {
     return Inertia::render('welcome');
 })->name('home');
 
-Route::middleware([
-    'auth',
-    ValidateSessionWithWorkOS::class,
-])->group(function () {
+Route::middleware('auth')
+    ->middleware(ValidateSessionWithWorkOS::class)
+    ->group(function () {
 
     Route::get('dashboard', function () {
         $articles = BlogArticle::with(['user:id,name,email,avatar'])
@@ -556,6 +556,57 @@ Route::middleware([
         |--------------------------------------------------------------------------
         */
         // Main roles & permissions page
+//        Route::post('/roles-permissions/matrix', [RolePermissionController::class, 'updateMatrix'])->name('roles-permissions.matrix');
+//        Route::get('/api/search/permissions', [RolePermissionController::class, 'searchPermissions']);
+//        Route::get('/api/search/roles', [RolePermissionController::class, 'searchRoles']);
+//        Route::get('/api/search/users', [RolePermissionController::class, 'searchUsers']);
+//        Route::post('/bulk/assign-roles', [RolePermissionController::class, 'bulkAssignRoles']);
+//        Route::post('/bulk/assign-permissions', [RolePermissionController::class, 'bulkAssignPermissions']);
+//        Route::post('/sync-user-roles', [RolePermissionController::class, 'syncUserRoles']);
+//        Route::post('/sync-user-permissions', [RolePermissionController::class, 'syncUserDirectPermissions']);
+//
+//        // User-Role Matrix routes
+//        Route::get('/user-roles-matrix', [UserRoleMatrixController::class, 'index'])->name('user-roles-matrix.index');
+//        Route::post('/user-roles-matrix', [UserRoleMatrixController::class, 'updateMatrix'])->name('user-roles-matrix.update');
+//        Route::post('/users', [UserRoleMatrixController::class, 'storeUser'])->name('users.store');
+//        Route::post('/user-roles-matrix/bulk', [UserRoleMatrixController::class, 'bulkAssignRoles'])->name('user-roles-matrix.bulk');
+//        Route::get('/user-roles-matrix/export', [UserRoleMatrixController::class, 'export'])->name('user-roles-matrix.export');
+// Access Control Management - Combined System
+        Route::get('/access-control', [AccessControlController::class, 'index'])->name('access-control.index');
+
+// Matrix Updates
+        Route::post('/access-control/role-permissions', [AccessControlController::class, 'updateRolePermissionMatrix'])->name('access-control.role-permissions.update');
+        Route::post('/access-control/user-roles', [AccessControlController::class, 'updateUserRoleMatrix'])->name('access-control.user-roles.update');
+        Route::post('/access-control/user-permissions', [AccessControlController::class, 'updateUserPermissions'])->name('access-control.user-permissions.update');
+
+// Permission Management
+        Route::post('/access-control/permissions', [AccessControlController::class, 'storePermission'])->name('access-control.permissions.store');
+        Route::put('/access-control/permissions/{permission}', [AccessControlController::class, 'updatePermission'])->name('access-control.permissions.update');
+        Route::delete('/access-control/permissions/{permission}', [AccessControlController::class, 'destroyPermission'])->name('access-control.permissions.destroy');
+
+// Role Management
+        Route::post('/access-control/roles', [AccessControlController::class, 'storeRole'])->name('access-control.roles.store');
+        Route::put('/access-control/roles/{role}', [AccessControlController::class, 'updateRole'])->name('access-control.roles.update');
+        Route::delete('/access-control/roles/{role}', [AccessControlController::class, 'destroyRole'])->name('access-control.roles.destroy');
+
+// User Management
+        Route::post('/access-control/users', [AccessControlController::class, 'storeUser'])->name('access-control.users.store');
+
+// Search Endpoints
+        Route::get('/api/access-control/search/permissions', [AccessControlController::class, 'searchPermissions'])->name('access-control.search.permissions');
+        Route::get('/api/access-control/search/roles', [AccessControlController::class, 'searchRoles'])->name('access-control.search.roles');
+        Route::get('/api/access-control/search/users', [AccessControlController::class, 'searchUsers'])->name('access-control.search.users');
+
+// Bulk Operations
+        Route::post('/access-control/bulk/assign-roles', [AccessControlController::class, 'bulkAssignRoles'])->name('access-control.bulk.assign-roles');
+        Route::post('/access-control/bulk/assign-permissions', [AccessControlController::class, 'bulkAssignPermissions'])->name('access-control.bulk.assign-permissions');
+
+// Export
+        Route::get('/access-control/export', [AccessControlController::class, 'export'])->name('access-control.export');
+
+// Legacy route redirects (optional - for backward compatibility)
+        Route::redirect('/roles-permissions', '/access-control');
+        Route::redirect('/user-roles-matrix', '/access-control');
 
         /*
         |--------------------------------------------------------------------------

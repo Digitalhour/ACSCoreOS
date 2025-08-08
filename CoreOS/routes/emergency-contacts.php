@@ -3,10 +3,9 @@
 use App\Http\Controllers\Settings\EmergencyContactsController;
 use Laravel\WorkOS\Http\Middleware\ValidateSessionWithWorkOS;
 
-Route::middleware([
-    'auth',
-    ValidateSessionWithWorkOS::class,
-])->group(function () {
+Route::middleware('auth')
+    ->middleware(ValidateSessionWithWorkOS::class)
+    ->group(function () {
 
 /*
 *

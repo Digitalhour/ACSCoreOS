@@ -6,7 +6,9 @@ use Illuminate\Support\Facades\Route;
 use Laravel\WorkOS\Http\Middleware\ValidateSessionWithWorkOS;
 
 
-Route::middleware(['auth', ValidateSessionWithWorkOS::class,])->group(function () {
+Route::middleware('auth')
+    ->middleware(ValidateSessionWithWorkOS::class)
+    ->group(function () {
     Route::middleware(['permission:TrainingDashboard-view'])->group(function () {
 Route::get('/old-style-training-tracking', [OldStyleTrainingTrackingController::class, 'index'])
 ->name('old-style-training-tracking.index');

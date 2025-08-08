@@ -22,10 +22,9 @@ use App\Models\User;
 use Illuminate\Support\Facades\Route;
 use Laravel\WorkOS\Http\Middleware\ValidateSessionWithWorkOS;
 
-Route::middleware([
-'auth',
-ValidateSessionWithWorkOS::class,
-])->group(function () {
+Route::middleware('auth')
+    ->middleware(ValidateSessionWithWorkOS::class)
+    ->group(function () {
     Route::prefix('api')->name('api.')->group(function () {
         Route::get('/vibetrack/device/{vibetrack}', [VibetrackController::class, 'getVibetrackDeviceData'])->name('getVibetrackDeviceData');
 

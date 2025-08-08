@@ -26,7 +26,9 @@ use Laravel\WorkOS\Http\Middleware\ValidateSessionWithWorkOS;
 //use App\Http\Controllers\TrainingController;
 
 
-Route::middleware(['auth', ValidateSessionWithWorkOS::class,])->group(function () {
+Route::middleware('auth')
+    ->middleware(ValidateSessionWithWorkOS::class)
+    ->group(function () {
     Route::middleware(['role:Human Resources Employee|Developer'])->group(function () {
     Route::resource('holidays', HolidayController::class)->names('holidays');
     Route::get('/team', [Team::class, 'index'])->name('team.index');

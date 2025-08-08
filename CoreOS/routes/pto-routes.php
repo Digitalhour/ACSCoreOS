@@ -5,7 +5,9 @@ use App\Http\Controllers\EmployeePtoController;
 use Illuminate\Support\Facades\Route;
 use Laravel\WorkOS\Http\Middleware\ValidateSessionWithWorkOS;
 
-Route::middleware(['auth',ValidateSessionWithWorkOS::class,])->group(function () {
+Route::middleware('auth')
+    ->middleware(ValidateSessionWithWorkOS::class)
+    ->group(function () {
 
 
     Route::middleware(['permission:Manager-Department-Pto'])->group(function () {

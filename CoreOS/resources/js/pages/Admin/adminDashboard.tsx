@@ -246,6 +246,13 @@ const adminLinks: LinkCategory[] = [
                 icon: LayoutDashboardIcon,
                 description: 'Go to the Departments dashboard.',
             },
+            {
+                routeName: 'user-roles-matrix',
+                href: '/user-roles-matrix',
+                label: 'user-roles-matrix',
+                icon: LayoutDashboardIcon,
+                description: 'Go to the user-roles-matrix dashboard.',
+            },
         ],
     },
 ];

@@ -14,26 +14,143 @@ class RolePermissionController extends Controller
     {
         $users = User::with([
             'roles:id,name', 'permissions:id,name'
-        ]) // Eager load roles and direct permissions with only id and name
-        ->select('id', 'name')
+        ])
+            ->select('id', 'name')
             ->get()
             ->map(function ($user) {
-                // Spatie's `permissions` relationship on User model gets direct permissions.
-                // `getAllPermissions` gets all permissions (direct + via roles).
-                // For managing *direct* permissions, we want the `permissions` relationship.
-                $user->direct_permissions = $user->permissions->pluck('name'); // Get names of direct permissions
-                // Roles are already plucked if you define the relationship columns correctly as above
-                // If not, you might need: $user->roles = $user->roles->pluck('name');
+                $user->direct_permissions = $user->permissions->pluck('name');
                 return $user;
             });
 
-        return Inertia::render('RolesPermissionsPage', [
-            'permissions' => Permission::select('id', 'name')->get(), // Send all available permissions
-            'roles' => Role::with('permissions:id,name')->select('id', 'name')->get(), // Roles with their permissions
+        return Inertia::render('RoleMatrixPage', [
+            'permissions' => Permission::select('id', 'name')->orderBy('name')->get(),
+            'roles' => Role::with('permissions:id,name')->select('id', 'name')->orderBy('name')->get(),
             'users' => $users,
         ]);
     }
 
+    /**
+     * Update the role-permission matrix
+     */
+    public function updateMatrix(Request $request)
+    {
+        $validated = $request->validate([
+            'matrix' => 'required|array',
+            'matrix.*' => 'array',
+            'matrix.*.*' => 'boolean',
+        ]);
+
+        $matrix = $validated['matrix'];
+
+        try {
+            \DB::beginTransaction();
+
+            foreach ($matrix as $roleId => $permissions) {
+                $role = Role::findOrFail($roleId);
+
+                // Get permission IDs where value is true
+                $permissionIds = collect($permissions)
+                    ->filter(fn($assigned) => $assigned === true)
+                    ->keys()
+                    ->toArray();
+
+                // Sync permissions for this role
+                $role->permissions()->sync($permissionIds);
+            }
+
+            \DB::commit();
+
+            return redirect()->back()->with('success', 'Role permissions matrix updated successfully!');
+
+        } catch (\Exception $e) {
+            \DB::rollback();
+
+            return redirect()->back()->with('error', 'Failed to update permissions matrix: ' . $e->getMessage());
+        }
+    }
+
+    // Add search endpoints for large datasets
+    public function searchPermissions(Request $request)
+    {
+        $query = Permission::select('id', 'name');
+
+        if ($request->search) {
+            $query->where('name', 'like', '%' . $request->search . '%');
+        }
+
+        return response()->json([
+            'data' => $query->limit(50)->get()
+        ]);
+    }
+
+    public function searchRoles(Request $request)
+    {
+        $query = Role::with('permissions:id,name')->select('id', 'name');
+
+        if ($request->search) {
+            $query->where('name', 'like', '%' . $request->search . '%');
+        }
+
+        return response()->json([
+            'data' => $query->limit(50)->get()
+        ]);
+    }
+
+    public function searchUsers(Request $request)
+    {
+        $query = User::with(['roles:id,name', 'permissions:id,name'])
+            ->select('id', 'name');
+
+        if ($request->search) {
+            $query->where('name', 'like', '%' . $request->search . '%');
+        }
+
+        $users = $query->limit(50)->get()->map(function ($user) {
+            $user->direct_permissions = $user->permissions->pluck('name');
+            return $user;
+        });
+
+        return response()->json([
+            'data' => $users
+        ]);
+    }
+
+    // Bulk operations
+    public function bulkAssignRoles(Request $request)
+    {
+        $validated = $request->validate([
+            'user_ids' => 'required|array',
+            'user_ids.*' => 'exists:users,id',
+            'role_ids' => 'required|array',
+            'role_ids.*' => 'exists:roles,id',
+        ]);
+
+        foreach ($validated['user_ids'] as $userId) {
+            $user = User::findOrFail($userId);
+            $user->syncRoles($validated['role_ids']);
+        }
+
+        return redirect()->back()->with('success', 'Roles assigned to ' . count($validated['user_ids']) . ' users');
+    }
+
+    public function bulkAssignPermissions(Request $request)
+    {
+        $validated = $request->validate([
+            'role_ids' => 'required|array',
+            'role_ids.*' => 'exists:roles,id',
+            'permission_ids' => 'required|array',
+            'permission_ids.*' => 'exists:permissions,id',
+        ]);
+
+        foreach ($validated['role_ids'] as $roleId) {
+            $role = Role::findOrFail($roleId);
+            $role->permissions()->sync($validated['permission_ids']);
+        }
+
+        return redirect()->back()->with('success', 'Permissions assigned to ' . count($validated['role_ids']) . ' roles');
+    }
+
+    // Original methods remain the same
     public function storePermission(Request $request)
     {
         $validated = $request->validate([
@@ -41,8 +158,7 @@ class RolePermissionController extends Controller
         ]);
 
         Permission::create($validated);
-
-        return redirect()->back();
+        return redirect()->back()->with('success', 'Permission created successfully!');
     }
 
     public function updatePermission(Request $request, Permission $permission)
@@ -52,15 +168,21 @@ class RolePermissionController extends Controller
         ]);
 
         $permission->update($validated);
-
-        return redirect()->back();
+        return redirect()->back()->with('success', 'Permission updated successfully!');
     }
 
     public function destroyPermission(Permission $permission)
     {
-        $permission->delete();
+        // Remove permission from all roles first
+        $permission->roles()->detach();
 
-        return redirect()->back();
+        // Remove direct permission assignments from users
+        \DB::table('model_has_permissions')
+            ->where('permission_id', $permission->id)
+            ->delete();
+
+        $permission->delete();
+        return redirect()->back()->with('success', 'Permission deleted successfully!');
     }
 
     public function storeRole(Request $request)
@@ -69,13 +191,12 @@ class RolePermissionController extends Controller
             'name' => 'required|string|max:255|unique:roles,name',
         ]);
 
-        // Create with explicit guard_name
         Role::create([
             'name' => $validated['name'],
             'guard_name' => 'web'
         ]);
 
-        return redirect()->back();
+        return redirect()->back()->with('success', 'Role created successfully!');
     }
 
     public function updateRole(Request $request, Role $role)
@@ -84,24 +205,26 @@ class RolePermissionController extends Controller
             'name' => 'required|string|max:255|unique:roles,name,'.$role->id,
         ]);
 
-        // Update with explicit guard_name
         $role->update([
             'name' => $validated['name'],
             'guard_name' => 'web'
         ]);
 
-        return redirect()->back();
+        return redirect()->back()->with('success', 'Role updated successfully!');
     }
 
     public function destroyRole(Role $role)
     {
-        // First detach all permissions to avoid foreign key constraints
+        // Remove all permissions from role
         $role->permissions()->detach();
 
-        // Now safe to delete the role
-        $role->delete();
+        // Remove role from all users
+        \DB::table('model_has_roles')
+            ->where('role_id', $role->id)
+            ->delete();
 
-        return redirect()->back();
+        $role->delete();
+        return redirect()->back()->with('success', 'Role deleted successfully!');
     }
 
     public function updateRolePermissions(Request $request)
@@ -113,8 +236,6 @@ class RolePermissionController extends Controller
         ]);
 
         $role = Role::findOrFail($validated['role_id']);
-
-        // Sync permissions (will detach all existing and attach only the provided ones)
         $role->permissions()->sync($validated['permissions'] ?? []);
 
         return redirect()->back();
@@ -128,8 +249,6 @@ class RolePermissionController extends Controller
         ]);
 
         $user = User::findOrFail($validated['user_id']);
-
-        // Add the new role (if not already assigned)
         $user->roles()->syncWithoutDetaching([$validated['role_id']]);
 
         return redirect()->back();
@@ -144,7 +263,7 @@ class RolePermissionController extends Controller
         ]);
 
         $user = User::findOrFail($validated['user_id']);
-        $user->syncRoles($validated['roles']); // This syncs roles by ID or name
+        $user->syncRoles($validated['roles']);
 
         return redirect()->back()->with('success', 'User roles updated successfully!');
     }
@@ -153,19 +272,15 @@ class RolePermissionController extends Controller
     {
         $validated = $request->validate([
             'user_id' => 'required|exists:users,id',
-            'permissions' => 'present|array',      // 'present' ensures the key exists, even if empty array
-            'permissions.*' => 'exists:permissions,id', // Validate each item is an existing permission ID
+            'permissions' => 'present|array',
+            'permissions.*' => 'exists:permissions,id',
         ]);
 
         $user = User::findOrFail($validated['user_id']);
-
-        // Use syncPermissions to make the user's direct permissions exactly what's in the array.
-        // This will revoke any direct permissions not in $validated['permissions'] and assign new ones.
-        $user->syncPermissions($validated['permissions']); // Syncs by ID or name
+        $user->syncPermissions($validated['permissions']);
 
         return redirect()->back()->with('success', 'User direct permissions updated successfully!');
     }
-
 
     public function removeUserRole(Request $request)
     {
@@ -175,8 +290,6 @@ class RolePermissionController extends Controller
         ]);
 
         $user = User::findOrFail($validated['user_id']);
-
-        // Remove the specified role from user
         $user->roles()->detach($validated['role_id']);
 
         return redirect()->back();
