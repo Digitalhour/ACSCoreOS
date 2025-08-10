@@ -192,7 +192,7 @@ export default function AccessControlPage({
             .map(([name, perms]) => ({
                 name,
                 permissions: perms.sort((a, b) => a.name.localeCompare(b.name)),
-                expanded: expandedCategories[name] !== false
+                expanded: expandedCategories[name] === true
             }))
             .sort((a, b) => a.name.localeCompare(b.name));
     }, [initialPermissions, expandedCategories]);
@@ -210,7 +210,7 @@ export default function AccessControlPage({
             .map(([name, users]) => ({
                 name,
                 users: users.sort((a, b) => a.name.localeCompare(b.name)),
-                expanded: expandedGroups[name] !== false
+                expanded: expandedGroups[name] === true
             }))
             .sort((a, b) => a.name.localeCompare(b.name));
     }, [initialUsers, expandedGroups]);
@@ -591,16 +591,16 @@ export default function AccessControlPage({
                         {/* Header */}
                         <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2">
-                                <Button variant="outline" size="sm" onClick={() => setExpandedCategories({})}>
-                                    Expand All
-                                </Button>
-                                <Button variant="outline" size="sm" onClick={() => {
-                                    const collapsed: { [key: string]: boolean } = {};
-                                    permissionCategories.forEach(cat => collapsed[cat.name] = false);
-                                    setExpandedCategories(collapsed);
-                                }}>
-                                    Collapse All
-                                </Button>
+                                {/*<Button variant="outline" size="sm" onClick={() => setExpandedCategories({})}>*/}
+                                {/*    Expand All*/}
+                                {/*</Button>*/}
+                                {/*<Button variant="outline" size="sm" onClick={() => {*/}
+                                {/*    const collapsed: { [key: string]: boolean } = {};*/}
+                                {/*    permissionCategories.forEach(cat => collapsed[cat.name] = false);*/}
+                                {/*    setExpandedCategories(collapsed);*/}
+                                {/*}}>*/}
+                                {/*    Collapse All*/}
+                                {/*</Button>*/}
                             </div>
 
                             <div className="flex items-center gap-2">
