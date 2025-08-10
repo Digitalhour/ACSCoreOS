@@ -667,17 +667,17 @@ export default function AccessControlPage({
                         {/* Role-Permission Matrix */}
                         <Card>
                             <CardContent className="p-0">
-                                <div className="overflow-x-auto">
+                                <div className="overflow-auto max-h-[70vh]">
                                     <table className="min-w-full divide-y divide-gray-200">
-                                        <thead className="bg-muted/30 sticky top-0 z-20">
+                                        <thead className="bg-slate-500 sticky top-0 z-50">
                                         <tr>
-                                            <th className="sticky left-0 bg-background w-80 p-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r z-30">
+                                            <th className="sticky left-0 bg-gray-100 w-80 p-4 text-left text-xs font-medium text-gray-900 uppercase tracking-wider border border-r border-b z-20">
                                                 Permissions
                                             </th>
                                             {initialRoles.map(role => (
-                                                <th key={role.id} className="w-40 p-4 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-r bg-muted/30">
+                                                <th key={role.id} className="w-40 p-4 text-center text-xs font-medium text-gray-500 uppercase tracking-wider  border border-b border-r bg-gray-100">
                                                     <div className="flex items-center justify-center gap-1 mb-2">
-                                                        <span className="font-medium text-sm truncate" title={role.name}>{role.name}</span>
+                                                        <span className="font-medium text-xs truncate" title={role.name}>{role.name}</span>
                                                         <DropdownMenu>
                                                             <DropdownMenuTrigger asChild>
                                                                 <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
@@ -702,16 +702,16 @@ export default function AccessControlPage({
                                         <tbody className="bg-background divide-y divide-gray-200">
                                         {filteredCategories.map(category => (
                                             <React.Fragment key={category.name}>
-                                                <tr className="bg-muted/20">
-                                                    <td className="sticky left-0 bg-muted w-80 p-3 border-r cursor-pointer hover:bg-muted/80 flex items-center gap-2 z-20" onClick={() => toggleCategory(category.name)}>
+                                                <tr className="bg-muted">
+                                                    <td className="sticky left-0 bg-muted text-xs w-80 p-3 border-r cursor-pointer hover:bg-muted/80 flex items-center gap-2 z-20" onClick={() => toggleCategory(category.name)}>
                                                         {category.expanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-                                                        <span className="font-medium">{category.name}</span>
+                                                        <span className="text-xs font-medium">{category.name}</span>
                                                         <Badge variant="outline" className="ml-auto">{category.permissions.length}</Badge>
                                                     </td>
                                                     {initialRoles.map(role => {
                                                         const status = getCategoryStatus(category.name, role.id);
                                                         return (
-                                                            <td key={role.id} className="w-40 p-3 text-center border-r">
+                                                            <td key={role.id} className="w-40 p-3 text-xs text-center border-r bg-muted">
                                                                 <Checkbox checked={status.indeterminate ? 'indeterminate' : status.checked} onCheckedChange={(checked) => toggleAllInCategory(category.name, role.id, Boolean(checked))} />
                                                             </td>
                                                         );
@@ -719,8 +719,8 @@ export default function AccessControlPage({
                                                 </tr>
                                                 {category.expanded && category.permissions.map(permission => (
                                                     <tr key={permission.id} className="hover:bg-muted/30">
-                                                        <td className="sticky left-0 bg-background w-80 p-3 border-r pl-8 flex items-center justify-between z-20">
-                                                            <span className="text-sm">{permission.name.split('-').slice(1).join('-') || permission.name}</span>
+                                                        <td className="sticky left-0 bg-background w-80 text-xs p-2 border-r pl-8 flex items-center justify-between z-20">
+                                                            <span className="text-xs">{permission.name.split('-').slice(1).join('-') || permission.name}</span>
                                                             <DropdownMenu>
                                                                 <DropdownMenuTrigger asChild>
                                                                     <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
@@ -738,7 +738,7 @@ export default function AccessControlPage({
                                                             </DropdownMenu>
                                                         </td>
                                                         {initialRoles.map(role => (
-                                                            <td key={role.id} className="w-40 p-3 text-center border-r">
+                                                            <td key={role.id} className="w-40 p-3 text-xs text-center border-r">
                                                                 <Checkbox checked={rolePermissionMatrix[role.id]?.[permission.id] || false} onCheckedChange={() => togglePermission(role.id, permission.id)} />
                                                             </td>
                                                         ))}
@@ -833,15 +833,15 @@ export default function AccessControlPage({
                         {/* User-Role Matrix */}
                         <Card>
                             <CardContent className="p-0">
-                                <div className="overflow-x-auto">
+                                <div className="overflow-auto max-h-[70vh]">
                                     <table className="min-w-full divide-y divide-gray-200">
-                                        <thead className="bg-muted/30 sticky top-0 z-20">
+                                        <thead className="bg-muted sticky top-0 z-30">
                                         <tr>
-                                            <th className="sticky left-0 bg-background w-80 p-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r z-30">
+                                            <th className="sticky left-0 bg-background w-80 p-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r z-40">
                                                 Users
                                             </th>
                                             {initialRoles.map(role => (
-                                                <th key={role.id} className="w-38 p-4 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-r bg-muted/30">
+                                                <th key={role.id} className="w-38 p-4 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-r bg-muted">
                                                     <div className="font-medium text-sm mb-2 truncate" title={role.name}>{role.name}</div>
                                                     <Checkbox checked={initialUsers.every(u => userRoleMatrix[u.id]?.[role.id])} onCheckedChange={(checked) => toggleAllForUserRole(role.id, checked as boolean)} />
                                                 </th>
@@ -851,8 +851,8 @@ export default function AccessControlPage({
                                         <tbody className="divide-y divide-gray-200">
                                         {filteredGroups.map(group => (
                                             <React.Fragment key={group.name}>
-                                                <tr className="bg-muted/20">
-                                                    <td className="sticky left-0 bg-muted w-80 p-3 border-r cursor-pointer hover:bg-muted/80 flex items-center gap-2 z-20" onClick={() => toggleGroup(group.name)}>
+                                                <tr className="bg-muted">
+                                                    <td className="sticky left-0 bg-muted w-80 p-3 border-r cursor-pointer hover:bg-muted/80 flex items-center gap-2 z-30" onClick={() => toggleGroup(group.name)}>
                                                         {group.expanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
                                                         <span className="font-medium">{group.name}</span>
                                                         <Badge variant="outline" className="ml-auto">{group.users.length}</Badge>
@@ -860,7 +860,7 @@ export default function AccessControlPage({
                                                     {initialRoles.map(role => {
                                                         const status = getGroupRoleStatus(group.name, role.id);
                                                         return (
-                                                            <td key={role.id} className="w-38 p-3 text-center border-r">
+                                                            <td key={role.id} className="w-38 p-3 text-center border-r bg-muted">
                                                                 <Checkbox checked={status.indeterminate ? 'indeterminate' : status.checked} onCheckedChange={(checked) => toggleAllInGroup(group.name, role.id, Boolean(checked))} />
                                                             </td>
                                                         );
@@ -868,7 +868,7 @@ export default function AccessControlPage({
                                                 </tr>
                                                 {group.expanded && group.users.map(user => (
                                                     <tr key={user.id} className="hover:bg-muted/30">
-                                                        <td className="sticky left-0 bg-background w-80 p-3 border-r pl-8 z-20">
+                                                        <td className="sticky left-0 bg-background w-80 p-3 border-r pl-8 z-30">
                                                             <div className="flex items-center gap-2">
                                                                 <div className="flex-1">
                                                                     <div className="font-medium text-sm flex items-center gap-2">
