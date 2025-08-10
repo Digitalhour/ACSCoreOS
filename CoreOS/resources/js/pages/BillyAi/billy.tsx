@@ -1,17 +1,17 @@
-import { BillyPastConversation, type ConversationSummary } from '@/components/billyai/billy-past-conversation';
+import {BillyPastConversation, type ConversationSummary} from '@/components/billyai/billy-past-conversation';
 import ImportedMarkdownComponents from '@/components/custom/markdown';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Button } from '@/components/ui/button';
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
-import { useInitials } from '@/hooks/use-initials';
+import {Avatar, AvatarFallback, AvatarImage} from '@/components/ui/avatar';
+import {Button} from '@/components/ui/button';
+import {Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger} from '@/components/ui/sheet';
+import {useInitials} from '@/hooks/use-initials';
 import AppLayout from '@/layouts/app-layout';
-import { cn } from '@/lib/utils'; // Assuming you have cn utility
-import { type BreadcrumbItem, type SharedData } from '@/types';
-import { Head, usePage } from '@inertiajs/react';
-import { ScrollArea } from '@radix-ui/react-scroll-area';
+import {cn} from '@/lib/utils'; // Assuming you have cn utility
+import {type BreadcrumbItem, type SharedData} from '@/types';
+import {Head, usePage} from '@inertiajs/react';
+import {ScrollArea} from '@radix-ui/react-scroll-area';
 import axios from 'axios';
-import { CheckCircle, Menu as MenuIcon, Send, ThumbsDown, ThumbsUp } from 'lucide-react'; // Added CheckCircle
-import { FormEvent, useEffect, useRef, useState } from 'react';
+import {CheckCircle, Menu as MenuIcon, Send, ThumbsDown, ThumbsUp} from 'lucide-react'; // Added CheckCircle
+import {FormEvent, useEffect, useRef, useState} from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
@@ -219,7 +219,7 @@ export default function BillyChat() {
             if (!currentConversationId) setCurrentConversationId(updatedConvId);
         }
         try {
-            const response = await fetch('http://localhost:9621/query/stream', {
+            const response = await fetch('http://174.49.110.214:9621/query/stream', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ query: currentInput, stream: true }),
