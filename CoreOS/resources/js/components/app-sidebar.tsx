@@ -123,7 +123,7 @@ const navigationCategories: NavCategory[] = [
         title: "Vibetrack",
         icon: Activity,
          roles: '[CEO, Developer, Engineer]',
-        permission: 'vibetrack-view',
+        permission: 'Vibetrack-view',
         items: [
             { title: 'Vibetrack', href: '/vibetrack', icon: Smartphone, roles: '', description: null },
             { title: 'Vibetrack Admin', href: '/vibetrack/admin', icon: LayoutList, roles: '', description: null },
@@ -133,6 +133,7 @@ const navigationCategories: NavCategory[] = [
         title: "Training & Learning",
         icon: GraduationCap,
         roles: '[Developer]',
+        permission: 'Training-dashboard-view',
         items: [
             { title: 'Training Dashboard', href: '/old-style-training-tracking', icon: BookOpenText, description: null },
         ]
