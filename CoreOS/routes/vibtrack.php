@@ -1,29 +1,27 @@
 <?php
 
-
 use App\Http\Controllers\DeviceAliasController;
 use App\Http\Controllers\VibetrackController;
 use Illuminate\Support\Facades\Route;
 
-Route::group(['middleware' => ['auth', 'verified']], function () {
-    Route::group(['middleware' => ['permission:Vibetrack-view']], function () {
 
-   Route::prefix('vibetrack')->name('vibetrack.')->group(function () {
-            Route::get('/', [VibetrackController::class, 'index'])->name('index');
-            Route::get('/admin', [DeviceAliasController::class, 'index'])->name('admin.index');
-            Route::post('/admin', [DeviceAliasController::class, 'store'])->name('admin.store');
-            Route::put('/admin/{alias}', [DeviceAliasController::class, 'update'])->name('admin.update');
-            Route::delete('/admin/{alias}', [DeviceAliasController::class, 'destroy'])->name('admin.destroy');
-            Route::patch('/admin/{alias}/restore', [DeviceAliasController::class, 'restore'])->name('admin.restore');
-            Route::get('/charts/data', [VibetrackController::class, 'charts'])->name('charts');
-            // NOTE: The dynamic route '{vibetrack}' is placed last to avoid conflicts with static routes like '/admin'.
-            Route::get('/{vibetrack}', [VibetrackController::class, 'show'])->name('show');
-        });
+// Vibetrack Routes, only accessible by users with the Vibetrack-view permission, will have to add Vibetrack-edit later for the admin part of the app.
+Route::group([
+    'middleware' => ['auth', 'verified', 'permission:Vibetrack-view'],
+    'prefix' => 'vibetrack',
+    'as' => 'vibetrack.',
+], function () {
+    // Vibetrack
+    Route::get('/', [VibetrackController::class, 'index'])->name('index');
+    Route::get('/charts/data', [VibetrackController::class, 'charts'])->name('charts');
+    Route::get('/{vibetrack}', [VibetrackController::class, 'show'])->name('show');
 
-
+    // Admin (Device Aliases)
+    Route::prefix('admin')->name('admin.')->controller(DeviceAliasController::class)->group(function () {
+        Route::get('/', 'index')->name('index');
+        Route::post('/', 'store')->name('store');
+        Route::put('{alias}', 'update')->name('update');
+        Route::delete('{alias}', 'destroy')->name('destroy');
+        Route::patch('{alias}/restore', 'restore')->name('restore');
     });
-
-
-
 });
-

@@ -5,9 +5,9 @@ use App\Http\Controllers\PayrollTimeClockController;
 use App\Http\Controllers\TimeClockController;
 use Illuminate\Support\Facades\Route;
 
-Route::middleware(['auth', 'verified'])->group(function () {
+Route::middleware('auth')->middleware('verified')->group(function () {
     Route::prefix('time-clock')->group(function () {
-        Route::middleware(['permission:Manager-payroll'])->group(function () {
+        Route::middleware('permission:Manager-payroll')->group(function () {
             // Manager routes (NEW)
             Route::prefix('manager')->group(function () {
                 Route::get('/dashboard', [ManagerTimeClockController::class, 'dashboard'])->name('time-clock.manager.dashboard');
@@ -26,7 +26,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
             });
         });
 
-        Route::middleware(['permission:Corporate-payroll'])->group(function () {
+        Route::middleware('permission:Corporate-payroll')->group(function () {
             Route::prefix('payroll')->group(function () {
                 Route::match(['get', 'post'], '/dashboard', [PayrollTimeClockController::class, 'dashboard'])->name('time-clock.payroll.dashboard');
 
@@ -51,18 +51,18 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
 
 
-            // Employee routes (existing)
-            Route::get('/employee', [TimeClockController::class, 'employee'])->name('time-clock.employee');
-            Route::post('/clock-in', [TimeClockController::class, 'clockIn'])->name('time-clock.clock-in');
-            Route::post('/clock-out', [TimeClockController::class, 'clockOut'])->name('time-clock.clock-out');
-            Route::post('/start-break', [TimeClockController::class, 'startBreak'])->name('time-clock.start-break');
-            Route::post('/end-break', [TimeClockController::class, 'endBreak'])->name('time-clock.end-break');
-            Route::get('/status', [TimeClockController::class, 'status'])->name('time-clock.status');
+        // Employee routes (existing)
+        Route::get('/employee', [TimeClockController::class, 'employee'])->name('time-clock.employee');
+        Route::post('/clock-in', [TimeClockController::class, 'clockIn'])->name('time-clock.clock-in');
+        Route::post('/clock-out', [TimeClockController::class, 'clockOut'])->name('time-clock.clock-out');
+        Route::post('/start-break', [TimeClockController::class, 'startBreak'])->name('time-clock.start-break');
+        Route::post('/end-break', [TimeClockController::class, 'endBreak'])->name('time-clock.end-break');
+        Route::get('/status', [TimeClockController::class, 'status'])->name('time-clock.status');
 
-            // Timesheet submission routes (existing)
-            Route::post('/submit-timesheet', [TimeClockController::class, 'submitTimesheet'])->name('time-clock.submit-timesheet');
-            Route::post('/withdraw-timesheet', [TimeClockController::class, 'withdrawTimesheet'])->name('time-clock.withdraw-timesheet');
-            Route::get('/week-timesheet', [TimeClockController::class, 'getWeekTimesheet'])->name('time-clock.week-timesheet');
+        // Timesheet submission routes (existing)
+        Route::post('/submit-timesheet', [TimeClockController::class, 'submitTimesheet'])->name('time-clock.submit-timesheet');
+        Route::post('/withdraw-timesheet', [TimeClockController::class, 'withdrawTimesheet'])->name('time-clock.withdraw-timesheet');
+        Route::get('/week-timesheet', [TimeClockController::class, 'getWeekTimesheet'])->name('time-clock.week-timesheet');
 
 
 

@@ -57,7 +57,7 @@ Route::middleware('auth')
 
 
 
-
+        Route::get('/hr/overview', [PtoOverviewController::class, 'index'])->name('pto.overview');
     // Time Clock
 //    Route::get('/timeclock', function () {
 //        return Inertia::render('TimeClock/Index');

@@ -122,7 +122,7 @@ const navigationCategories: NavCategory[] = [
     {
         title: "Vibetrack",
         icon: Activity,
-         roles: '[CEO, Developer, Engineer]',
+        roles: '[CEO, Developer, Engineer]',
         permission: 'Vibetrack-view',
         items: [
             { title: 'Vibetrack', href: '/vibetrack', icon: Smartphone, roles: '', description: null },
