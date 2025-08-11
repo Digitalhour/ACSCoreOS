@@ -106,7 +106,7 @@ const navigationCategories: NavCategory[] = [
     {
         title: "Warehouse",
         icon: Package,
-        roles: '[Warehouse Manager, Warehouse Employee, Developer]',
+        roles: '[Warehouse Manager, Warehouse Employee, Developer, Engineer]',
         items: [
             { title: 'Product Picture Manager', href: '/product-picture-manager', icon: ImageUp, permission: 'Warehouse-Product Picture Manager', description: null },
         ]
