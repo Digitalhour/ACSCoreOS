@@ -6,6 +6,7 @@ import {Input} from '@/components/ui/input';
 import {Badge} from '@/components/ui/badge';
 import {Checkbox} from '@/components/ui/checkbox';
 import {Label} from '@/components/ui/label';
+import {Textarea} from '@/components/ui/textarea';
 import {Tabs, TabsContent, TabsList, TabsTrigger} from '@/components/ui/tabs';
 import {
     Dialog,
@@ -41,16 +42,19 @@ import {
 } from 'lucide-react';
 import {toast} from 'sonner';
 import AppLayout from '@/layouts/app-layout';
+import {InfoTooltip} from '@/components/InfoTooltip';
 
 // Interface definitions
 interface Permission {
     id: number | string;
     name: string;
+    description?: string;
 }
 
 interface Role {
     id: number | string;
     name: string;
+    description?: string;
     permissions?: Permission[];
 }
 
@@ -164,9 +168,15 @@ export default function AccessControlPage({
     });
 
     // Forms
-    const { data: permissionData, setData: setPermissionData, post: postPermission, put: putPermission, delete: deletePermission, processing: permissionProcessing, reset: resetPermission, errors: permissionErrors } = useForm({ name: '' });
+    const { data: permissionData, setData: setPermissionData, post: postPermission, put: putPermission, delete: deletePermission, processing: permissionProcessing, reset: resetPermission, errors: permissionErrors } = useForm({
+        name: '',
+        description: ''
+    });
 
-    const { data: roleData, setData: setRoleData, post: postRole, put: putRole, delete: deleteRole, processing: roleProcessing, reset: resetRole, errors: roleErrors } = useForm({ name: '' });
+    const { data: roleData, setData: setRoleData, post: postRole, put: putRole, delete: deleteRole, processing: roleProcessing, reset: resetRole, errors: roleErrors } = useForm({
+        name: '',
+        description: ''
+    });
 
     const { data: userPermData, setData: setUserPermData, post: postUserPerm, processing: userPermProcessing, reset: resetUserPerm } = useForm({
         user_id: '',
@@ -224,7 +234,8 @@ export default function AccessControlPage({
                 ...category,
                 permissions: category.permissions.filter(permission =>
                     permission.name.toLowerCase().includes(query) ||
-                    category.name.toLowerCase().includes(query)
+                    category.name.toLowerCase().includes(query) ||
+                    (permission.description && permission.description.toLowerCase().includes(query))
                 )
             }))
             .filter(category => category.permissions.length > 0);
@@ -437,7 +448,10 @@ export default function AccessControlPage({
     };
 
     const openEditPermissionModal = (permission: Permission) => {
-        setPermissionData('name', permission.name);
+        setPermissionData({
+            name: permission.name,
+            description: permission.description || ''
+        });
         setPermissionModal({ open: true, mode: 'edit', permission });
     };
 
@@ -473,7 +487,10 @@ export default function AccessControlPage({
     };
 
     const openEditRoleModal = (role: Role) => {
-        setRoleData('name', role.name);
+        setRoleData({
+            name: role.name,
+            description: role.description || ''
+        });
         setRoleModal({ open: true, mode: 'edit', role });
     };
 
@@ -660,7 +677,7 @@ export default function AccessControlPage({
                         <div className="flex gap-4">
                             <div className="flex-1 relative">
                                 <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                                <Input placeholder="Search permissions and categories..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-10" />
+                                <Input placeholder="Search permissions, categories, and descriptions..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-10" />
                             </div>
                         </div>
 
@@ -678,6 +695,7 @@ export default function AccessControlPage({
                                                 <th key={role.id} className="w-40 p-4 text-center text-xs font-medium text-gray-500 uppercase tracking-wider  border border-b border-r bg-gray-100">
                                                     <div className="flex items-center justify-center gap-1 mb-2">
                                                         <span className="font-medium text-xs truncate" title={role.name}>{role.name}</span>
+                                                        <InfoTooltip title={role.name} description={role.description} />
                                                         <DropdownMenu>
                                                             <DropdownMenuTrigger asChild>
                                                                 <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
@@ -720,7 +738,10 @@ export default function AccessControlPage({
                                                 {category.expanded && category.permissions.map(permission => (
                                                     <tr key={permission.id} className="hover:bg-muted/30">
                                                         <td className="sticky left-0 bg-background w-80 text-xs p-2 border-r pl-8 flex items-center justify-between z-20">
-                                                            <span className="text-xs">{permission.name.split('-').slice(1).join('-') || permission.name}</span>
+                                                            <div className="flex items-center gap-2">
+                                                                <span className="text-xs">{permission.name.split('-').slice(1).join('-') || permission.name}</span>
+                                                                <InfoTooltip title={permission.name} description={permission.description} />
+                                                            </div>
                                                             <DropdownMenu>
                                                                 <DropdownMenuTrigger asChild>
                                                                     <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
@@ -842,7 +863,10 @@ export default function AccessControlPage({
                                             </th>
                                             {initialRoles.map(role => (
                                                 <th key={role.id} className="w-38 p-4 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-r bg-muted">
-                                                    <div className="font-medium text-sm mb-2 truncate" title={role.name}>{role.name}</div>
+                                                    <div className="flex items-center justify-center gap-1 mb-2">
+                                                        <div className="font-medium text-sm truncate" title={role.name}>{role.name}</div>
+                                                        <InfoTooltip title={role.name} description={role.description} />
+                                                    </div>
                                                     <Checkbox checked={initialUsers.every(u => userRoleMatrix[u.id]?.[role.id])} onCheckedChange={(checked) => toggleAllForUserRole(role.id, checked as boolean)} />
                                                 </th>
                                             ))}
@@ -944,7 +968,7 @@ export default function AccessControlPage({
                                 return (
                                     <div key={category.name}>
                                         <h4 className="font-medium mb-2">{category.name}</h4>
-                                        <div className="grid grid-cols-2 gap-2">
+                                        <div className="grid grid-cols-1 gap-2">
                                             {category.permissions.map(permission => {
                                                 const hasFromRole = userRolePermissions.has(permission.id.toString());
                                                 const isDirectlyAssigned = userPermData.permissions.includes(permission.id.toString());
@@ -969,6 +993,7 @@ export default function AccessControlPage({
                                                             className={`text-sm flex items-center gap-1 ${hasFromRole ? 'text-muted-foreground' : ''}`}
                                                         >
                                                             {permission.name.split('-').slice(1).join('-') || permission.name}
+                                                            <InfoTooltip title={permission.name} description={permission.description} />
                                                             {hasFromRole && (
                                                                 <Badge variant="secondary" className="text-xs">
                                                                     via role
@@ -1004,7 +1029,7 @@ export default function AccessControlPage({
                         <DialogDescription>
                             {permissionModal.mode === 'create'
                                 ? 'Create a new permission. Use format "Category-Action" (e.g., "User-Create", "Report-Export").'
-                                : 'Update the permission name.'
+                                : 'Update the permission name and description.'
                             }
                         </DialogDescription>
                     </DialogHeader>
@@ -1013,8 +1038,26 @@ export default function AccessControlPage({
                         <div className="space-y-4">
                             <div>
                                 <Label htmlFor="permission-name">Permission Name</Label>
-                                <Input id="permission-name" placeholder="e.g., User-Create, Menu-Edit, Report-Export" value={permissionData.name} onChange={(e) => setPermissionData('name', e.target.value)} className={permissionErrors.name ? 'border-red-500' : ''} />
+                                <Input
+                                    id="permission-name"
+                                    placeholder="e.g., User-Create, Menu-Edit, Report-Export"
+                                    value={permissionData.name}
+                                    onChange={(e) => setPermissionData('name', e.target.value)}
+                                    className={permissionErrors.name ? 'border-red-500' : ''}
+                                />
                                 {permissionErrors.name && <p className="text-sm text-red-500 mt-1">{permissionErrors.name}</p>}
+                            </div>
+                            <div>
+                                <Label htmlFor="permission-description">Description (Optional)</Label>
+                                <Textarea
+                                    id="permission-description"
+                                    placeholder="Describe what this permission allows users to do..."
+                                    value={permissionData.description}
+                                    onChange={(e) => setPermissionData('description', e.target.value)}
+                                    className={permissionErrors.description ? 'border-red-500' : ''}
+                                    rows={3}
+                                />
+                                {permissionErrors.description && <p className="text-sm text-red-500 mt-1">{permissionErrors.description}</p>}
                             </div>
                         </div>
                         <DialogFooter className="mt-6">
@@ -1033,7 +1076,7 @@ export default function AccessControlPage({
                     <DialogHeader>
                         <DialogTitle>{roleModal.mode === 'create' ? 'Create Role' : 'Edit Role'}</DialogTitle>
                         <DialogDescription>
-                            {roleModal.mode === 'create' ? 'Create a new role that can be assigned to users.' : 'Update the role name.'}
+                            {roleModal.mode === 'create' ? 'Create a new role that can be assigned to users.' : 'Update the role name and description.'}
                         </DialogDescription>
                     </DialogHeader>
 
@@ -1041,8 +1084,26 @@ export default function AccessControlPage({
                         <div className="space-y-4">
                             <div>
                                 <Label htmlFor="role-name">Role Name</Label>
-                                <Input id="role-name" placeholder="e.g., Administrator, Manager, Editor" value={roleData.name} onChange={(e) => setRoleData('name', e.target.value)} className={roleErrors.name ? 'border-red-500' : ''} />
+                                <Input
+                                    id="role-name"
+                                    placeholder="e.g., Administrator, Manager, Editor"
+                                    value={roleData.name}
+                                    onChange={(e) => setRoleData('name', e.target.value)}
+                                    className={roleErrors.name ? 'border-red-500' : ''}
+                                />
                                 {roleErrors.name && <p className="text-sm text-red-500 mt-1">{roleErrors.name}</p>}
+                            </div>
+                            <div>
+                                <Label htmlFor="role-description">Description (Optional)</Label>
+                                <Textarea
+                                    id="role-description"
+                                    placeholder="Describe what this role represents and its responsibilities..."
+                                    value={roleData.description}
+                                    onChange={(e) => setRoleData('description', e.target.value)}
+                                    className={roleErrors.description ? 'border-red-500' : ''}
+                                    rows={3}
+                                />
+                                {roleErrors.description && <p className="text-sm text-red-500 mt-1">{roleErrors.description}</p>}
                             </div>
                         </div>
 

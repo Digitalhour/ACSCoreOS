@@ -3,16 +3,16 @@
 namespace App\Http\Controllers;
 
 use App\Models\User;
-use Spatie\Permission\Models\Permission;
-use Spatie\Permission\Models\Role;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
+use Spatie\Permission\Models\Permission;
+use Spatie\Permission\Models\Role;
 
 class AccessControlController extends Controller
 {
     public function index()
     {
-        $users = User::with(['roles:id,name', 'departments:id,name', 'permissions:id,name'])
+        $users = User::with(['roles:id,name,description', 'departments:id,name', 'permissions:id,name,description'])
             ->select('id', 'name', 'email')
             ->orderBy('name')
             ->get()
@@ -23,12 +23,12 @@ class AccessControlController extends Controller
                 return $user;
             });
 
-        $roles = Role::with('permissions:id,name')
-            ->select('id', 'name')
+        $roles = Role::with('permissions:id,name,description')
+            ->select('id', 'name', 'description')
             ->orderBy('name')
             ->get();
 
-        $permissions = Permission::select('id', 'name')
+        $permissions = Permission::select('id', 'name', 'description')
             ->orderBy('name')
             ->get();
 
@@ -152,9 +152,15 @@ class AccessControlController extends Controller
     {
         $validated = $request->validate([
             'name' => 'required|string|max:255|unique:permissions,name',
+            'description' => 'nullable|string|max:1000',
         ]);
 
-        Permission::create($validated);
+        Permission::create([
+            'name' => $validated['name'],
+            'description' => $validated['description'],
+            'guard_name' => 'web'
+        ]);
+
         return redirect()->back()->with('success', 'Permission created successfully!');
     }
 
@@ -162,6 +168,7 @@ class AccessControlController extends Controller
     {
         $validated = $request->validate([
             'name' => 'required|string|max:255|unique:permissions,name,'.$permission->id,
+            'description' => 'nullable|string|max:1000',
         ]);
 
         $permission->update($validated);
@@ -184,10 +191,12 @@ class AccessControlController extends Controller
     {
         $validated = $request->validate([
             'name' => 'required|string|max:255|unique:roles,name',
+            'description' => 'nullable|string|max:1000',
         ]);
 
         Role::create([
             'name' => $validated['name'],
+            'description' => $validated['description'],
             'guard_name' => 'web'
         ]);
 
@@ -198,10 +207,12 @@ class AccessControlController extends Controller
     {
         $validated = $request->validate([
             'name' => 'required|string|max:255|unique:roles,name,'.$role->id,
+            'description' => 'nullable|string|max:1000',
         ]);
 
         $role->update([
             'name' => $validated['name'],
+            'description' => $validated['description'],
             'guard_name' => 'web'
         ]);
 
@@ -244,7 +255,7 @@ class AccessControlController extends Controller
     // Search endpoints
     public function searchPermissions(Request $request)
     {
-        $query = Permission::select('id', 'name');
+        $query = Permission::select('id', 'name', 'description');
 
         if ($request->search) {
             $query->where('name', 'like', '%' . $request->search . '%');
@@ -257,7 +268,7 @@ class AccessControlController extends Controller
 
     public function searchRoles(Request $request)
     {
-        $query = Role::with('permissions:id,name')->select('id', 'name');
+        $query = Role::with('permissions:id,name,description')->select('id', 'name', 'description');
 
         if ($request->search) {
             $query->where('name', 'like', '%' . $request->search . '%');
@@ -270,7 +281,7 @@ class AccessControlController extends Controller
 
     public function searchUsers(Request $request)
     {
-        $query = User::with(['roles:id,name', 'permissions:id,name'])
+        $query = User::with(['roles:id,name,description', 'permissions:id,name,description'])
             ->select('id', 'name');
 
         if ($request->search) {
@@ -346,12 +357,12 @@ class AccessControlController extends Controller
      */
     public function export()
     {
-        $users = User::with('roles:id,name')
+        $users = User::with('roles:id,name,description')
             ->select('id', 'name', 'email')
             ->orderBy('name')
             ->get();
 
-        $roles = Role::select('id', 'name')
+        $roles = Role::select('id', 'name', 'description')
             ->orderBy('name')
             ->get();
 
