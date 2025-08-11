@@ -16,6 +16,7 @@ use App\Http\Controllers\HumanResources\QuizController;
 use App\Http\Controllers\HumanResources\ReportController;
 use App\Http\Controllers\HumanResources\TestController;
 use App\Http\Controllers\HumanResources\TestQuestionController;
+use App\Http\Controllers\NavigationController;
 use App\Http\Controllers\RolePermissionController;
 use App\Http\Controllers\Team;
 use App\Http\Controllers\Training\TrainingController;
@@ -29,7 +30,23 @@ use Laravel\WorkOS\Http\Middleware\ValidateSessionWithWorkOS;
 Route::middleware('auth')
     ->middleware(ValidateSessionWithWorkOS::class)
     ->group(function () {
-    Route::middleware(['role:Human Resources Employee|Developer'])->group(function () {
+        Route::get('/admin/navigation', [NavigationController::class, 'index'])->name('navigation.index');
+
+        // CRUD operations
+        Route::post('/admin/navigation', [NavigationController::class, 'store'])->name('navigation.store');
+        Route::put('/admin/navigation/{navigationItem}', [NavigationController::class, 'update'])->name('navigation.update');
+        Route::delete('/admin/navigation/{navigationItem}', [NavigationController::class, 'destroy'])->name('navigation.destroy');
+
+        // Special operations
+        Route::post('/admin/navigation/update-order', [NavigationController::class, 'updateOrder'])->name('navigation.update-order');
+        Route::post('/admin/navigation/{navigationItem}/toggle-active', [NavigationController::class, 'toggleActive'])->name('navigation.toggle-active');
+
+
+        // API endpoint for getting navigation data (used by sidebar)
+        Route::get('/api/navigation-data', [NavigationController::class, 'getNavigationData'])->name('navigation.data');
+
+
+        Route::middleware(['role:Human Resources Employee|Developer'])->group(function () {
     Route::resource('holidays', HolidayController::class)->names('holidays');
     Route::get('/team', [Team::class, 'index'])->name('team.index');
 

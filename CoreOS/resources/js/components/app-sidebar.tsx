@@ -21,24 +21,38 @@ import {type NavItem, type User} from '@/types';
 import {Link, usePage} from '@inertiajs/react';
 import {
     Activity,
+    Bell,
     BookOpenText,
     BotMessageSquareIcon,
+    Calendar,
     ChevronDown,
     ChevronRight,
     Clock,
     Cog,
     DollarSign,
+    Download,
+    Edit,
     FileText,
     GraduationCap,
+    Home,
     ImageUp,
     LayoutDashboard,
     LayoutList,
     LucideIcon,
+    Mail,
+    Minus,
     Package,
+    Plus,
+    Power,
+    Save,
+    Search,
+    Settings,
     ShieldCheck,
     ShipWheel,
     Smartphone,
-    Users
+    Trash,
+    Upload,
+    Users,
 } from 'lucide-react';
 import AppLogo from './app-logo';
 import {NavHeader} from "@/components/nav-header";
@@ -52,7 +66,27 @@ interface PageProps {
     auth: {
         user: AuthenticatedUser | null;
     };
+    navigationData?: {
+        header: NavigationItem[];
+        categories: NavigationItem[];
+        footer: NavigationItem[];
+    };
     [key: string]: unknown;
+}
+
+interface NavigationItem {
+    id: number;
+    title: string;
+    href: string;
+    icon?: string;
+    description?: string;
+    parent_id?: number;
+    type: 'header' | 'category' | 'footer';
+    sort_order: number;
+    is_active: boolean;
+    roles?: string[];
+    permissions?: string[];
+    children?: NavigationItem[];
 }
 
 interface NavCategory {
@@ -63,105 +97,58 @@ interface NavCategory {
     permission?: string;
 }
 
-// Header Nav items
-const headerNavItems: NavItem[] = [
-    { title: 'Dashboard', href: '/dashboard', icon: LayoutDashboard, roles: '', description: null },
-    { title: 'Billy The AI', href: '/billy', icon: BotMessageSquareIcon, description: null },
-    { title: 'My Time Clock', href: '/time-clock/employee', icon: BookOpenText, description: null },
-    { title: 'My PTO', href: '/employee/pto', icon: ShipWheel, description: null },
-    { title: 'ACS Org', href: '/organization-chart', icon: Users, roles: '', description: null },
-    { title: 'ACS Parts Database', href: '/parts-catalog', icon: Cog, roles: '', description: null },
-    { title: 'ACS Wiki', href: '/wiki', icon: BookOpenText, roles: '', description: null },
-];
-
-// Organize navigation items into categories
-const navigationCategories: NavCategory[] = [
-    {
-        title: "Time PTO Management",
-        icon: Clock,
-        roles: '[Developer]',
-        items: [
-            { title: 'Department PTO', href: '/department-pto', icon: Users, description: null },
-            { title: 'Timesheet Manager Dash', href: '/time-clock/manager/dashboard', icon: BookOpenText, description: null },
-        ]
-    },
-    {
-        title: "Time & PTO Payroll",
-        icon: DollarSign,
-        roles: '[Developer]',
-        items: [
-            { title: 'Timesheet Payroll Dash', href: '/time-clock/payroll/dashboard', icon: BookOpenText, description: null },
-        ]
-    },
-    {
-        title: "Human Resources",
-        icon: Users,
-        roles: '[Human Resources Employee, Developer]',
-        items: [
-            { title: 'Holiday', href: '/holidays', icon: Users, description: null },
-            { title: 'ACS blog Admin', href: '/admin/blog', icon: ShipWheel, description: null },
-            { title: 'Admin Documents', href: '/folders', icon: BookOpenText, description: null },
-        ]
-    },
-    {
-        title: "Warehouse",
-        icon: Package,
-        roles: '[Warehouse Manager, Warehouse Employee, Developer, Engineer]',
-        items: [
-            { title: 'Product Picture Manager', href: '/product-picture-manager', icon: ImageUp, permission: 'Warehouse-Product Picture Manager', description: null },
-        ]
-    },
-    {
-        title: "Content & Documents",
-        icon: FileText,
-        items: [
-            { title: 'Company Documents', href: '/employee/documents', icon: BookOpenText, description: null },
-
-        ]
-    },
-    {
-        title: "Vibetrack",
-        icon: Activity,
-        roles: '[CEO, Developer, Engineer]',
-        permission: 'Vibetrack-view',
-        items: [
-            { title: 'Vibetrack', href: '/vibetrack', icon: Smartphone, roles: '', description: null },
-            { title: 'Vibetrack Admin', href: '/vibetrack/admin', icon: LayoutList, roles: '', description: null },
-        ]
-    },
-    {
-        title: "Training & Learning",
-        icon: GraduationCap,
-        roles: '[Developer]',
-        permission: 'Training-dashboard-view',
-        items: [
-            { title: 'Training Dashboard', href: '/old-style-training-tracking', icon: BookOpenText, description: null },
-        ]
-    },
-    {
-        title: "Tools & Resources",
-        icon: Cog,
-        roles: 'Developer',
-        items: [
-        //
-        //     // { title: 'ACS Organization', href: '/acs-org', icon: Users, permission: '', description: null},
-        //     // { title: 'ACS PermissionTest', href: '/test', icon: Users, permission: 'AdminMenu', description: null },
-        //     // { title: 'ACS RoleTest', href: '/Roletest', icon: Users, roles: '', description: null},
-        //     // { title: 'Articles', href: '/articles', icon: Users, description: null },
-        //     // { title: 'Roles and Permissions', href: '/roles-permissions', icon: Users, description: null },
-        ]
-    }
-];
-
-const footerNavItems: NavItem[] = [
-    { title: 'HR Dashboard', href: '/hr/dashboard', icon: Users, roles: '[Human Resources Employee, Developer]', description: null },
-    { title: 'Admin Dashboard', href: '/admin', icon: ShieldCheck, roles: '', description: null },
-];
+// Icon mapping - maps string names to actual Lucide icons
+const iconMap: Record<string, LucideIcon> = {
+    Activity,
+    BookOpenText,
+    BotMessageSquareIcon,
+    ChevronDown,
+    ChevronRight,
+    Clock,
+    Cog,
+    DollarSign,
+    FileText,
+    GraduationCap,
+    ImageUp,
+    LayoutDashboard,
+    LayoutList,
+    Package,
+    ShieldCheck,
+    ShipWheel,
+    Smartphone,
+    Users,
+    Home,
+    Settings,
+    Bell,
+    Calendar,
+    Mail,
+    Search,
+    Plus,
+    Minus,
+    Edit,
+    Trash,
+    Save,
+    Download,
+    Upload,
+    Power,
+};
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     const page = usePage<PageProps>();
     const user = page.props.auth?.user;
     const currentUrl = page.url;
+
+    // Get navigation data from props or use empty defaults
+    const navigationData = page.props.navigationData || {
+        header: [],
+        categories: [],
+        footer: []
+    };
+
+    // Debug: Log navigation data to console (remove in production)
+    console.log('Navigation Data in Sidebar:', navigationData);
+    console.log('Current User:', user);
+    console.log('Current URL:', currentUrl);
 
     const can = (permissionName: string): boolean => {
         if (!user || !user.permissions) {
@@ -175,25 +162,20 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             return false;
         }
 
-        // User roles are already strings
         const userRoleNames = user.roles;
 
-        // Handle single role (string)
         if (typeof roles === 'string') {
             if (roles === '') return true;
 
-            // Check if it's a string that looks like an array [Role1, Role2]
             if (roles.startsWith('[') && roles.endsWith(']')) {
                 const roleString = roles.slice(1, -1);
                 const roleArray = roleString.split(',').map(role => role.trim());
-                const hasMatch = roleArray.some(role => userRoleNames.includes(role));
-                return hasMatch;
+                return roleArray.some(role => userRoleNames.includes(role));
             }
 
             return userRoleNames.includes(roles);
         }
 
-        // Handle multiple roles (array)
         if (Array.isArray(roles)) {
             return roles.some(role => userRoleNames.includes(role));
         }
@@ -201,46 +183,103 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         return false;
     };
 
-    // Check if user can access a category
-    const canAccessCategory = (category: NavCategory): boolean => {
-        if (category.roles !== undefined) {
-            return hasRole(category.roles);
+    // Convert NavigationItem to NavItem format
+    const convertToNavItem = (item: NavigationItem): NavItem => {
+        const IconComponent = item.icon && iconMap[item.icon] ? iconMap[item.icon] : Users; // Default icon
+
+        // Convert roles array back to your original string format
+        let rolesString: string | undefined = undefined;
+        if (item.roles && item.roles.length > 0) {
+            if (item.roles.length === 1) {
+                rolesString = item.roles[0];
+            } else {
+                rolesString = `[${item.roles.join(', ')}]`;
+            }
         }
-        if (category.permission !== undefined) {
-            if (category.permission === '') return true;
-            return can(category.permission);
-        }
-        return true; // Default to accessible if no restrictions
+
+        return {
+            title: item.title,
+            href: item.href,
+            icon: IconComponent,
+            roles: rolesString,
+            permission: item.permissions?.[0], // Take first permission for compatibility
+            description: item.description || null,
+        };
     };
 
-    // Filter individual nav items
-    const filterNavItems = (items: NavItem[]): NavItem[] => {
-        return items.filter((item) => {
-            if (item.roles !== undefined) {
-                return hasRole(item.roles);
+    // Convert NavigationItem to NavCategory format
+    const convertToNavCategory = (item: NavigationItem): NavCategory => {
+        const IconComponent = item.icon && iconMap[item.icon] ? iconMap[item.icon] : Users; // Default icon
+
+        // Convert roles array back to your original string format
+        let rolesString: string | undefined = undefined;
+        if (item.roles && item.roles.length > 0) {
+            if (item.roles.length === 1) {
+                rolesString = item.roles[0];
+            } else {
+                rolesString = `[${item.roles.join(', ')}]`;
             }
-            if (item.permission !== undefined) {
-                if (item.permission === '') return true;
-                return can(item.permission);
-            }
+        }
+
+        return {
+            title: item.title,
+            icon: IconComponent,
+            roles: rolesString,
+            permission: item.permissions?.[0], // Take first permission for compatibility
+            items: item.children ? item.children.map(convertToNavItem) : [],
+        };
+    };
+
+    // Check if user can access navigation item
+    const canAccessNavigationItem = (item: NavigationItem): boolean => {
+        if (!user) return true;
+
+        // If no restrictions, allow access
+        if ((!item.roles || item.roles.length === 0) && (!item.permissions || item.permissions.length === 0)) {
             return true;
-        });
+        }
+
+        // Check roles
+        if (item.roles && item.roles.length > 0) {
+            const hasRequiredRole = item.roles.some(role => hasRole(role));
+            if (hasRequiredRole) return true;
+        }
+
+        // Check permissions
+        if (item.permissions && item.permissions.length > 0) {
+            const hasRequiredPermission = item.permissions.some(permission => can(permission));
+            if (hasRequiredPermission) return true;
+        }
+
+        // If we have restrictions but don't meet them, deny access
+        if ((item.roles && item.roles.length > 0) || (item.permissions && item.permissions.length > 0)) {
+            return false;
+        }
+
+        return true;
     };
 
-    // Filter categories and their items
-    const filterCategories = (categories: NavCategory[]): NavCategory[] => {
-        return categories
-            .filter(category => canAccessCategory(category)) // Filter by category access
-            .map(category => ({
-                ...category,
-                items: filterNavItems(category.items)
+    // Filter navigation items based on user access
+    const filterNavigationItems = (items: NavigationItem[]): NavigationItem[] => {
+        return items
+            .filter(item => canAccessNavigationItem(item))
+            .map(item => ({
+                ...item,
+                children: item.children ? item.children.filter(child => canAccessNavigationItem(child)) : []
             }))
-            .filter(category => category.items.length > 0); // Only show categories that have visible items
+            .filter(item => {
+                // For categories, only show if they have accessible children or are not just containers
+                if (item.type === 'category' && item.href === '#') {
+                    return item.children && item.children.length > 0;
+                }
+                return true;
+            });
     };
 
-    const filteredCategories = filterCategories(navigationCategories);
-    const filteredFooterNavItems = filterNavItems(footerNavItems);
-    const filteredHeaderNavItems = filterNavItems(headerNavItems);
+    // Process navigation data
+    const filteredHeaderItems = filterNavigationItems(navigationData.header).map(convertToNavItem);
+    const filteredCategoryItems = filterNavigationItems(navigationData.categories).map(convertToNavCategory);
+    const filteredFooterItems = filterNavigationItems(navigationData.footer).map(convertToNavItem);
 
     // Check if a category contains the active page
     const categoryContainsActivePage = (category: NavCategory): boolean => {
@@ -249,12 +288,12 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
 
     // Check if any footer nav item is active
     const footerContainsActivePage = (): boolean => {
-        return filteredFooterNavItems.some(item => currentUrl.startsWith(item.href));
+        return filteredFooterItems.some(item => currentUrl.startsWith(item.href));
     };
 
     // Check if any header nav item is active
     const headerContainsActivePage = (): boolean => {
-        return filteredHeaderNavItems.some(item => currentUrl.startsWith(item.href));
+        return filteredHeaderItems.some(item => currentUrl.startsWith(item.href));
     };
 
     // Check if we should expand categories based on active page location
@@ -286,9 +325,9 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
 
             <SidebarContent>
                 <SidebarGroup>
-                    <NavHeader items={filteredHeaderNavItems} currentUrl={currentUrl} className="mt-auto" />
+                    <NavHeader items={filteredHeaderItems} currentUrl={currentUrl} className="mt-auto" />
                     <SidebarMenu>
-                        {filteredCategories.map((category, index) => (
+                        {filteredCategoryItems.map((category, index) => (
                             <Collapsible
                                 key={category.title}
                                 defaultOpen={shouldExpandCategory(category, index)}
@@ -333,7 +372,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             {user && hasRole(ROLE_FOR_ADMIN_DIALOG) && <AdminCommandDialog />}
 
             <SidebarFooter>
-                <NavFooter items={filteredFooterNavItems} currentUrl={currentUrl} className="mt-auto" />
+                <NavFooter items={filteredFooterItems} currentUrl={currentUrl} className="mt-auto" />
                 <NavUser />
             </SidebarFooter>
 
