@@ -24,6 +24,7 @@ import {Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger} from "@
 import {Label} from "@/components/ui/label";
 import {Textarea} from "@/components/ui/textarea";
 import {Checkbox} from "@/components/ui/checkbox";
+import {usePermission} from '@/hooks/usePermission';
 
 interface User {
     id: number;
@@ -146,7 +147,7 @@ export default function EmployeeTimeClock({
     const [submissionNotes, setSubmissionNotes] = useState('');
     const [withdrawalReason, setWithdrawalReason] = useState('');
     const [liveWorkingHours, setLiveWorkingHours] = useState(0);
-
+    const { hasPermission, hasRole, hasAnyRole } = usePermission();
     // Week navigation state
     const [currentWeekStart, setCurrentWeekStart] = useState(initialWeekStart);
     const [currentWeekEnd, setCurrentWeekEnd] = useState(initialWeekEnd);
@@ -549,6 +550,7 @@ export default function EmployeeTimeClock({
                 {/* Time Tracking Content */}
                 <div className="space-y-6">
                     {/* Clock Controls */}
+
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                         {/* Date Display */}
                         <Card className="col-span-2">
@@ -662,8 +664,14 @@ export default function EmployeeTimeClock({
                             </CardContent>
                         </Card>
 
+
+
+
+
+                            <>
                         {/* Timesheet Submission */}
                         <Card className="col-span-2">
+
                             <CardHeader>
                                 <CardTitle className="flex items-center gap-2">
                                     <FileText className="w-5 h-5" />
@@ -671,6 +679,8 @@ export default function EmployeeTimeClock({
 
                                 </CardTitle>
                                 <CardAction>
+                                    {hasPermission('payroll-submit-payroll') && (
+                                        <>
                                     {currentTimesheet.status === 'draft' && (
                                         <Dialog open={submissionDialogOpen} onOpenChange={setSubmissionDialogOpen}>
                                             <DialogTrigger asChild>
@@ -743,6 +753,9 @@ export default function EmployeeTimeClock({
                                             </DialogContent>
                                         </Dialog>
                                     )}
+                                        </>
+                                    )}
+
 
                                     {currentTimesheet.status === 'submitted' && (
                                         <Dialog open={withdrawalDialogOpen} onOpenChange={setWithdrawalDialogOpen}>
@@ -917,8 +930,10 @@ export default function EmployeeTimeClock({
                                 </div>
 
                             </CardContent>
-                        </Card>
 
+                        </Card>
+                            </>
+                  
                         {/* Stats Cards */}
                         <Card>
                             <CardHeader>
@@ -960,6 +975,7 @@ export default function EmployeeTimeClock({
                                 </CardTitle>
                             </CardHeader>
                         </Card>
+
                     </div>
 
                     {/* Time Entries Table */}

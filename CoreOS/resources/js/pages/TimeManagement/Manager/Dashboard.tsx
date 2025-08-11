@@ -11,6 +11,7 @@ import {Dialog, DialogContent, DialogHeader, DialogTitle} from '@/components/ui/
 import {Textarea} from '@/components/ui/textarea';
 import {Calendar} from '@/components/ui/calendar';
 import {Popover, PopoverContent, PopoverTrigger} from '@/components/ui/popover';
+import {usePermission} from '@/hooks/usePermission';
 import {
     AlertCircle,
     CheckCircle,
@@ -207,6 +208,7 @@ interface DateTimePickerProps {
 }
 
 function DateTimePicker({ value, onChange, label, required = false, className = "" }: DateTimePickerProps) {
+
     const [open, setOpen] = useState(false);
 
     // Parse the datetime string to separate date and time (keeping in local timezone)
@@ -356,6 +358,7 @@ export default function ManagerDashboard({
     const [dialogOpen, setDialogOpen] = useState<boolean>(false);
     const [searchTerm, setSearchTerm] = useState<string>('');
     const [loading, setLoading] = useState<boolean>(false);
+    const { hasPermission, hasRole, hasAnyRole } = usePermission();
 
     // Week navigation state
     const [localFilters, setLocalFilters] = useState({
@@ -904,8 +907,12 @@ export default function ManagerDashboard({
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+                    {hasPermission('payroll-submit-payroll') && (
+                        <>
                     {/* Action Required - Left Column */}
                     <div className="lg:col-span-1">
+
                         <Card className="h-fit">
                             <CardHeader className="pb-4">
                                 <div className="flex items-center justify-between">
@@ -1023,10 +1030,15 @@ export default function ManagerDashboard({
                                 )}
                             </CardContent>
                         </Card>
+
                     </div>
+                        </>
+                    )}
+
+
 
                     {/* Team Hours - Right Column */}
-                    <div className="lg:col-span-2">
+                    <div className="lg:col-span-4">
                         <Card>
                             <CardHeader>
                                 <CardTitle className="text-lg font-semibold flex items-center justify-between">
@@ -1104,7 +1116,8 @@ export default function ManagerDashboard({
                         </Card>
                     </div>
                 </div>
-
+                {hasPermission('payroll-submit-payroll') && (
+                    <>
                 {/* Time Editing Dialog */}
                 <Dialog open={timeEditDialogOpen} onOpenChange={setTimeEditDialogOpen}>
                     <DialogContent className="min-w-8/12 w-9/12 max-h-[95vh] overflow-y-auto">
@@ -1427,6 +1440,8 @@ export default function ManagerDashboard({
                         )}
                     </DialogContent>
                 </Dialog>
+                    </>
+                )}
             </div>
         </AppLayout>
     );
