@@ -233,6 +233,13 @@ const adminLinks: LinkCategory[] = [
         icon: LayoutDashboardIcon,
         links: [
             {
+                routeName: 'Navigate Controls',
+                href: route('navigation.index') as string,
+                label: 'navigation.index',
+                icon: LayoutDashboardIcon,
+                description: 'Go to the main navigation.index.',
+            },
+            {
                 routeName: 'activity-log',
                 href: route('activity-log.index') as string,
                 label: 'Activity log',
