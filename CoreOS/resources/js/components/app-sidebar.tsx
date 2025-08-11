@@ -97,6 +97,15 @@ interface NavCategory {
     permission?: string;
 }
 
+// Utility functions for URL handling
+const isExternalUrl = (url: string): boolean => {
+    return url.startsWith('http://') || url.startsWith('https://');
+};
+
+const isInternalUrl = (url: string): boolean => {
+    return url.startsWith('/') || url === '#';
+};
+
 // Icon mapping - maps string names to actual Lucide icons
 const iconMap: Record<string, LucideIcon> = {
     Activity,
@@ -144,11 +153,6 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         categories: [],
         footer: []
     };
-
-    // Debug: Log navigation data to console (remove in production)
-    console.log('Navigation Data in Sidebar:', navigationData);
-    console.log('Current User:', user);
-    console.log('Current URL:', currentUrl);
 
     const can = (permissionName: string): boolean => {
         if (!user || !user.permissions) {
@@ -204,6 +208,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             roles: rolesString,
             permission: item.permissions?.[0], // Take first permission for compatibility
             description: item.description || null,
+            external: isExternalUrl(item.href), // Set external property based on URL
         };
     };
 
@@ -283,17 +288,17 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
 
     // Check if a category contains the active page
     const categoryContainsActivePage = (category: NavCategory): boolean => {
-        return category.items.some(item => currentUrl.startsWith(item.href));
+        return category.items.some(item => !isExternalUrl(item.href) && currentUrl.startsWith(item.href));
     };
 
     // Check if any footer nav item is active
     const footerContainsActivePage = (): boolean => {
-        return filteredFooterItems.some(item => currentUrl.startsWith(item.href));
+        return filteredFooterItems.some(item => !isExternalUrl(item.href) && currentUrl.startsWith(item.href));
     };
 
     // Check if any header nav item is active
     const headerContainsActivePage = (): boolean => {
-        return filteredHeaderItems.some(item => currentUrl.startsWith(item.href));
+        return filteredHeaderItems.some(item => !isExternalUrl(item.href) && currentUrl.startsWith(item.href));
     };
 
     // Check if we should expand categories based on active page location
@@ -304,6 +309,38 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         }
         // Expand if this category contains the active page
         return categoryContainsActivePage(category);
+    };
+
+    // Component to render navigation link (internal vs external)
+    const NavigationLink = ({
+                                href,
+                                children,
+                                isActive = false,
+                                className = ""
+                            }: {
+        href: string;
+        children: React.ReactNode;
+        isActive?: boolean;
+        className?: string;
+    }) => {
+        if (isExternalUrl(href)) {
+            return (
+                <a
+                    href={href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={className}
+                >
+                    {children}
+                </a>
+            );
+        }
+
+        return (
+            <Link href={href} prefetch className={className}>
+                {children}
+            </Link>
+        );
     };
 
     // For AdminCommandDialog
@@ -349,12 +386,12 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                                                     <SidebarMenuSubItem key={item.title}>
                                                         <SidebarMenuSubButton
                                                             asChild
-                                                            isActive={currentUrl.startsWith(item.href)}
+                                                            isActive={!isExternalUrl(item.href) && currentUrl.startsWith(item.href)}
                                                         >
-                                                            <Link href={item.href} prefetch>
+                                                            <NavigationLink href={item.href}>
                                                                 {item.icon && <item.icon />}
                                                                 <span>{item.title}</span>
-                                                            </Link>
+                                                            </NavigationLink>
                                                         </SidebarMenuSubButton>
                                                     </SidebarMenuSubItem>
                                                 ))}

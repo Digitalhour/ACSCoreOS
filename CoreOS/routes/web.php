@@ -22,6 +22,9 @@ Route::middleware('auth')
     ->middleware(ValidateSessionWithWorkOS::class)
     ->group(function () {
 
+
+        
+
     Route::get('dashboard', function () {
         $articles = BlogArticle::with(['user:id,name,email,avatar'])
             ->withCount('approvedComments')
