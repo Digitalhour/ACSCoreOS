@@ -6,7 +6,7 @@ use App\Http\Controllers\VibetrackController;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware(['auth', 'verified'])->group(function () {
-    Route::middleware(['permission:vibetrack-view'])->group(function () {
+    Route::middleware(['permission:Vibetrack-view'])->group(function () {
     Route::prefix('vibetrack')->name('vibetrack.')->group(function () {
             Route::get('/', [VibetrackController::class, 'index'])->name('index');
             Route::get('/admin', [DeviceAliasController::class, 'index'])->name('admin.index');
