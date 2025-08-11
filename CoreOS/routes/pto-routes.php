@@ -37,7 +37,7 @@ Route::middleware('auth')
         Route::get('/admin/pto-requests', [PtoAdminController::class, 'requests'])->name('admin.pto.requests');
         Route::get('/admin/pto-balances', [PtoOverviewController::class, 'index'])->name('admin.pto.balances');
         Route::get('/admin/pto-Blackouts', [PtoAdminController::class, 'blackouts'])->name('admin.pto.Blackouts');
-        Route::post('/admin/pto/submit-historical',[PtoAdminController::class, 'submitHistoricalPto'])->name('submit-historical');
+//        Route::post('/admin/pto/submit-historical',[PtoAdminController::class, 'submitHistoricalPto'])->name('submit-historical');
 
 
         // Approve PTO Request
