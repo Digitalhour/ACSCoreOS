@@ -5,9 +5,10 @@ use App\Http\Controllers\DeviceAliasController;
 use App\Http\Controllers\VibetrackController;
 use Illuminate\Support\Facades\Route;
 
-Route::middleware(['auth', 'verified'])->group(function () {
-    Route::middleware(['permission:Vibetrack-view'])->group(function () {
-    Route::prefix('vibetrack')->name('vibetrack.')->group(function () {
+Route::group(['middleware' => ['auth', 'verified']], function () {
+    Route::group(['middleware' => ['permission:Vibetrack-view']], function () {
+
+   Route::prefix('vibetrack')->name('vibetrack.')->group(function () {
             Route::get('/', [VibetrackController::class, 'index'])->name('index');
             Route::get('/admin', [DeviceAliasController::class, 'index'])->name('admin.index');
             Route::post('/admin', [DeviceAliasController::class, 'store'])->name('admin.store');
