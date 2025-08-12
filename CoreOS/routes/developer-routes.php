@@ -58,17 +58,19 @@ Route::middleware('auth')->middleware(ValidateSessionWithWorkOS::class)->group(f
 
         //Navigation Control
 
-            Route::get('/', [NavigationController::class, 'index'])->name('navigation.index');
+//Navigation Control
+        Route::group(['prefix' => 'admin/navigation'], function () {
+            Route::get('/', [NavigationController::class, 'index'])->name('navigation.index'); // This becomes /admin/navigation
 
             // CRUD operations
-            Route::post('/admin/navigation', [NavigationController::class, 'store'])->name('navigation.store');
-            Route::put('/admin/navigation/{navigationItem}', [NavigationController::class, 'update'])->name('navigation.update');
-            Route::delete('/admin/navigation/{navigationItem}', [NavigationController::class, 'destroy'])->name('navigation.destroy');
+            Route::post('/', [NavigationController::class, 'store'])->name('navigation.store');
+            Route::put('/{navigationItem}', [NavigationController::class, 'update'])->name('navigation.update');
+            Route::delete('/{navigationItem}', [NavigationController::class, 'destroy'])->name('navigation.destroy');
 
             // Special operations
-            Route::post('/admin/navigation/update-order', [NavigationController::class, 'updateOrder'])->name('navigation.update-order');
-            Route::post('/admin/navigation/{navigationItem}/toggle-active', [NavigationController::class, 'toggleActive'])->name('navigation.toggle-active');
-
+            Route::post('/update-order', [NavigationController::class, 'updateOrder'])->name('navigation.update-order');
+            Route::post('/{navigationItem}/toggle-active', [NavigationController::class, 'toggleActive'])->name('navigation.toggle-active');
+        });
             // API endpoint for getting navigation data (used by sidebar)
             Route::get('/api/navigation-data', [NavigationController::class, 'getNavigationData'])->name('navigation.data');
 
