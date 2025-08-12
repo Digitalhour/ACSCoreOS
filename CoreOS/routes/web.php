@@ -108,4 +108,4 @@ require __DIR__.'/payroll-routes.php';
 require __DIR__.'/company-documents-route.php';
 require __DIR__.'/debug-routes.php';
 require __DIR__.'/access-control.php';
-require __DIR__.'/developer-routes.php';
+//require __DIR__.'/developer-routes.php';
