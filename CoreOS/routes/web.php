@@ -11,18 +11,15 @@ use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 use Laravel\WorkOS\Http\Middleware\ValidateSessionWithWorkOS;
 
-// Add this BEFORE your middleware groups
-Route::post('logout', function(\Illuminate\Http\Request $request) {
-    \Log::info('Direct logout attempt');
-    Auth::logout();
-    $request->session()->invalidate();
-    $request->session()->regenerateToken();
-    return redirect('/');
-})->name('logout.test');
-Route::get('/', function () {
+Route::get('/', function (\Illuminate\Http\Request $request) {
+    \Log::info('Homepage accessed', [
+        'authenticated' => \Auth::check(),
+        'middleware' => $request->route()->middleware(),
+        'path' => $request->path(),
+    ]);
+
     return Inertia::render('welcome');
 })->name('home');
-
 Route::middleware('auth')->middleware(ValidateSessionWithWorkOS::class)->group(function () {
 
    Route::get('dashboard', function () {
