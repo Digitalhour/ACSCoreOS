@@ -34,7 +34,8 @@ return new class extends Migration
             $table->foreignId('permission_id')->constrained()->onDelete('cascade');
             $table->timestamps();
 
-            $table->unique(['route_permission_id', 'permission_id']);
+            // Use shorter constraint name
+            $table->unique(['route_permission_id', 'permission_id'], 'route_perm_unique');
         });
     }
 
