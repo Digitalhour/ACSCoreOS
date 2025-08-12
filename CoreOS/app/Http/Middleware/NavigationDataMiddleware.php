@@ -14,54 +14,47 @@ class NavigationDataMiddleware
      */
     public function handle(Request $request, Closure $next)
     {
-        \Log::info('NavigationDataMiddleware running', [
-            'path' => $request->path(),
-            'authenticated' => auth()->check(),
-            'is_api' => $request->is('api/*'),
-        ]);
+        // EARLY RETURN: Skip completely for unauthenticated users
+        if (!auth()->check()) {
+            return $next($request);
+        }
 
-        // Only add navigation data for authenticated users and non-API routes
-        if (auth()->check() && !$request->is('api/*')) {
-            $user = auth()->user();
+        // EARLY RETURN: Skip for API routes
+        if ($request->is('api/*')) {
+            return $next($request);
+        }
 
-            try {
-                // Get navigation data using the model method
-                $headerItems = NavigationItem::getNavigationStructure('header', $user);
-                $categoryItems = NavigationItem::getNavigationStructure('category', $user);
-                $footerItems = NavigationItem::getNavigationStructure('footer', $user);
+        $user = auth()->user();
 
-                // Convert to array format to ensure proper serialization
-                $navigationData = [
-                    'header' => $headerItems->toArray(),
-                    'categories' => $categoryItems->toArray(),
-                    'footer' => $footerItems->toArray(),
-                ];
+        try {
+            // Get navigation data using the model method
+            $headerItems = NavigationItem::getNavigationStructure('header', $user);
+            $categoryItems = NavigationItem::getNavigationStructure('category', $user);
+            $footerItems = NavigationItem::getNavigationStructure('footer', $user);
 
-                // Debug: Log navigation data (remove in production)
-                \Log::info('Navigation Data Generated:', [
-                    'header_count' => count($navigationData['header']),
-                    'category_count' => count($navigationData['categories']),
-                    'footer_count' => count($navigationData['footer']),
-                    'user_id' => $user->id,
-                ]);
+            // Convert to array format to ensure proper serialization
+            $navigationData = [
+                'header' => $headerItems->toArray(),
+                'categories' => $categoryItems->toArray(),
+                'footer' => $footerItems->toArray(),
+            ];
 
-                // Share navigation data with all Inertia pages
-                Inertia::share([
-                    'navigationData' => $navigationData,
-                ]);
+            // Share navigation data with all Inertia pages
+            Inertia::share([
+                'navigationData' => $navigationData,
+            ]);
 
-            } catch (\Exception $e) {
-                \Log::error('Navigation Data Middleware Error: ' . $e->getMessage());
+        } catch (\Exception $e) {
+            \Log::error('Navigation Data Middleware Error: ' . $e->getMessage());
 
-                // Fallback to empty navigation structure
-                Inertia::share([
-                    'navigationData' => [
-                        'header' => [],
-                        'categories' => [],
-                        'footer' => [],
-                    ],
-                ]);
-            }
+            // Fallback to empty navigation structure
+            Inertia::share([
+                'navigationData' => [
+                    'header' => [],
+                    'categories' => [],
+                    'footer' => [],
+                ],
+            ]);
         }
 
         return $next($request);
