@@ -148,6 +148,7 @@ class UserHierarchyController extends Controller
             DB::beginTransaction();
 
             $user = User::findOrFail($userId);
+            $oldManagerId = $user->reports_to_user_id; // Store old manager ID
             $newManagerId = $request->manager_id;
             $startDateForDb = Carbon::createFromFormat('Y-m-d H:i:s', $request->start_date, 'UTC');
 
@@ -180,15 +181,29 @@ class UserHierarchyController extends Controller
                 'end_date' => null,
             ]);
 
+            // **NEW: Auto-transfer pending PTO approvals**
+            $transferResult = $this->hierarchyTransferService->transferPendingApprovalsOnManagerChange(
+                $user,
+                $oldManagerId,
+                $newManagerId
+            );
+
             DB::commit();
 
             Log::info("Manager assigned successfully", [
                 'user_id' => $userId,
-                'manager_id' => $newManagerId,
-                'start_date' => $request->start_date
+                'old_manager_id' => $oldManagerId,
+                'new_manager_id' => $newManagerId,
+                'start_date' => $request->start_date,
+                'approvals_transferred' => $transferResult['transferred'] ?? 0
             ]);
 
-            return redirect()->back()->with('success', 'Manager assigned successfully.');
+            $message = 'Manager assigned successfully.';
+            if (isset($transferResult['transferred']) && $transferResult['transferred'] > 0) {
+                $message .= " {$transferResult['transferred']} pending PTO approval(s) transferred to new manager.";
+            }
+
+            return redirect()->back()->with('success', $message);
 
         } catch (\Exception $e) {
             DB::rollBack();

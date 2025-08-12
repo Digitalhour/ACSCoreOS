@@ -130,21 +130,87 @@ class DepartmentTimeOffController extends Controller
      */
     private function canCurrentUserApprove(PtoRequest $request, User $user): bool
     {
-        // Check regular approval flow
-        $hasRegularApproval = $request->approvals()
+        // Method 1: Check if user has a pending approval record (original or transferred)
+        $hasPendingApproval = $request->approvals()
             ->where('approver_id', $user->id)
             ->where('status', 'pending')
             ->exists();
 
-        // For requests with blackout conflicts, also check if user can approve emergency overrides
-        if ($request->hasBlackoutConflicts() && $request->hasEmergencyOverride()) {
-            // Check if user has authority to approve emergency overrides
-            // This could be based on role, permission, or being a manager
-            $canApproveOverride = $this->canApproveEmergencyOverride($user, $request);
-            return $hasRegularApproval || $canApproveOverride;
+        if ($hasPendingApproval) {
+            Log::info("User {$user->id} can approve request {$request->id} - has pending approval record");
+            return true;
         }
 
-        return $hasRegularApproval;
+        // Method 2: Check if user is currently the manager and request is pending
+        if ($request->status === 'pending' && $this->isCurrentManagerOfRequestUser($user, $request->user)) {
+            Log::info("User {$user->id} can approve request {$request->id} - is current manager");
+
+            // Auto-create approval record if it doesn't exist
+            $this->ensureApprovalRecordExists($request, $user);
+            return true;
+        }
+
+        // Method 3: For blackout overrides, check if user can approve emergency overrides
+        if ($request->hasBlackoutConflicts() && $request->hasEmergencyOverride()) {
+            $canApproveOverride = $this->canApproveEmergencyOverride($user, $request);
+            if ($canApproveOverride) {
+                Log::info("User {$user->id} can approve request {$request->id} - can approve emergency override");
+                return true;
+            }
+        }
+
+        Log::info("User {$user->id} cannot approve request {$request->id} - no approval authority");
+        return false;
+    }
+    private function isCurrentManagerOfRequestUser(User $currentUser, User $requestUser): bool
+    {
+        // Direct report check
+        if ($requestUser->reports_to_user_id === $currentUser->id) {
+            return true;
+        }
+
+        // Check management hierarchy (up to 3 levels)
+        $employee = $requestUser;
+        $maxLevels = 3;
+        $level = 0;
+
+        while ($employee->reports_to_user_id && $level < $maxLevels) {
+            if ($employee->reports_to_user_id === $currentUser->id) {
+                return true;
+            }
+
+            $employee = User::find($employee->reports_to_user_id);
+            if (!$employee) {
+                break;
+            }
+            $level++;
+        }
+
+        return false;
+    }
+    private function ensureApprovalRecordExists(PtoRequest $request, User $manager): void
+    {
+        $existingApproval = PtoApproval::where('pto_request_id', $request->id)
+            ->where('approver_id', $manager->id)
+            ->first();
+
+        if (!$existingApproval) {
+            // Determine appropriate level
+            $maxLevel = $request->approvals()->max('level') ?? 0;
+            $level = max(1, $maxLevel + 1);
+
+            PtoApproval::create([
+                'pto_request_id' => $request->id,
+                'approver_id' => $manager->id,
+                'status' => 'pending',
+                'level' => $level,
+                'sequence' => $level,
+                'is_required' => true,
+                'comments' => 'Auto-created for current manager after hierarchy change',
+            ]);
+
+            Log::info("Auto-created approval record for request {$request->id}, manager {$manager->id}");
+        }
     }
 
     /**
@@ -289,24 +355,34 @@ class DepartmentTimeOffController extends Controller
 
         $user = Auth::user();
 
-        // Find the current user's pending approval for this request
+        // Check if user can approve (this will auto-create approval record if needed)
+        if (!$this->canCurrentUserApprove($ptoRequest, $user)) {
+            return back()->with('error', 'You are not authorized to approve this request or it has already been processed.');
+        }
+
+        // Find or get the user's approval record (should exist after canCurrentUserApprove check)
         $approval = PtoApproval::where('pto_request_id', $ptoRequest->id)
             ->where('approver_id', $user->id)
             ->where('status', 'pending')
             ->first();
 
         if (!$approval) {
-            return back()->with('error', 'You are not authorized to approve this request or it has already been processed.');
+            return back()->with('error', 'Approval record not found. Please try again.');
         }
 
         try {
             $isFullyApproved = false;
 
             DB::transaction(function () use ($approval, $request, $ptoRequest, $user, &$isFullyApproved) {
-                // Update the approval
+                // Update the approval with additional context if it was transferred
+                $comments = $request->comments;
+                if (str_contains($approval->comments ?? '', 'Auto-created for current manager')) {
+                    $comments = "Approved by current manager. " . ($comments ?? '');
+                }
+
                 $approval->update([
                     'status' => 'approved',
-                    'comments' => $request->comments,
+                    'comments' => $comments,
                     'responded_at' => now(),
                 ]);
 
@@ -363,22 +439,32 @@ class DepartmentTimeOffController extends Controller
 
         $user = Auth::user();
 
-        // Find the current user's pending approval for this request
+        // Check if user can deny (this will auto-create approval record if needed)
+        if (!$this->canCurrentUserApprove($ptoRequest, $user)) {
+            return back()->with('error', 'You are not authorized to deny this request or it has already been processed.');
+        }
+
+        // Find the user's approval record
         $approval = PtoApproval::where('pto_request_id', $ptoRequest->id)
             ->where('approver_id', $user->id)
             ->where('status', 'pending')
             ->first();
 
         if (!$approval) {
-            return back()->with('error', 'You are not authorized to deny this request or it has already been processed.');
+            return back()->with('error', 'Approval record not found. Please try again.');
         }
 
         try {
             DB::transaction(function () use ($approval, $request, $ptoRequest, $user) {
-                // Update the approval
+                // Update the approval with additional context if it was transferred
+                $comments = $request->comments;
+                if (str_contains($approval->comments ?? '', 'Auto-created for current manager')) {
+                    $comments = "Denied by current manager. " . $comments;
+                }
+
                 $approval->update([
                     'status' => 'denied',
-                    'comments' => $request->comments,
+                    'comments' => $comments,
                     'responded_at' => now(),
                 ]);
 
@@ -387,7 +473,7 @@ class DepartmentTimeOffController extends Controller
                     'status' => 'denied',
                     'denied_at' => now(),
                     'denied_by_id' => $user->id,
-                    'denial_reason' => $request->comments,
+                    'denial_reason' => $comments,
                 ]);
 
                 // Update the user's pending balance
