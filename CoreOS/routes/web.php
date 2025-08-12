@@ -11,15 +11,10 @@ use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 use Laravel\WorkOS\Http\Middleware\ValidateSessionWithWorkOS;
 
-Route::get('/', function (\Illuminate\Http\Request $request) {
-    \Log::info('Homepage accessed', [
-        'authenticated' => \Auth::check(),
-        'middleware' => $request->route()->middleware(),
-        'path' => $request->path(),
-    ]);
-
+Route::get('/', function () {
     return Inertia::render('welcome');
 })->name('home');
+
 Route::middleware('auth')->middleware(ValidateSessionWithWorkOS::class)->group(function () {
 
    Route::get('dashboard', function () {
