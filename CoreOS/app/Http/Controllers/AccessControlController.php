@@ -2,7 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\RoutePermission;
 use App\Models\User;
+use App\Services\RouteDiscoveryService;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Spatie\Permission\Models\Permission;
@@ -10,6 +12,13 @@ use Spatie\Permission\Models\Role;
 
 class AccessControlController extends Controller
 {
+    protected RouteDiscoveryService $routeService;
+
+    public function __construct(RouteDiscoveryService $routeService)
+    {
+        $this->routeService = $routeService;
+    }
+
     public function index()
     {
         $users = User::with(['roles:id,name,description', 'departments:id,name', 'permissions:id,name,description'])
@@ -37,11 +46,24 @@ class AccessControlController extends Controller
             ->orderBy('name')
             ->get();
 
+        // Get route permissions grouped
+        $routeGroups = RoutePermission::with('permissions:id,name,description')
+            ->active()
+            ->orderBy('group_name')
+            ->orderBy('route_name')
+            ->get()
+            ->groupBy('group_name');
+
+        // Get route statistics
+        $routeStats = $this->routeService->getRouteStats();
+
         return Inertia::render('AccessControlPage', [
             'users' => $users,
             'roles' => $roles,
             'permissions' => $permissions,
             'departments' => $departments,
+            'routeGroups' => $routeGroups,
+            'routeStats' => $routeStats,
         ]);
     }
 
@@ -110,6 +132,44 @@ class AccessControlController extends Controller
     }
 
     /**
+     * Update route-permission assignments
+     */
+    public function updateRoutePermissions(Request $request)
+    {
+        $validated = $request->validate([
+            'assignments' => 'required|array',
+            'assignments.*' => 'array',
+            'assignments.*.route_id' => 'required|exists:route_permissions,id',
+            'assignments.*.permission_ids' => 'present|array',
+            'assignments.*.permission_ids.*' => 'exists:permissions,id',
+            'assignments.*.is_protected' => 'boolean',
+        ]);
+
+        try {
+            \DB::beginTransaction();
+
+            foreach ($validated['assignments'] as $assignment) {
+                $routePermission = RoutePermission::findOrFail($assignment['route_id']);
+
+                // Update route protection status
+                $routePermission->update([
+                    'is_protected' => $assignment['is_protected'] ?? true
+                ]);
+
+                // Sync permissions
+                $routePermission->permissions()->sync($assignment['permission_ids']);
+            }
+
+            \DB::commit();
+            return redirect()->back()->with('success', 'Route permissions updated successfully!');
+
+        } catch (\Exception $e) {
+            \DB::rollback();
+            return redirect()->back()->with('error', 'Failed to update route permissions: ' . $e->getMessage());
+        }
+    }
+
+    /**
      * Update user's direct permissions
      */
     public function updateUserPermissions(Request $request)
@@ -145,6 +205,43 @@ class AccessControlController extends Controller
         } catch (\Exception $e) {
             return redirect()->back()->with('error', 'Failed to update user permissions: ' . $e->getMessage());
         }
+    }
+
+    /**
+     * Sync routes from application
+     */
+    public function syncRoutes()
+    {
+        try {
+            $stats = $this->routeService->syncRoutes();
+
+            $message = sprintf(
+                'Routes synced successfully! New: %d, Updated: %d, Deactivated: %d',
+                $stats['new'],
+                $stats['updated'],
+                $stats['deactivated']
+            );
+
+            return redirect()->back()->with('success', $message);
+
+        } catch (\Exception $e) {
+            return redirect()->back()->with('error', 'Failed to sync routes: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Update route details
+     */
+    public function updateRoute(Request $request, RoutePermission $routePermission)
+    {
+        $validated = $request->validate([
+            'description' => 'nullable|string|max:1000',
+            'is_protected' => 'boolean',
+        ]);
+
+        $routePermission->update($validated);
+
+        return redirect()->back()->with('success', 'Route updated successfully!');
     }
 
     // Permission Management
@@ -298,6 +395,28 @@ class AccessControlController extends Controller
         ]);
     }
 
+    public function searchRoutes(Request $request)
+    {
+        $query = RoutePermission::with('permissions:id,name,description')
+            ->active();
+
+        if ($request->search) {
+            $query->where(function ($q) use ($request) {
+                $q->where('route_name', 'like', '%' . $request->search . '%')
+                    ->orWhere('route_uri', 'like', '%' . $request->search . '%')
+                    ->orWhere('group_name', 'like', '%' . $request->search . '%');
+            });
+        }
+
+        if ($request->group) {
+            $query->where('group_name', $request->group);
+        }
+
+        return response()->json([
+            'data' => $query->limit(50)->get()
+        ]);
+    }
+
     // Bulk operations
     public function bulkAssignRoles(Request $request)
     {
@@ -352,6 +471,40 @@ class AccessControlController extends Controller
         return redirect()->back()->with('success', 'Permissions assigned to ' . count($validated['role_ids']) . ' roles');
     }
 
+    public function bulkUpdateRoutePermissions(Request $request)
+    {
+        $validated = $request->validate([
+            'route_ids' => 'required|array',
+            'route_ids.*' => 'exists:route_permissions,id',
+            'permission_ids' => 'present|array',
+            'permission_ids.*' => 'exists:permissions,id',
+            'is_protected' => 'boolean',
+        ]);
+
+        try {
+            \DB::beginTransaction();
+
+            foreach ($validated['route_ids'] as $routeId) {
+                $routePermission = RoutePermission::findOrFail($routeId);
+
+                if (isset($validated['is_protected'])) {
+                    $routePermission->update(['is_protected' => $validated['is_protected']]);
+                }
+
+                if (isset($validated['permission_ids'])) {
+                    $routePermission->permissions()->sync($validated['permission_ids']);
+                }
+            }
+
+            \DB::commit();
+            return redirect()->back()->with('success', 'Route permissions updated for ' . count($validated['route_ids']) . ' routes');
+
+        } catch (\Exception $e) {
+            \DB::rollback();
+            return redirect()->back()->with('error', 'Failed to update route permissions: ' . $e->getMessage());
+        }
+    }
+
     /**
      * Export user-role matrix to CSV
      */
@@ -389,6 +542,53 @@ class AccessControlController extends Controller
                 }
 
                 fputcsv($file, $row);
+            }
+
+            fclose($file);
+        };
+
+        return response()->stream($callback, 200, $headers);
+    }
+
+    /**
+     * Export route permissions to CSV
+     */
+    public function exportRoutePermissions()
+    {
+        $routes = RoutePermission::with('permissions:id,name')
+            ->active()
+            ->orderBy('group_name')
+            ->orderBy('route_name')
+            ->get();
+
+        $headers = [
+            'Content-Type' => 'text/csv',
+            'Content-Disposition' => 'attachment; filename="route-permissions.csv"',
+        ];
+
+        $callback = function() use ($routes) {
+            $file = fopen('php://output', 'w');
+
+            fputcsv($file, [
+                'Group',
+                'Route Name',
+                'Route URI',
+                'Methods',
+                'Controller',
+                'Protected',
+                'Permissions'
+            ]);
+
+            foreach ($routes as $route) {
+                fputcsv($file, [
+                    $route->group_name,
+                    $route->route_name,
+                    $route->route_uri,
+                    $route->methods_string,
+                    $route->controller_name,
+                    $route->is_protected ? 'Yes' : 'No',
+                    $route->permissions->pluck('name')->join(', ')
+                ]);
             }
 
             fclose($file);

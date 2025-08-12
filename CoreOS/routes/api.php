@@ -26,6 +26,14 @@ Route::middleware('auth')
     ->middleware(ValidateSessionWithWorkOS::class)
     ->group(function () {
     Route::prefix('api')->name('api.')->group(function () {
+        Route::get('users', function () {
+            return response()->json(User::select('id', 'name', 'email')->get());
+        })->name('users.index');
+
+        Route::apiResource('positions', PositionController::class);
+
+
+
         Route::get('/vibetrack/device/{vibetrack}', [VibetrackController::class, 'getVibetrackDeviceData'])->name('getVibetrackDeviceData');
 
 

@@ -255,7 +255,7 @@ const adminLinks: LinkCategory[] = [
             },
             {
                 routeName: 'user-roles-matrix',
-                href: '/user-roles-matrix',
+                href: route('access-control.index'),
                 label: 'user-roles-matrix',
                 icon: LayoutDashboardIcon,
                 description: 'Go to the user-roles-matrix dashboard.',

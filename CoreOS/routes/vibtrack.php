@@ -7,7 +7,7 @@ use Illuminate\Support\Facades\Route;
 
 // Vibetrack Routes, only accessible by users with the Vibetrack-view permission, will have to add Vibetrack-edit later for the admin part of the app.
 Route::group([
-    'middleware' => ['auth', 'verified', 'permission:Vibetrack-view'],
+    'middleware' => ['auth', 'verified', 'route.permission'],
     'prefix' => 'vibetrack',
     'as' => 'vibetrack.',
 ], function () {

@@ -37,8 +37,11 @@ import {
     RotateCcw,
     Save,
     Search,
+    Shield,
+    ShieldOff,
     Trash2,
-    User
+    User,
+    Zap
 } from 'lucide-react';
 import {toast} from 'sonner';
 import AppLayout from '@/layouts/app-layout';
@@ -67,11 +70,40 @@ interface User {
     direct_permissions?: Permission[];
 }
 
+interface RoutePermission {
+    id: number | string;
+    route_name: string;
+    route_uri: string;
+    route_methods: string[];
+    controller_class?: string;
+    controller_method?: string;
+    group_name: string;
+    description?: string;
+    is_protected: boolean;
+    is_active: boolean;
+    permissions?: Permission[];
+    roles?: Role[];
+}
+
+interface RouteGroup {
+    [groupName: string]: RoutePermission[];
+}
+
+interface RouteStats {
+    total_routes: number;
+    active_routes: number;
+    protected_routes: number;
+    routes_with_permissions: number;
+    total_groups: number;
+}
+
 interface AccessControlPageProps {
     permissions: Permission[];
     roles: Role[];
     users: User[];
     departments: { id: number | string; name: string; }[];
+    routeGroups: RouteGroup;
+    routeStats: RouteStats;
     flash?: {
         success?: string;
         error?: string;
@@ -113,14 +145,18 @@ export default function AccessControlPage({
                                               permissions: initialPermissions,
                                               roles: initialRoles,
                                               users: initialUsers,
+                                              routeGroups,
+                                              routeStats,
                                               flash,
                                           }: AccessControlPageProps) {
     const [activeTab, setActiveTab] = useState('role-permissions');
     const [searchQuery, setSearchQuery] = useState('');
     const [expandedCategories, setExpandedCategories] = useState<{ [key: string]: boolean }>({});
     const [expandedGroups, setExpandedGroups] = useState<{ [key: string]: boolean }>({});
+    const [expandedRouteGroups, setExpandedRouteGroups] = useState<{ [key: string]: boolean }>({});
     const [hasRolePermChanges, setHasRolePermChanges] = useState(false);
     const [hasUserRoleChanges, setHasUserRoleChanges] = useState(false);
+    const [hasRoutePermChanges, setHasRoutePermChanges] = useState(false);
     const [isProcessing, setIsProcessing] = useState(false);
 
     // Modal states
@@ -142,6 +178,11 @@ export default function AccessControlPage({
         open: false,
         type: 'permission' as 'permission' | 'role',
         item: null as Permission | Role | null
+    });
+    const [bulkAssignModal, setBulkAssignModal] = useState({
+        open: false,
+        groupName: '',
+        routes: [] as RoutePermission[]
     });
 
     // Matrix states
@@ -167,6 +208,25 @@ export default function AccessControlPage({
         return matrix;
     });
 
+    // Route permission assignments state
+    const [routePermissionAssignments, setRoutePermissionAssignments] = useState<{
+        [routeId: string]: {
+            permission_ids: string[];
+            role_ids: string[];
+            is_protected: boolean;
+        };
+    }>(() => {
+        const assignments: { [routeId: string]: { permission_ids: string[]; role_ids: string[]; is_protected: boolean; } } = {};
+        Object.values(routeGroups).flat().forEach(route => {
+            assignments[route.id] = {
+                permission_ids: route.permissions?.map(p => p.id.toString()) || [],
+                role_ids: route.roles?.map(r => r.id.toString()) || [],
+                is_protected: route.is_protected
+            };
+        });
+        return assignments;
+    });
+
     // Forms
     const { data: permissionData, setData: setPermissionData, post: postPermission, put: putPermission, delete: deletePermission, processing: permissionProcessing, reset: resetPermission, errors: permissionErrors } = useForm({
         name: '',
@@ -181,6 +241,13 @@ export default function AccessControlPage({
     const { data: userPermData, setData: setUserPermData, post: postUserPerm, processing: userPermProcessing, reset: resetUserPerm } = useForm({
         user_id: '',
         permissions: [] as string[]
+    });
+
+    const { data: bulkAssignData, setData: setBulkAssignData, post: postBulkAssign, processing: bulkAssignProcessing, reset: resetBulkAssign } = useForm({
+        route_ids: [] as string[],
+        permission_ids: [] as string[],
+        role_ids: [] as string[],
+        is_protected: true
     });
 
     useEffect(() => {
@@ -255,6 +322,27 @@ export default function AccessControlPage({
             }))
             .filter(group => group.users.length > 0);
     }, [userGroups, searchQuery]);
+
+    const filteredRouteGroups = useMemo(() => {
+        if (!searchQuery.trim()) return routeGroups;
+        const query = searchQuery.toLowerCase();
+        const filtered: RouteGroup = {};
+
+        Object.entries(routeGroups).forEach(([groupName, routes]) => {
+            const filteredRoutes = routes.filter(route =>
+                route.route_name.toLowerCase().includes(query) ||
+                route.route_uri.toLowerCase().includes(query) ||
+                route.controller_class?.toLowerCase().includes(query) ||
+                groupName.toLowerCase().includes(query)
+            );
+
+            if (filteredRoutes.length > 0) {
+                filtered[groupName] = filteredRoutes;
+            }
+        });
+
+        return filtered;
+    }, [routeGroups, searchQuery]);
 
     // Stats
     const rolePermStats = useMemo(() => {
@@ -369,6 +457,138 @@ export default function AccessControlPage({
         });
     };
 
+    // Route permission handlers
+    const toggleRouteGroup = (groupName: string) => {
+        setExpandedRouteGroups(prev => ({
+            ...prev,
+            [groupName]: !prev[groupName]
+        }));
+    };
+
+    const openBulkAssignModal = (groupName: string, routes: RoutePermission[]) => {
+        const routeIds = routes.map(r => r.id.toString());
+
+        // Get current permissions that ALL routes in the group have
+        const commonPermissions = initialPermissions.filter(permission =>
+            routes.every(route =>
+                routePermissionAssignments[route.id]?.permission_ids.includes(permission.id.toString())
+            )
+        ).map(p => p.id.toString());
+
+        // Get current roles that ALL routes in the group have
+        const commonRoles = initialRoles.filter(role =>
+            routes.every(route =>
+                routePermissionAssignments[route.id]?.role_ids.includes(role.id.toString())
+            )
+        ).map(r => r.id.toString());
+
+        // Check if ALL routes are protected
+        const allProtected = routes.every(route =>
+            routePermissionAssignments[route.id]?.is_protected ?? route.is_protected
+        );
+
+        setBulkAssignData({
+            route_ids: routeIds,
+            permission_ids: commonPermissions,
+            role_ids: commonRoles,
+            is_protected: allProtected
+        });
+
+        setBulkAssignModal({
+            open: true,
+            groupName,
+            routes
+        });
+    };
+
+    const handleBulkAssign = (e: React.FormEvent) => {
+        e.preventDefault();
+        postBulkAssign('/access-control/bulk/update-route-permissions', {
+            onSuccess: () => {
+                toast.success(`Permissions and roles assigned to ${bulkAssignData.route_ids.length} routes in ${bulkAssignModal.groupName}!`);
+                setBulkAssignModal({ open: false, groupName: '', routes: [] });
+                resetBulkAssign();
+                window.location.reload();
+            },
+            onError: () => toast.error('Failed to assign permissions and roles to routes')
+        });
+    };
+
+    // Get status for bulk assignment checkboxes
+    const getBulkPermissionStatus = (permissionId: string, routes: RoutePermission[]) => {
+        const assignedCount = routes.filter(route =>
+            routePermissionAssignments[route.id]?.permission_ids.includes(permissionId)
+        ).length;
+
+        return {
+            checked: assignedCount === routes.length,
+            indeterminate: assignedCount > 0 && assignedCount < routes.length
+        };
+    };
+
+    const getBulkRoleStatus = (roleId: string, routes: RoutePermission[]) => {
+        const assignedCount = routes.filter(route =>
+            routePermissionAssignments[route.id]?.role_ids.includes(roleId)
+        ).length;
+
+        return {
+            checked: assignedCount === routes.length,
+            indeterminate: assignedCount > 0 && assignedCount < routes.length
+        };
+    };
+
+    const toggleRoutePermission = (routeId: string, permissionId: string) => {
+        setRoutePermissionAssignments(prev => {
+            const current = prev[routeId]?.permission_ids || [];
+            const newPermissions = current.includes(permissionId)
+                ? current.filter(id => id !== permissionId)
+                : [...current, permissionId];
+
+            const newAssignments = {
+                ...prev,
+                [routeId]: {
+                    ...prev[routeId],
+                    permission_ids: newPermissions
+                }
+            };
+            setHasRoutePermChanges(true);
+            return newAssignments;
+        });
+    };
+
+    const toggleRouteRole = (routeId: string, roleId: string) => {
+        setRoutePermissionAssignments(prev => {
+            const current = prev[routeId]?.role_ids || [];
+            const newRoles = current.includes(roleId)
+                ? current.filter(id => id !== roleId)
+                : [...current, roleId];
+
+            const newAssignments = {
+                ...prev,
+                [routeId]: {
+                    ...prev[routeId],
+                    role_ids: newRoles
+                }
+            };
+            setHasRoutePermChanges(true);
+            return newAssignments;
+        });
+    };
+
+    const toggleRouteProtection = (routeId: string) => {
+        setRoutePermissionAssignments(prev => {
+            const newAssignments = {
+                ...prev,
+                [routeId]: {
+                    ...prev[routeId],
+                    is_protected: !prev[routeId]?.is_protected
+                }
+            };
+            setHasRoutePermChanges(true);
+            return newAssignments;
+        });
+    };
+
     // Save functions using router
     const saveRolePermissions = () => {
         setIsProcessing(true);
@@ -406,6 +626,48 @@ export default function AccessControlPage({
                 preserveScroll: true,
             }
         );
+    };
+
+    const saveRoutePermissions = () => {
+        setIsProcessing(true);
+        const assignments = Object.entries(routePermissionAssignments).map(([routeId, data]) => ({
+            route_id: routeId,
+            permission_ids: data.permission_ids,
+            role_ids: data.role_ids,
+            is_protected: data.is_protected
+        }));
+
+        router.post('/access-control/route-permissions',
+            { assignments },
+            {
+                onSuccess: () => {
+                    toast.success('Route permissions and roles updated successfully!');
+                    setHasRoutePermChanges(false);
+                    setIsProcessing(false);
+                },
+                onError: () => {
+                    toast.error('Failed to update route permissions');
+                    setIsProcessing(false);
+                },
+                preserveScroll: true,
+            }
+        );
+    };
+
+    const syncRoutes = () => {
+        setIsProcessing(true);
+        router.post('/access-control/sync-routes', {}, {
+            onSuccess: () => {
+                toast.success('Routes synced successfully!');
+                setIsProcessing(false);
+                window.location.reload();
+            },
+            onError: () => {
+                toast.error('Failed to sync routes');
+                setIsProcessing(false);
+            },
+            preserveScroll: true,
+        });
     };
 
     // Get permissions user has through roles
@@ -598,9 +860,10 @@ export default function AccessControlPage({
             <Head title="Access Control Management" />
             <div className="flex flex-col gap-4 rounded-xl p-2 sm:p-4">
                 <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-                    <TabsList className="grid w-full grid-cols-2">
+                    <TabsList className="grid w-full grid-cols-3">
                         <TabsTrigger value="role-permissions">Role Permissions</TabsTrigger>
                         <TabsTrigger value="user-roles">User Roles</TabsTrigger>
+                        <TabsTrigger value="route-permissions">Route Permissions</TabsTrigger>
                     </TabsList>
 
                     {/* Role-Permission Matrix Tab */}
@@ -928,10 +1191,229 @@ export default function AccessControlPage({
                             </CardContent>
                         </Card>
                     </TabsContent>
+
+                    {/* Route Permissions Tab */}
+                    <TabsContent value="route-permissions" className="space-y-4">
+                        {/* Header */}
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                                <Button variant="outline" size="sm" onClick={() => setExpandedRouteGroups({})}>
+                                    Expand All
+                                </Button>
+                                <Button variant="outline" size="sm" onClick={() => {
+                                    const collapsed: { [key: string]: boolean } = {};
+                                    Object.keys(routeGroups).forEach(group => collapsed[group] = false);
+                                    setExpandedRouteGroups(collapsed);
+                                }}>
+                                    Collapse All
+                                </Button>
+                            </div>
+
+                            <div className="flex items-center gap-2">
+                                <Button variant="outline" size="sm" onClick={syncRoutes} disabled={isProcessing}>
+                                    <Zap className="h-4 w-4 mr-2" />
+                                    {isProcessing ? 'Syncing...' : 'Sync Routes'}
+                                </Button>
+                                {hasRoutePermChanges && (
+                                    <Button variant="outline" size="sm" onClick={() => {
+                                        // Reset to original state
+                                        const originalAssignments: { [routeId: string]: { permission_ids: string[]; role_ids: string[]; is_protected: boolean; } } = {};
+                                        Object.values(routeGroups).flat().forEach(route => {
+                                            originalAssignments[route.id] = {
+                                                permission_ids: route.permissions?.map(p => p.id.toString()) || [],
+                                                role_ids: route.roles?.map(r => r.id.toString()) || [],
+                                                is_protected: route.is_protected
+                                            };
+                                        });
+                                        setRoutePermissionAssignments(originalAssignments);
+                                        setHasRoutePermChanges(false);
+                                    }}>
+                                        <RotateCcw className="h-4 w-4 mr-2" />
+                                        Reset
+                                    </Button>
+                                )}
+                                <Button variant="outline" size="sm">
+                                    <Download className="h-4 w-4 mr-2" />
+                                    Export
+                                </Button>
+                                <Button onClick={saveRoutePermissions} disabled={!hasRoutePermChanges || isProcessing} variant="secondary">
+                                    <Save className="h-4 w-4 mr-2" />
+                                    {isProcessing ? 'Saving...' : 'Save Changes'}
+                                </Button>
+                            </div>
+                        </div>
+
+                        {/* Stats Cards */}
+                        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+                            <div className="text-center">
+                                <p className="text-lg font-bold">{routeStats.total_groups}</p>
+                                <p className="text-xs text-muted-foreground">Groups</p>
+                            </div>
+                            <div className="text-center">
+                                <p className="text-lg font-bold">{routeStats.total_routes}</p>
+                                <p className="text-xs text-muted-foreground">Total Routes</p>
+                            </div>
+                            <div className="text-center">
+                                <p className="text-lg font-bold">{routeStats.active_routes}</p>
+                                <p className="text-xs text-muted-foreground">Active</p>
+                            </div>
+                            <div className="text-center">
+                                <p className="text-lg font-bold">{routeStats.protected_routes}</p>
+                                <p className="text-xs text-muted-foreground">Protected</p>
+                            </div>
+                            <div className="text-center">
+                                <p className="text-lg font-bold">{routeStats.routes_with_permissions}</p>
+                                <p className="text-xs text-muted-foreground">With Permissions</p>
+                            </div>
+                        </div>
+
+                        {/* Search */}
+                        <div className="flex gap-4">
+                            <div className="flex-1 relative">
+                                <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                                <Input placeholder="Search routes, URIs, and controllers..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-10" />
+                            </div>
+                        </div>
+
+                        {/* Route Permissions List */}
+                        <Card>
+                            <CardContent className="p-0">
+                                <div className="overflow-auto max-h-[70vh]">
+                                    <div className="space-y-2 p-4">
+                                        {Object.entries(filteredRouteGroups).map(([groupName, routes]) => (
+                                            <div key={groupName} className="border rounded-lg">
+                                                {/* Group Header */}
+                                                <div className="bg-muted p-3 hover:bg-muted/80 flex items-center gap-2 border-b">
+                                                    <div
+                                                        className="flex items-center gap-2 flex-1 cursor-pointer"
+                                                        onClick={() => toggleRouteGroup(groupName)}
+                                                    >
+                                                        {expandedRouteGroups[groupName] ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                                                        <span className="font-medium">{groupName}</span>
+                                                        <Badge variant="outline">{routes.length}</Badge>
+                                                    </div>
+                                                    <Button
+                                                        variant="outline"
+                                                        size="sm"
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            openBulkAssignModal(groupName, routes);
+                                                        }}
+                                                        className="h-7 px-2"
+                                                    >
+                                                        <Zap className="h-3 w-3 mr-1" />
+                                                        Bulk Assign
+                                                    </Button>
+                                                </div>
+
+                                                {/* Routes */}
+                                                {expandedRouteGroups[groupName] && routes.map(route => (
+                                                    <div key={route.id} className="p-4 border-b last:border-b-0">
+                                                        <div className="flex items-start gap-4">
+                                                            {/* Route Info */}
+                                                            <div className="flex-1">
+                                                                <div className="flex items-center gap-2 mb-2">
+                                                                    <span className="font-mono text-sm font-medium">{route.route_name}</span>
+                                                                    <div className="flex gap-1">
+                                                                        {route.route_methods.map(method => (
+                                                                            <Badge key={method} variant="secondary" className="text-xs">
+                                                                                {method}
+                                                                            </Badge>
+                                                                        ))}
+                                                                    </div>
+                                                                    <div className="flex items-center gap-1">
+                                                                        {routePermissionAssignments[route.id]?.is_protected ? (
+                                                                            <Shield className="h-4 w-4 text-green-600" />
+                                                                        ) : (
+                                                                            <ShieldOff className="h-4 w-4 text-gray-400" />
+                                                                        )}
+                                                                        <Checkbox
+                                                                            checked={routePermissionAssignments[route.id]?.is_protected ?? route.is_protected}
+                                                                            onCheckedChange={() => toggleRouteProtection(route.id.toString())}
+                                                                        />
+                                                                        <Label className="text-xs text-muted-foreground">Protected</Label>
+                                                                    </div>
+                                                                </div>
+                                                                <div className="text-sm text-muted-foreground mb-1">
+                                                                    <span className="font-mono">{route.route_uri}</span>
+                                                                </div>
+                                                                {route.controller_class && (
+                                                                    <div className="text-xs text-muted-foreground">
+                                                                        {route.controller_class.split('\\').pop()}@{route.controller_method}
+                                                                    </div>
+                                                                )}
+                                                            </div>
+
+                                                            {/* Permissions and Roles */}
+                                                            <div className="w-80">
+                                                                <div className="space-y-4">
+                                                                    {/* Permissions Section */}
+                                                                    <div>
+                                                                        <Label className="text-xs font-medium mb-2 block">Assigned Permissions</Label>
+                                                                        <div className="grid grid-cols-1 gap-1 max-h-32 overflow-y-auto border rounded p-2">
+                                                                            {initialPermissions.map(permission => {
+                                                                                const isAssigned = routePermissionAssignments[route.id]?.permission_ids.includes(permission.id.toString()) ?? false;
+                                                                                return (
+                                                                                    <div key={permission.id} className="flex items-center space-x-2">
+                                                                                        <Checkbox
+                                                                                            id={`route-${route.id}-perm-${permission.id}`}
+                                                                                            checked={isAssigned}
+                                                                                            onCheckedChange={() => toggleRoutePermission(route.id.toString(), permission.id.toString())}
+                                                                                        />
+                                                                                        <Label
+                                                                                            htmlFor={`route-${route.id}-perm-${permission.id}`}
+                                                                                            className="text-xs flex items-center gap-1"
+                                                                                        >
+                                                                                            {permission.name}
+                                                                                            <InfoTooltip title={permission.name} description={permission.description} />
+                                                                                        </Label>
+                                                                                    </div>
+                                                                                );
+                                                                            })}
+                                                                        </div>
+                                                                    </div>
+
+                                                                    {/* Roles Section */}
+                                                                    <div>
+                                                                        <Label className="text-xs font-medium mb-2 block">Assigned Roles</Label>
+                                                                        <div className="grid grid-cols-1 gap-1 max-h-32 overflow-y-auto border rounded p-2">
+                                                                            {initialRoles.map(role => {
+                                                                                const isAssigned = routePermissionAssignments[route.id]?.role_ids.includes(role.id.toString()) ?? false;
+                                                                                return (
+                                                                                    <div key={role.id} className="flex items-center space-x-2">
+                                                                                        <Checkbox
+                                                                                            id={`route-${route.id}-role-${role.id}`}
+                                                                                            checked={isAssigned}
+                                                                                            onCheckedChange={() => toggleRouteRole(route.id.toString(), role.id.toString())}
+                                                                                        />
+                                                                                        <Label
+                                                                                            htmlFor={`route-${route.id}-role-${role.id}`}
+                                                                                            className="text-xs flex items-center gap-1"
+                                                                                        >
+                                                                                            {role.name}
+                                                                                            <InfoTooltip title={role.name} description={role.description} />
+                                                                                        </Label>
+                                                                                    </div>
+                                                                                );
+                                                                            })}
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    </TabsContent>
                 </Tabs>
 
                 {/* Save Reminders */}
-                {(hasRolePermChanges || hasUserRoleChanges) && (
+                {(hasRolePermChanges || hasUserRoleChanges || hasRoutePermChanges) && (
                     <div className="fixed bottom-6 right-6 z-50">
                         <Card className="border-orange-200 bg-orange-50 dark:bg-orange-950 dark:border-orange-800">
                             <CardContent className="p-4">
@@ -939,7 +1421,11 @@ export default function AccessControlPage({
                                     <div className="text-sm text-orange-800 dark:text-orange-200">
                                         You have unsaved changes
                                     </div>
-                                    <Button size="sm" onClick={activeTab === 'role-permissions' ? saveRolePermissions : saveUserRoles} disabled={isProcessing} className="bg-orange-600 hover:bg-orange-700">
+                                    <Button size="sm" onClick={
+                                        activeTab === 'role-permissions' ? saveRolePermissions :
+                                            activeTab === 'user-roles' ? saveUserRoles :
+                                                saveRoutePermissions
+                                    } disabled={isProcessing} className="bg-orange-600 hover:bg-orange-700">
                                         <Save className="h-3 w-3 mr-1" />
                                         Save
                                     </Button>
@@ -1135,6 +1621,160 @@ export default function AccessControlPage({
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>
+
+            {/* Bulk Assignment Dialog */}
+            <Dialog open={bulkAssignModal.open} onOpenChange={(open) => setBulkAssignModal({ open, groupName: '', routes: [] })}>
+                <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+                    <DialogHeader>
+                        <DialogTitle>Bulk Assign Permissions & Roles to {bulkAssignModal.groupName}</DialogTitle>
+                        <DialogDescription>
+                            Assign permissions and roles to all {bulkAssignModal.routes.length} routes in the "{bulkAssignModal.groupName}" group.
+                            Checked items are currently assigned to ALL routes. Indeterminate items are assigned to SOME routes.
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <form onSubmit={handleBulkAssign}>
+                        <div className="space-y-6">
+                            {/* Routes Preview */}
+                            <div>
+                                <Label className="text-sm font-medium mb-2 block">Routes to be updated ({bulkAssignModal.routes.length})</Label>
+                                <div className="max-h-32 overflow-y-auto border rounded p-3 bg-muted/20">
+                                    <div className="grid grid-cols-1 gap-1 text-xs">
+                                        {bulkAssignModal.routes.map(route => (
+                                            <div key={route.id} className="flex items-center gap-2">
+                                                <span className="font-mono">{route.route_name}</span>
+                                                <span className="text-muted-foreground">({route.route_methods.join(', ')})</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Protection Status */}
+                            <div className="flex items-center space-x-2">
+                                <Checkbox
+                                    id="bulk-protected"
+                                    checked={bulkAssignData.is_protected}
+                                    onCheckedChange={(checked) => setBulkAssignData('is_protected', Boolean(checked))}
+                                />
+                                <Label htmlFor="bulk-protected" className="text-sm font-medium">
+                                    Mark all routes as protected
+                                </Label>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                {/* Permissions Section */}
+                                <div>
+                                    <Label className="text-sm font-medium mb-3 block">Permissions</Label>
+                                    <div className="space-y-3 max-h-80 overflow-y-auto border rounded p-3">
+                                        {permissionCategories.map(category => (
+                                            <div key={category.name}>
+                                                <h4 className="font-medium text-sm mb-2 text-muted-foreground">{category.name}</h4>
+                                                <div className="space-y-2 pl-2">
+                                                    {category.permissions.map(permission => {
+                                                        const status = getBulkPermissionStatus(permission.id.toString(), bulkAssignModal.routes);
+                                                        const isSelected = bulkAssignData.permission_ids.includes(permission.id.toString());
+
+                                                        return (
+                                                            <div key={permission.id} className="flex items-center space-x-2">
+                                                                <Checkbox
+                                                                    id={`bulk-perm-${permission.id}`}
+                                                                    checked={isSelected}
+                                                                    data-indeterminate={status.indeterminate}
+                                                                    onCheckedChange={(checked) => {
+                                                                        const newPermissions = checked
+                                                                            ? [...bulkAssignData.permission_ids, permission.id.toString()]
+                                                                            : bulkAssignData.permission_ids.filter(id => id !== permission.id.toString());
+                                                                        setBulkAssignData('permission_ids', newPermissions);
+                                                                    }}
+                                                                />
+                                                                <Label
+                                                                    htmlFor={`bulk-perm-${permission.id}`}
+                                                                    className="text-xs flex items-center gap-1"
+                                                                >
+                                                                    {permission.name}
+                                                                    <InfoTooltip title={permission.name} description={permission.description} />
+                                                                    {status.indeterminate && (
+                                                                        <Badge variant="outline" className="text-xs">
+                                                                            partial
+                                                                        </Badge>
+                                                                    )}
+                                                                    {status.checked && !status.indeterminate && (
+                                                                        <Badge variant="secondary" className="text-xs">
+                                                                            all
+                                                                        </Badge>
+                                                                    )}
+                                                                </Label>
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                {/* Roles Section */}
+                                <div>
+                                    <Label className="text-sm font-medium mb-3 block">Roles</Label>
+                                    <div className="space-y-2 max-h-80 overflow-y-auto border rounded p-3">
+                                        {initialRoles.map(role => {
+                                            const status = getBulkRoleStatus(role.id.toString(), bulkAssignModal.routes);
+                                            const isSelected = bulkAssignData.role_ids.includes(role.id.toString());
+
+                                            return (
+                                                <div key={role.id} className="flex items-center space-x-2">
+                                                    <Checkbox
+                                                        id={`bulk-role-${role.id}`}
+                                                        checked={isSelected}
+                                                        data-indeterminate={status.indeterminate}
+                                                        onCheckedChange={(checked) => {
+                                                            const newRoles = checked
+                                                                ? [...bulkAssignData.role_ids, role.id.toString()]
+                                                                : bulkAssignData.role_ids.filter(id => id !== role.id.toString());
+                                                            setBulkAssignData('role_ids', newRoles);
+                                                        }}
+                                                    />
+                                                    <Label
+                                                        htmlFor={`bulk-role-${role.id}`}
+                                                        className="text-sm flex items-center gap-1"
+                                                    >
+                                                        {role.name}
+                                                        <InfoTooltip title={role.name} description={role.description} />
+                                                        {status.indeterminate && (
+                                                            <Badge variant="outline" className="text-xs">
+                                                                partial
+                                                            </Badge>
+                                                        )}
+                                                        {status.checked && !status.indeterminate && (
+                                                            <Badge variant="secondary" className="text-xs">
+                                                                all
+                                                            </Badge>
+                                                        )}
+                                                    </Label>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <DialogFooter className="mt-6">
+                            <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => setBulkAssignModal({ open: false, groupName: '', routes: [] })}
+                            >
+                                Cancel
+                            </Button>
+                            <Button type="submit" disabled={bulkAssignProcessing}>
+                                {bulkAssignProcessing ? 'Assigning...' : `Apply to ${bulkAssignModal.routes.length} Routes`}
+                            </Button>
+                        </DialogFooter>
+                    </form>
+                </DialogContent>
+            </Dialog>
         </AppLayout>
     );
 }
