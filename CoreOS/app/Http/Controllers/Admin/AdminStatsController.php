@@ -69,9 +69,9 @@ class AdminStatsController extends Controller
      */
     private function getActiveUsers(): int
     {
-        return User::where('last_login_at', '>=', Carbon::now()->subDays(30))
-            ->orWhere('updated_at', '>=', Carbon::now()->subDays(30))
-            ->count();
+//        return User::where('last_login_at', '>=', Carbon::now()->subDays(30))
+//            ->orWhere('updated_at', '>=', Carbon::now()->subDays(30))
+//            ->count();
     }
 
     /**
