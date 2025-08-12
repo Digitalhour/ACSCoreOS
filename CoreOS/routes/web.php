@@ -11,6 +11,14 @@ use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 use Laravel\WorkOS\Http\Middleware\ValidateSessionWithWorkOS;
 
+// Add this BEFORE your middleware groups
+Route::post('logout', function(\Illuminate\Http\Request $request) {
+    \Log::info('Direct logout attempt');
+    Auth::logout();
+    $request->session()->invalidate();
+    $request->session()->regenerateToken();
+    return redirect('/');
+})->name('logout.test');
 Route::get('/', function () {
     return Inertia::render('welcome');
 })->name('home');
