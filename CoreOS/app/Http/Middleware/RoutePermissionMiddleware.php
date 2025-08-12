@@ -43,6 +43,13 @@ class RoutePermissionMiddleware
             return $next($request);
         }
 
+        // SPECIFIC: Skip logout route to prevent redirect loops
+        if ($request->route()?->getName() === 'logout' ||
+            $request->is('logout') ||
+            ($request->method() === 'POST' && $request->path() === 'logout')) {
+            return $next($request);
+        }
+
         $user = Auth::user();
         $routeName = $request->route()?->getName();
 
@@ -125,10 +132,9 @@ class RoutePermissionMiddleware
     protected function isSuperAdmin($user): bool
     {
         // You can customize this logic based on your needs
-        return
-            $user->email === 'caldridge@aircompressorservices.com' || // Add your email here
-            $user->hasRole('Developer') ||
-            $user->hasRole('Administrator');
+        return $user->hasRole('Super Admin') ||
+            $user->hasRole('Administrator') ||
+            $user->email === config('app.super_admin_email');
     }
 
     /**
