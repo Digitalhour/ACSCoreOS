@@ -20,6 +20,8 @@ class RoutePermissionMiddleware
         'password.*',
         'verification.*',
         'logout',
+        'auth.logout',
+        'workos.logout',
         'home',
         'dashboard',
         'auth.*',
@@ -59,7 +61,10 @@ class RoutePermissionMiddleware
         // Skip if this is a WorkOS callback or auth-related route
         if (str_contains($request->path(), 'auth/') ||
             str_contains($request->path(), 'login') ||
-            str_contains($request->path(), 'workos')) {
+            str_contains($request->path(), 'logout') ||
+            str_contains($request->path(), 'workos') ||
+            $request->is('logout') ||
+            $request->is('auth/logout')) {
             return $next($request);
         }
 
