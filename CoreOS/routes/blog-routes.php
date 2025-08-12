@@ -6,17 +6,17 @@ use App\Http\Controllers\BlogTemplateController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/blog', [BlogController::class, 'index'])->name('blog.index');
-
+Route::get('/blog/create', [BlogController::class, 'create'])->name('blog.create');
 Route::post('/blog/{blogArticle}/comments', [BlogController::class, 'storeComment'])->name('blog.comments.store');
 Route::put('/blog-comments/{blogComment}', [BlogController::class, 'updateComment'])->name('blog.comments.update');
 Route::delete('/blog-comments/{blogComment}', [BlogController::class, 'destroyComment'])->name('blog.comments.destroy');
 Route::get('/blog/{blogArticle}', [BlogController::class, 'show'])->name('blog.show');
 
-Route::get('/blog/create', [BlogController::class, 'create'])->name('blog.create');
 
 
 
-Route::middleware(['permission:blog-create'])->group(function () {
+
+
     // Admin blog management
     Route::get('/admin/blog', [BlogController::class, 'manage'])->name('admin.blog.manage');
     // blog management routes
@@ -43,4 +43,3 @@ Route::middleware(['permission:blog-create'])->group(function () {
     Route::get('/api/blog-templates', [BlogTemplateController::class, 'apiIndex'])->name('api.blog-templates.index');
 
 
-});
