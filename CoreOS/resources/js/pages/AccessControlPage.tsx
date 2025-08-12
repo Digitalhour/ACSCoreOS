@@ -1,4 +1,4 @@
-import React, {useEffect, useMemo, useState} from 'react';
+import React, {useCallback, useEffect, useMemo, useState} from 'react';
 import {Button} from '@/components/ui/button';
 import {Head, router, useForm} from '@inertiajs/react';
 import {Card, CardContent} from '@/components/ui/card';
@@ -27,11 +27,13 @@ import {
     AlertDialogTitle
 } from '@/components/ui/alert-dialog';
 import {DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,} from '@/components/ui/dropdown-menu';
+import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue,} from '@/components/ui/select';
 import {
     ChevronDown,
     ChevronRight,
     Download,
     Edit,
+    FolderPlus,
     MoreVertical,
     Plus,
     RotateCcw,
@@ -39,6 +41,7 @@ import {
     Search,
     Shield,
     ShieldOff,
+    Tag,
     Trash2,
     User,
     Zap
@@ -48,10 +51,22 @@ import AppLayout from '@/layouts/app-layout';
 import {InfoTooltip} from '@/components/InfoTooltip';
 
 // Interface definitions
+interface Category {
+    id: number | string;
+    name: string;
+    description?: string;
+    color: string;
+    icon?: string;
+    sort_order: number;
+    is_active: boolean;
+    permissions_count?: number;
+}
+
 interface Permission {
     id: number | string;
     name: string;
     description?: string;
+    categories?: Category[];
 }
 
 interface Role {
@@ -101,6 +116,7 @@ interface AccessControlPageProps {
     permissions: Permission[];
     roles: Role[];
     users: User[];
+    categories: Category[];
     departments: { id: number | string; name: string; }[];
     routeGroups: RouteGroup;
     routeStats: RouteStats;
@@ -111,7 +127,7 @@ interface AccessControlPageProps {
 }
 
 interface PermissionCategory {
-    name: string;
+    category: Category;
     permissions: Permission[];
     expanded: boolean;
 }
@@ -141,16 +157,18 @@ const breadcrumbs = [
     },
 ];
 
-export default function AccessControlPage({
-                                              permissions: initialPermissions,
-                                              roles: initialRoles,
-                                              users: initialUsers,
-                                              routeGroups,
-                                              routeStats,
-                                              flash,
-                                          }: AccessControlPageProps) {
+export default React.memo(function AccessControlPage({
+                                                         permissions: initialPermissions,
+                                                         roles: initialRoles,
+                                                         users: initialUsers,
+                                                         categories: initialCategories,
+                                                         routeGroups,
+                                                         routeStats,
+                                                         flash,
+                                                     }: AccessControlPageProps) {
     const [activeTab, setActiveTab] = useState('role-permissions');
     const [searchQuery, setSearchQuery] = useState('');
+    const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
     const [expandedCategories, setExpandedCategories] = useState<{ [key: string]: boolean }>({});
     const [expandedGroups, setExpandedGroups] = useState<{ [key: string]: boolean }>({});
     const [expandedRouteGroups, setExpandedRouteGroups] = useState<{ [key: string]: boolean }>({});
@@ -160,6 +178,11 @@ export default function AccessControlPage({
     const [isProcessing, setIsProcessing] = useState(false);
 
     // Modal states
+    const [categoryModal, setCategoryModal] = useState({
+        open: false,
+        mode: 'create' as 'create' | 'edit',
+        category: null as Category | null
+    });
     const [permissionModal, setPermissionModal] = useState({
         open: false,
         mode: 'create' as 'create' | 'edit',
@@ -174,10 +197,14 @@ export default function AccessControlPage({
         open: false,
         user: null as User | null
     });
+    const [bulkCategoryModal, setBulkCategoryModal] = useState({
+        open: false,
+        selectedPermissions: [] as string[]
+    });
     const [deleteDialog, setDeleteDialog] = useState({
         open: false,
-        type: 'permission' as 'permission' | 'role',
-        item: null as Permission | Role | null
+        type: 'permission' as 'permission' | 'role' | 'category',
+        item: null as Permission | Role | Category | null
     });
     const [bulkAssignModal, setBulkAssignModal] = useState({
         open: false,
@@ -185,7 +212,7 @@ export default function AccessControlPage({
         routes: [] as RoutePermission[]
     });
 
-    // Matrix states
+    // Matrix states - use lazy initialization to avoid recalculation on every render
     const [rolePermissionMatrix, setRolePermissionMatrix] = useState<RolePermissionMatrix>(() => {
         const matrix: RolePermissionMatrix = {};
         initialRoles.forEach(role => {
@@ -228,9 +255,18 @@ export default function AccessControlPage({
     });
 
     // Forms
+    const { data: categoryData, setData: setCategoryData, post: postCategory, put: putCategory, delete: deleteCategory, processing: categoryProcessing, reset: resetCategory, errors: categoryErrors } = useForm({
+        name: '',
+        description: '',
+        color: '#ad0a1b',
+        icon: '',
+        sort_order: 0
+    });
+
     const { data: permissionData, setData: setPermissionData, post: postPermission, put: putPermission, delete: deletePermission, processing: permissionProcessing, reset: resetPermission, errors: permissionErrors } = useForm({
         name: '',
-        description: ''
+        description: '',
+        category_ids: [] as string[]
     });
 
     const { data: roleData, setData: setRoleData, post: postRole, put: putRole, delete: deleteRole, processing: roleProcessing, reset: resetRole, errors: roleErrors } = useForm({
@@ -241,6 +277,12 @@ export default function AccessControlPage({
     const { data: userPermData, setData: setUserPermData, post: postUserPerm, processing: userPermProcessing, reset: resetUserPerm } = useForm({
         user_id: '',
         permissions: [] as string[]
+    });
+
+    const { data: bulkCategoryData, setData: setBulkCategoryData, post: postBulkCategory, processing: bulkCategoryProcessing, reset: resetBulkCategory } = useForm({
+        permission_ids: [] as string[],
+        category_ids: [] as string[],
+        action: 'assign' as 'assign' | 'remove' | 'replace'
     });
 
     const { data: bulkAssignData, setData: setBulkAssignData, post: postBulkAssign, processing: bulkAssignProcessing, reset: resetBulkAssign } = useForm({
@@ -255,26 +297,57 @@ export default function AccessControlPage({
         if (flash?.error) toast.error(flash.error);
     }, [flash]);
 
-    // Permission categories
+    // Debounce search query for performance
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setDebouncedSearchQuery(searchQuery);
+        }, 300);
+        return () => clearTimeout(timer);
+    }, [searchQuery]);
+
+    // Permission categories - optimize with better dependencies
     const permissionCategories = useMemo<PermissionCategory[]>(() => {
-        const categories: { [key: string]: Permission[] } = {};
-        initialPermissions.forEach(permission => {
-            const parts = permission.name.split('-');
-            const categoryName = parts.length > 1 ? parts[0] : 'General';
-            if (!categories[categoryName]) categories[categoryName] = [];
-            categories[categoryName].push(permission);
+        const categories: PermissionCategory[] = [];
+
+        // Add categories with their assigned permissions
+        initialCategories.forEach(category => {
+            const categoryPermissions = initialPermissions.filter(permission =>
+                permission.categories?.some(cat => cat.id === category.id)
+            );
+
+            if (categoryPermissions.length > 0) {
+                categories.push({
+                    category,
+                    permissions: categoryPermissions,
+                    expanded: expandedCategories[category.id] === true
+                });
+            }
         });
 
-        return Object.entries(categories)
-            .map(([name, perms]) => ({
-                name,
-                permissions: perms.sort((a, b) => a.name.localeCompare(b.name)),
-                expanded: expandedCategories[name] === true
-            }))
-            .sort((a, b) => a.name.localeCompare(b.name));
-    }, [initialPermissions, expandedCategories]);
+        // Add uncategorized permissions
+        const uncategorizedPermissions = initialPermissions.filter(permission =>
+            !permission.categories || permission.categories.length === 0
+        );
 
-    // User groups
+        if (uncategorizedPermissions.length > 0) {
+            categories.push({
+                category: {
+                    id: 'uncategorized',
+                    name: 'Uncategorized',
+                    description: 'Permissions without assigned categories',
+                    color: '#ad0a1b',
+                    sort_order: 999,
+                    is_active: true
+                },
+                permissions: uncategorizedPermissions,
+                expanded: expandedCategories['uncategorized'] === true
+            });
+        }
+
+        return categories.sort((a, b) => a.category.sort_order - b.category.sort_order);
+    }, [initialPermissions, initialCategories, expandedCategories]);
+
+    // User groups - optimize
     const userGroups = useMemo<UserGroup[]>(() => {
         const groups: { [key: string]: User[] } = {};
         initialUsers.forEach(user => {
@@ -286,31 +359,30 @@ export default function AccessControlPage({
         return Object.entries(groups)
             .map(([name, users]) => ({
                 name,
-                users: users.sort((a, b) => a.name.localeCompare(b.name)),
+                users,
                 expanded: expandedGroups[name] === true
-            }))
-            .sort((a, b) => a.name.localeCompare(b.name));
+            }));
     }, [initialUsers, expandedGroups]);
 
     // Filtered data based on search
     const filteredCategories = useMemo(() => {
-        if (!searchQuery.trim()) return permissionCategories;
-        const query = searchQuery.toLowerCase();
+        if (!debouncedSearchQuery.trim()) return permissionCategories;
+        const query = debouncedSearchQuery.toLowerCase();
         return permissionCategories
             .map(category => ({
                 ...category,
                 permissions: category.permissions.filter(permission =>
                     permission.name.toLowerCase().includes(query) ||
-                    category.name.toLowerCase().includes(query) ||
+                    category.category.name.toLowerCase().includes(query) ||
                     (permission.description && permission.description.toLowerCase().includes(query))
                 )
             }))
             .filter(category => category.permissions.length > 0);
-    }, [permissionCategories, searchQuery]);
+    }, [permissionCategories, debouncedSearchQuery]);
 
     const filteredGroups = useMemo(() => {
-        if (!searchQuery.trim()) return userGroups;
-        const query = searchQuery.toLowerCase();
+        if (!debouncedSearchQuery.trim()) return userGroups;
+        const query = debouncedSearchQuery.toLowerCase();
         return userGroups
             .map(group => ({
                 ...group,
@@ -321,11 +393,11 @@ export default function AccessControlPage({
                 )
             }))
             .filter(group => group.users.length > 0);
-    }, [userGroups, searchQuery]);
+    }, [userGroups, debouncedSearchQuery]);
 
     const filteredRouteGroups = useMemo(() => {
-        if (!searchQuery.trim()) return routeGroups;
-        const query = searchQuery.toLowerCase();
+        if (!debouncedSearchQuery.trim()) return routeGroups;
+        const query = debouncedSearchQuery.toLowerCase();
         const filtered: RouteGroup = {};
 
         Object.entries(routeGroups).forEach(([groupName, routes]) => {
@@ -342,9 +414,9 @@ export default function AccessControlPage({
         });
 
         return filtered;
-    }, [routeGroups, searchQuery]);
+    }, [routeGroups, debouncedSearchQuery]);
 
-    // Stats
+    // Stats - memoize heavy calculations
     const rolePermStats = useMemo(() => {
         const totalAssignments = Object.values(rolePermissionMatrix).reduce((sum, rolePerms) =>
             sum + Object.values(rolePerms).filter(Boolean).length, 0
@@ -352,10 +424,10 @@ export default function AccessControlPage({
         return {
             totalPermissions: initialPermissions.length,
             totalRoles: initialRoles.length,
-            totalCategories: permissionCategories.length,
+            totalCategories: initialCategories.length,
             totalAssignments,
         };
-    }, [initialPermissions, initialRoles, permissionCategories, rolePermissionMatrix]);
+    }, [initialPermissions.length, initialRoles.length, initialCategories.length, rolePermissionMatrix]);
 
     const userRoleStats = useMemo(() => {
         const totalAssignments = Object.values(userRoleMatrix).reduce((sum, userRoles) =>
@@ -371,93 +443,95 @@ export default function AccessControlPage({
             totalAssignments,
             usersWithRoles
         };
-    }, [initialUsers, initialRoles, userGroups, userRoleMatrix]);
+    }, [initialUsers.length, initialRoles.length, userGroups.length, userRoleMatrix]);
 
-    // Role-Permission Matrix handlers
-    const togglePermission = (roleId: string | number, permissionId: string | number) => {
-        setRolePermissionMatrix(prev => {
-            const newMatrix = {
-                ...prev,
-                [roleId]: {
-                    ...prev[roleId],
-                    [permissionId]: !prev[roleId][permissionId]
-                }
-            };
-            setHasRolePermChanges(true);
-            return newMatrix;
-        });
-    };
+    // Role-Permission Matrix handlers - optimized
+    const togglePermission = useCallback((roleId: string | number, permissionId: string | number) => {
+        setRolePermissionMatrix(prev => ({
+            ...prev,
+            [roleId]: {
+                ...prev[roleId],
+                [permissionId]: !prev[roleId][permissionId]
+            }
+        }));
+        setHasRolePermChanges(true);
+    }, []);
 
-    const toggleAllInCategory = (categoryName: string, roleId: string | number, checked: boolean) => {
-        const category = permissionCategories.find(c => c.name === categoryName);
+    const toggleAllInCategory = useCallback((categoryId: string | number, roleId: string | number, checked: boolean) => {
+        const category = permissionCategories.find(c => c.category.id === categoryId);
         if (!category) return;
 
         setRolePermissionMatrix(prev => {
-            const newMatrix = { ...prev };
+            const newRolePerms = { ...prev[roleId] };
             category.permissions.forEach(permission => {
-                newMatrix[roleId][permission.id] = checked;
+                newRolePerms[permission.id] = checked;
             });
-            setHasRolePermChanges(true);
-            return newMatrix;
+            return {
+                ...prev,
+                [roleId]: newRolePerms
+            };
         });
-    };
+        setHasRolePermChanges(true);
+    }, [permissionCategories]);
 
-    const toggleAllForRole = (roleId: string | number, checked: boolean) => {
+    const toggleAllForRole = useCallback((roleId: string | number, checked: boolean) => {
         setRolePermissionMatrix(prev => {
             const newRolePerms: Record<string | number, boolean> = {};
             initialPermissions.forEach(permission => {
                 newRolePerms[permission.id] = checked;
             });
-            const newMatrix = {
+            return {
                 ...prev,
                 [roleId]: newRolePerms
             };
-            setHasRolePermChanges(true);
-            return newMatrix;
         });
-    };
+        setHasRolePermChanges(true);
+    }, [initialPermissions]);
 
-    // User-Role Matrix handlers
-    const toggleUserRole = (userId: string | number, roleId: string | number) => {
-        setUserRoleMatrix(prev => {
-            const newMatrix = {
-                ...prev,
-                [userId]: {
-                    ...prev[userId],
-                    [roleId]: !prev[userId][roleId]
-                }
-            };
-            setHasUserRoleChanges(true);
-            return newMatrix;
-        });
-    };
+    // User-Role Matrix handlers - optimized
+    const toggleUserRole = useCallback((userId: string | number, roleId: string | number) => {
+        setUserRoleMatrix(prev => ({
+            ...prev,
+            [userId]: {
+                ...prev[userId],
+                [roleId]: !prev[userId][roleId]
+            }
+        }));
+        setHasUserRoleChanges(true);
+    }, []);
 
-    const toggleAllInGroup = (groupName: string, roleId: string | number, checked: boolean) => {
+    const toggleAllInGroup = useCallback((groupName: string, roleId: string | number, checked: boolean) => {
         const group = userGroups.find(g => g.name === groupName);
         if (!group) return;
 
         setUserRoleMatrix(prev => {
             const newMatrix = { ...prev };
             group.users.forEach(user => {
-                newMatrix[user.id][roleId] = checked;
+                newMatrix[user.id] = {
+                    ...newMatrix[user.id],
+                    [roleId]: checked
+                };
             });
-            setHasUserRoleChanges(true);
             return newMatrix;
         });
-    };
+        setHasUserRoleChanges(true);
+    }, [userGroups]);
 
-    const toggleAllForUserRole = (roleId: string | number, checked: boolean) => {
+    const toggleAllForUserRole = useCallback((roleId: string | number, checked: boolean) => {
         setUserRoleMatrix(prev => {
             const newMatrix = { ...prev };
             initialUsers.forEach(user => {
-                newMatrix[user.id][roleId] = checked;
+                newMatrix[user.id] = {
+                    ...newMatrix[user.id],
+                    [roleId]: checked
+                };
             });
-            setHasUserRoleChanges(true);
             return newMatrix;
         });
-    };
+        setHasUserRoleChanges(true);
+    }, [initialUsers]);
 
-    // Route permission handlers
+    // Route permission handlers (same as before)
     const toggleRouteGroup = (groupName: string) => {
         setExpandedRouteGroups(prev => ({
             ...prev,
@@ -468,21 +542,18 @@ export default function AccessControlPage({
     const openBulkAssignModal = (groupName: string, routes: RoutePermission[]) => {
         const routeIds = routes.map(r => r.id.toString());
 
-        // Get current permissions that ALL routes in the group have
         const commonPermissions = initialPermissions.filter(permission =>
             routes.every(route =>
                 routePermissionAssignments[route.id]?.permission_ids.includes(permission.id.toString())
             )
         ).map(p => p.id.toString());
 
-        // Get current roles that ALL routes in the group have
         const commonRoles = initialRoles.filter(role =>
             routes.every(route =>
                 routePermissionAssignments[route.id]?.role_ids.includes(role.id.toString())
             )
         ).map(r => r.id.toString());
 
-        // Check if ALL routes are protected
         const allProtected = routes.every(route =>
             routePermissionAssignments[route.id]?.is_protected ?? route.is_protected
         );
@@ -514,7 +585,6 @@ export default function AccessControlPage({
         });
     };
 
-    // Get status for bulk assignment checkboxes
     const getBulkPermissionStatus = (permissionId: string, routes: RoutePermission[]) => {
         const assignedCount = routes.filter(route =>
             routePermissionAssignments[route.id]?.permission_ids.includes(permissionId)
@@ -537,57 +607,52 @@ export default function AccessControlPage({
         };
     };
 
-    const toggleRoutePermission = (routeId: string, permissionId: string) => {
+    const toggleRoutePermission = useCallback((routeId: string, permissionId: string) => {
         setRoutePermissionAssignments(prev => {
             const current = prev[routeId]?.permission_ids || [];
             const newPermissions = current.includes(permissionId)
                 ? current.filter(id => id !== permissionId)
                 : [...current, permissionId];
 
-            const newAssignments = {
+            return {
                 ...prev,
                 [routeId]: {
                     ...prev[routeId],
                     permission_ids: newPermissions
                 }
             };
-            setHasRoutePermChanges(true);
-            return newAssignments;
         });
-    };
+        setHasRoutePermChanges(true);
+    }, []);
 
-    const toggleRouteRole = (routeId: string, roleId: string) => {
+    const toggleRouteRole = useCallback((routeId: string, roleId: string) => {
         setRoutePermissionAssignments(prev => {
             const current = prev[routeId]?.role_ids || [];
             const newRoles = current.includes(roleId)
                 ? current.filter(id => id !== roleId)
                 : [...current, roleId];
 
-            const newAssignments = {
+            return {
                 ...prev,
                 [routeId]: {
                     ...prev[routeId],
                     role_ids: newRoles
                 }
             };
-            setHasRoutePermChanges(true);
-            return newAssignments;
         });
-    };
+        setHasRoutePermChanges(true);
+    }, []);
 
-    const toggleRouteProtection = (routeId: string) => {
-        setRoutePermissionAssignments(prev => {
-            const newAssignments = {
-                ...prev,
-                [routeId]: {
-                    ...prev[routeId],
-                    is_protected: !prev[routeId]?.is_protected
-                }
-            };
-            setHasRoutePermChanges(true);
-            return newAssignments;
-        });
-    };
+    const toggleRouteProtection = useCallback((routeId: string) => {
+        setRoutePermissionAssignments(prev => ({
+            ...prev,
+            [routeId]: {
+                ...prev[routeId],
+                is_protected: !prev[routeId]?.is_protected
+            }
+        }));
+        setHasRoutePermChanges(true);
+    }, []);
 
     // Save functions using router
     const saveRolePermissions = () => {
@@ -682,6 +747,48 @@ export default function AccessControlPage({
         return rolePermissions;
     };
 
+    // Category management
+    const openCreateCategoryModal = () => {
+        resetCategory();
+        setCategoryModal({ open: true, mode: 'create', category: null });
+    };
+
+    const openEditCategoryModal = (category: Category) => {
+        setCategoryData({
+            name: category.name,
+            description: category.description || '',
+            color: category.color,
+            icon: category.icon || '',
+            sort_order: category.sort_order
+        });
+        setCategoryModal({ open: true, mode: 'edit', category });
+    };
+
+    const handleCreateCategory = (e: React.FormEvent) => {
+        e.preventDefault();
+        postCategory('/access-control/categories', {
+            onSuccess: () => {
+                toast.success('Category created successfully!');
+                setCategoryModal({ open: false, mode: 'create', category: null });
+                window.location.reload();
+            },
+            onError: () => toast.error('Failed to create category')
+        });
+    };
+
+    const handleUpdateCategory = (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!categoryModal.category) return;
+        putCategory(`/access-control/categories/${categoryModal.category.id}`, {
+            onSuccess: () => {
+                toast.success('Category updated successfully!');
+                setCategoryModal({ open: false, mode: 'create', category: null });
+                window.location.reload();
+            },
+            onError: () => toast.error('Failed to update category')
+        });
+    };
+
     // Modal handlers
     const openUserPermissionModal = (user: User) => {
         setUserPermData({
@@ -712,7 +819,8 @@ export default function AccessControlPage({
     const openEditPermissionModal = (permission: Permission) => {
         setPermissionData({
             name: permission.name,
-            description: permission.description || ''
+            description: permission.description || '',
+            category_ids: permission.categories?.map(c => c.id.toString()) || []
         });
         setPermissionModal({ open: true, mode: 'edit', permission });
     };
@@ -781,8 +889,31 @@ export default function AccessControlPage({
         });
     };
 
+    // Bulk category assignment
+    const openBulkCategoryModal = (selectedPermissions: string[] = []) => {
+        setBulkCategoryData({
+            permission_ids: selectedPermissions,
+            category_ids: [],
+            action: 'assign'
+        });
+        setBulkCategoryModal({ open: true, selectedPermissions });
+    };
+
+    const handleBulkCategoryAssignment = (e: React.FormEvent) => {
+        e.preventDefault();
+        postBulkCategory('/access-control/bulk/assign-permission-categories', {
+            onSuccess: () => {
+                toast.success('Categories assigned successfully!');
+                setBulkCategoryModal({ open: false, selectedPermissions: [] });
+                resetBulkCategory();
+                window.location.reload();
+            },
+            onError: () => toast.error('Failed to assign categories')
+        });
+    };
+
     // Delete handlers
-    const openDeleteDialog = (type: 'permission' | 'role', item: Permission | Role) => {
+    const openDeleteDialog = (type: 'permission' | 'role' | 'category', item: Permission | Role | Category) => {
         setDeleteDialog({ open: true, type, item });
     };
 
@@ -791,7 +922,9 @@ export default function AccessControlPage({
 
         const endpoint = deleteDialog.type === 'permission'
             ? `/access-control/permissions/${deleteDialog.item.id}`
-            : `/access-control/roles/${deleteDialog.item.id}`;
+            : deleteDialog.type === 'role'
+                ? `/access-control/roles/${deleteDialog.item.id}`
+                : `/access-control/categories/${deleteDialog.item.id}`;
 
         if (deleteDialog.type === 'permission') {
             deletePermission(endpoint, {
@@ -802,7 +935,7 @@ export default function AccessControlPage({
                 },
                 onError: () => toast.error('Failed to delete permission')
             });
-        } else {
+        } else if (deleteDialog.type === 'role') {
             deleteRole(endpoint, {
                 onSuccess: () => {
                     toast.success('Role deleted successfully!');
@@ -811,12 +944,21 @@ export default function AccessControlPage({
                 },
                 onError: () => toast.error('Failed to delete role')
             });
+        } else {
+            deleteCategory(endpoint, {
+                onSuccess: () => {
+                    toast.success('Category deleted successfully!');
+                    setDeleteDialog({ open: false, type: 'category', item: null });
+                    window.location.reload();
+                },
+                onError: () => toast.error('Failed to delete category')
+            });
         }
     };
 
     // Utility functions
-    const getCategoryStatus = (categoryName: string, roleId: string | number) => {
-        const category = permissionCategories.find(c => c.name === categoryName);
+    const getCategoryStatus = useCallback((categoryId: string | number, roleId: string | number) => {
+        const category = permissionCategories.find(c => c.category.id === categoryId);
         if (!category) return { checked: false, indeterminate: false };
 
         const permissions = category.permissions;
@@ -826,9 +968,9 @@ export default function AccessControlPage({
             checked: checkedCount === permissions.length,
             indeterminate: checkedCount > 0 && checkedCount < permissions.length
         };
-    };
+    }, [permissionCategories, rolePermissionMatrix]);
 
-    const getGroupRoleStatus = (groupName: string, roleId: string | number) => {
+    const getGroupRoleStatus = useCallback((groupName: string, roleId: string | number) => {
         const group = userGroups.find(g => g.name === groupName);
         if (!group) return { checked: false, indeterminate: false };
 
@@ -839,21 +981,21 @@ export default function AccessControlPage({
             checked: checkedCount === users.length,
             indeterminate: checkedCount > 0 && checkedCount < users.length
         };
-    };
+    }, [userGroups, userRoleMatrix]);
 
-    const toggleCategory = (categoryName: string) => {
+    const toggleCategory = useCallback((categoryId: string | number) => {
         setExpandedCategories(prev => ({
             ...prev,
-            [categoryName]: !prev[categoryName]
+            [categoryId]: !prev[categoryId]
         }));
-    };
+    }, []);
 
-    const toggleGroup = (groupName: string) => {
+    const toggleGroup = useCallback((groupName: string) => {
         setExpandedGroups(prev => ({
             ...prev,
             [groupName]: !prev[groupName]
         }));
-    };
+    }, []);
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
@@ -871,19 +1013,17 @@ export default function AccessControlPage({
                         {/* Header */}
                         <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2">
-                                {/*<Button variant="outline" size="sm" onClick={() => setExpandedCategories({})}>*/}
-                                {/*    Expand All*/}
-                                {/*</Button>*/}
-                                {/*<Button variant="outline" size="sm" onClick={() => {*/}
-                                {/*    const collapsed: { [key: string]: boolean } = {};*/}
-                                {/*    permissionCategories.forEach(cat => collapsed[cat.name] = false);*/}
-                                {/*    setExpandedCategories(collapsed);*/}
-                                {/*}}>*/}
-                                {/*    Collapse All*/}
-                                {/*</Button>*/}
+                                <Button variant="outline" size="sm" onClick={openBulkCategoryModal}>
+                                    <Tag className="h-4 w-4 mr-2" />
+                                    Bulk Categories
+                                </Button>
                             </div>
 
                             <div className="flex items-center gap-2">
+                                <Button variant="outline" size="sm" onClick={openCreateCategoryModal}>
+                                    <FolderPlus className="h-4 w-4 mr-2" />
+                                    Add Category
+                                </Button>
                                 <Button variant="outline" size="sm" onClick={openCreatePermissionModal}>
                                     <Plus className="h-4 w-4 mr-2" />
                                     Add Permission
@@ -894,7 +1034,6 @@ export default function AccessControlPage({
                                 </Button>
                                 {hasRolePermChanges && (
                                     <Button variant="outline" size="sm" onClick={() => {
-                                        // Reset to original state
                                         const originalMatrix: RolePermissionMatrix = {};
                                         initialRoles.forEach(role => {
                                             originalMatrix[role.id] = {};
@@ -940,7 +1079,17 @@ export default function AccessControlPage({
                         <div className="flex gap-4">
                             <div className="flex-1 relative">
                                 <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                                <Input placeholder="Search permissions, categories, and descriptions..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-10" />
+                                <Input
+                                    placeholder="Search permissions, categories, and descriptions..."
+                                    value={searchQuery}
+                                    onChange={(e) => setSearchQuery(e.target.value)}
+                                    className="pl-10"
+                                />
+                                {searchQuery !== debouncedSearchQuery && (
+                                    <div className="absolute right-3 top-3">
+                                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-900"></div>
+                                    </div>
+                                )}
                             </div>
                         </div>
 
@@ -982,18 +1131,36 @@ export default function AccessControlPage({
                                         </thead>
                                         <tbody className="bg-background divide-y divide-gray-200">
                                         {filteredCategories.map(category => (
-                                            <React.Fragment key={category.name}>
+                                            <React.Fragment key={category.category.id}>
                                                 <tr className="bg-muted">
-                                                    <td className="sticky left-0 bg-muted text-xs w-80 p-3 border-r cursor-pointer hover:bg-muted/80 flex items-center gap-2 z-20" onClick={() => toggleCategory(category.name)}>
+                                                    <td className="sticky left-0 bg-muted text-xs w-80 p-3 border-r cursor-pointer hover:bg-muted/80 flex items-center gap-2 z-20" onClick={() => toggleCategory(category.category.id)}>
                                                         {category.expanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-                                                        <span className="text-xs font-medium">{category.name}</span>
+                                                        {/*<div className="w-3 h-3 rounded" style={{ backgroundColor: category.category.color }}></div>*/}
+                                                        <span className="text-xs font-medium">{category.category.name}</span>
                                                         <Badge variant="outline" className="ml-auto">{category.permissions.length}</Badge>
+                                                        {category.category.id !== 'uncategorized' && (
+                                                            <DropdownMenu>
+                                                                <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                                                                    <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
+                                                                        <MoreVertical className="h-3 w-3" />
+                                                                    </Button>
+                                                                </DropdownMenuTrigger>
+                                                                <DropdownMenuContent>
+                                                                    <DropdownMenuItem onClick={() => openEditCategoryModal(category.category)}>
+                                                                        <Edit className="h-3 w-3 mr-2" />Edit
+                                                                    </DropdownMenuItem>
+                                                                    <DropdownMenuItem onClick={() => openDeleteDialog('category', category.category)} className="text-red-600">
+                                                                        <Trash2 className="h-3 w-3 mr-2" />Delete
+                                                                    </DropdownMenuItem>
+                                                                </DropdownMenuContent>
+                                                            </DropdownMenu>
+                                                        )}
                                                     </td>
                                                     {initialRoles.map(role => {
-                                                        const status = getCategoryStatus(category.name, role.id);
+                                                        const status = getCategoryStatus(category.category.id, role.id);
                                                         return (
                                                             <td key={role.id} className="w-40 p-3 text-xs text-center border-r bg-muted">
-                                                                <Checkbox checked={status.indeterminate ? 'indeterminate' : status.checked} onCheckedChange={(checked) => toggleAllInCategory(category.name, role.id, Boolean(checked))} />
+                                                                <Checkbox checked={status.indeterminate ? 'indeterminate' : status.checked} onCheckedChange={(checked) => toggleAllInCategory(category.category.id, role.id, Boolean(checked))} />
                                                             </td>
                                                         );
                                                     })}
@@ -1002,8 +1169,13 @@ export default function AccessControlPage({
                                                     <tr key={permission.id} className="hover:bg-muted/30">
                                                         <td className="sticky left-0 bg-background w-80 text-xs p-2 border-r pl-8 flex items-center justify-between z-20">
                                                             <div className="flex items-center gap-2">
-                                                                <span className="text-xs">{permission.name.split('-').slice(1).join('-') || permission.name}</span>
+                                                                <span className="text-xs">{permission.name}</span>
                                                                 <InfoTooltip title={permission.name} description={permission.description} />
+                                                                {permission.categories && permission.categories.length > 1 && (
+                                                                    <Badge variant="secondary" className="text-xs">
+                                                                        +{permission.categories.length - 1}
+                                                                    </Badge>
+                                                                )}
                                                             </div>
                                                             <DropdownMenu>
                                                                 <DropdownMenuTrigger asChild>
@@ -1014,6 +1186,9 @@ export default function AccessControlPage({
                                                                 <DropdownMenuContent>
                                                                     <DropdownMenuItem onClick={() => openEditPermissionModal(permission)}>
                                                                         <Edit className="h-3 w-3 mr-2" />Edit
+                                                                    </DropdownMenuItem>
+                                                                    <DropdownMenuItem onClick={() => openBulkCategoryModal([permission.id.toString()])}>
+                                                                        <Tag className="h-3 w-3 mr-2" />Categories
                                                                     </DropdownMenuItem>
                                                                     <DropdownMenuItem onClick={() => openDeleteDialog('permission', permission)} className="text-red-600">
                                                                         <Trash2 className="h-3 w-3 mr-2" />Delete
@@ -1037,7 +1212,7 @@ export default function AccessControlPage({
                         </Card>
                     </TabsContent>
 
-                    {/* User-Role Matrix Tab */}
+                    {/* User-Role Matrix Tab remains the same */}
                     <TabsContent value="user-roles" className="space-y-4">
                         {/* Header */}
                         <div className="flex items-center justify-between">
@@ -1110,7 +1285,17 @@ export default function AccessControlPage({
                         <div className="flex gap-4">
                             <div className="flex-1 relative">
                                 <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                                <Input placeholder="Search users, emails, and departments..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-10" />
+                                <Input
+                                    placeholder="Search users, emails, and departments..."
+                                    value={searchQuery}
+                                    onChange={(e) => setSearchQuery(e.target.value)}
+                                    className="pl-10"
+                                />
+                                {searchQuery !== debouncedSearchQuery && (
+                                    <div className="absolute right-3 top-3">
+                                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-900"></div>
+                                    </div>
+                                )}
                             </div>
                         </div>
 
@@ -1192,7 +1377,7 @@ export default function AccessControlPage({
                         </Card>
                     </TabsContent>
 
-                    {/* Route Permissions Tab */}
+                    {/* Route Permissions Tab remains mostly the same but updated to work with new categories */}
                     <TabsContent value="route-permissions" className="space-y-4">
                         {/* Header */}
                         <div className="flex items-center justify-between">
@@ -1216,7 +1401,6 @@ export default function AccessControlPage({
                                 </Button>
                                 {hasRoutePermChanges && (
                                     <Button variant="outline" size="sm" onClick={() => {
-                                        // Reset to original state
                                         const originalAssignments: { [routeId: string]: { permission_ids: string[]; role_ids: string[]; is_protected: boolean; } } = {};
                                         Object.values(routeGroups).flat().forEach(route => {
                                             originalAssignments[route.id] = {
@@ -1271,18 +1455,27 @@ export default function AccessControlPage({
                         <div className="flex gap-4">
                             <div className="flex-1 relative">
                                 <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                                <Input placeholder="Search routes, URIs, and controllers..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-10" />
+                                <Input
+                                    placeholder="Search routes, URIs, and controllers..."
+                                    value={searchQuery}
+                                    onChange={(e) => setSearchQuery(e.target.value)}
+                                    className="pl-10"
+                                />
+                                {searchQuery !== debouncedSearchQuery && (
+                                    <div className="absolute right-3 top-3">
+                                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-900"></div>
+                                    </div>
+                                )}
                             </div>
                         </div>
 
-                        {/* Route Permissions List */}
+                        {/* Route Permissions List - keeping the existing structure */}
                         <Card>
                             <CardContent className="p-0">
                                 <div className="overflow-auto max-h-[70vh]">
                                     <div className="space-y-2 p-4">
                                         {Object.entries(filteredRouteGroups).map(([groupName, routes]) => (
                                             <div key={groupName} className="border rounded-lg">
-                                                {/* Group Header */}
                                                 <div className="bg-muted p-3 hover:bg-muted/80 flex items-center gap-2 border-b">
                                                     <div
                                                         className="flex items-center gap-2 flex-1 cursor-pointer"
@@ -1306,11 +1499,9 @@ export default function AccessControlPage({
                                                     </Button>
                                                 </div>
 
-                                                {/* Routes */}
                                                 {expandedRouteGroups[groupName] && routes.map(route => (
                                                     <div key={route.id} className="p-4 border-b last:border-b-0">
                                                         <div className="flex items-start gap-4">
-                                                            {/* Route Info */}
                                                             <div className="flex-1">
                                                                 <div className="flex items-center gap-2 mb-2">
                                                                     <span className="font-mono text-sm font-medium">{route.route_name}</span>
@@ -1344,37 +1535,36 @@ export default function AccessControlPage({
                                                                 )}
                                                             </div>
 
-                                                            {/* Permissions and Roles */}
                                                             <div>
                                                                 <div className="flex flex-row gap-5">
-
-                                                                    {/* Permissions Section */}
                                                                     <div>
                                                                         <Label className="text-xs font-medium mb-2 block">Assigned Permissions</Label>
                                                                         <div className="grid grid-cols-1 gap-1 max-h-32 overflow-y-auto border rounded p-2">
-                                                                            {initialPermissions.map(permission => {
-                                                                                const isAssigned = routePermissionAssignments[route.id]?.permission_ids.includes(permission.id.toString()) ?? false;
-                                                                                return (
-                                                                                    <div key={permission.id} className="flex items-center space-x-2">
-                                                                                        <Checkbox
-                                                                                            id={`route-${route.id}-perm-${permission.id}`}
-                                                                                            checked={isAssigned}
-                                                                                            onCheckedChange={() => toggleRoutePermission(route.id.toString(), permission.id.toString())}
-                                                                                        />
-                                                                                        <Label
-                                                                                            htmlFor={`route-${route.id}-perm-${permission.id}`}
-                                                                                            className="text-xs flex items-center gap-1"
-                                                                                        >
-                                                                                            {permission.name}
-                                                                                            <InfoTooltip title={permission.name} description={permission.description} />
-                                                                                        </Label>
-                                                                                    </div>
-                                                                                );
-                                                                            })}
+                                                                            {permissionCategories.map(category =>
+                                                                                category.permissions.map(permission => {
+                                                                                    const isAssigned = routePermissionAssignments[route.id]?.permission_ids.includes(permission.id.toString()) ?? false;
+                                                                                    return (
+                                                                                        <div key={permission.id} className="flex items-center space-x-2">
+                                                                                            <Checkbox
+                                                                                                id={`route-${route.id}-perm-${permission.id}`}
+                                                                                                checked={isAssigned}
+                                                                                                onCheckedChange={() => toggleRoutePermission(route.id.toString(), permission.id.toString())}
+                                                                                            />
+                                                                                            <Label
+                                                                                                htmlFor={`route-${route.id}-perm-${permission.id}`}
+                                                                                                className="text-xs flex items-center gap-1"
+                                                                                            >
+                                                                                                <div className="w-2 h-2 rounded" style={{ backgroundColor: category.category.color }}></div>
+                                                                                                {permission.name}
+                                                                                                <InfoTooltip title={permission.name} description={permission.description} />
+                                                                                            </Label>
+                                                                                        </div>
+                                                                                    );
+                                                                                })
+                                                                            )}
                                                                         </div>
                                                                     </div>
 
-                                                                    {/* Roles Section */}
                                                                     <div>
                                                                         <Label className="text-xs font-medium mb-2 block">Assigned Roles</Label>
                                                                         <div className="grid grid-cols-1 gap-1 max-h-32 overflow-y-auto border rounded p-2">
@@ -1399,10 +1589,9 @@ export default function AccessControlPage({
                                                                             })}
                                                                         </div>
                                                                     </div>
-                                                                    </div>
                                                                 </div>
                                                             </div>
-
+                                                        </div>
                                                     </div>
                                                 ))}
                                             </div>
@@ -1438,7 +1627,269 @@ export default function AccessControlPage({
                 )}
             </div>
 
-            {/* User Permissions Modal */}
+            {/* Category Management Modal */}
+            <Dialog open={categoryModal.open} onOpenChange={() => setCategoryModal({ open: false, mode: 'create', category: null })}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>{categoryModal.mode === 'create' ? 'Create Category' : 'Edit Category'}</DialogTitle>
+                        <DialogDescription>
+                            {categoryModal.mode === 'create'
+                                ? 'Create a new category to organize permissions.'
+                                : 'Update the category details.'
+                            }
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <form onSubmit={categoryModal.mode === 'create' ? handleCreateCategory : handleUpdateCategory}>
+                        <div className="space-y-4">
+                            <div>
+                                <Label htmlFor="category-name">Category Name</Label>
+                                <Input
+                                    id="category-name"
+                                    placeholder="e.g., User Management, Reports, Settings"
+                                    value={categoryData.name}
+                                    onChange={(e) => setCategoryData('name', e.target.value)}
+                                    className={categoryErrors.name ? 'border-red-500' : ''}
+                                />
+                                {categoryErrors.name && <p className="text-sm text-red-500 mt-1">{categoryErrors.name}</p>}
+                            </div>
+                            <div>
+                                <Label htmlFor="category-description">Description (Optional)</Label>
+                                <Textarea
+                                    id="category-description"
+                                    placeholder="Describe what this category represents..."
+                                    value={categoryData.description}
+                                    onChange={(e) => setCategoryData('description', e.target.value)}
+                                    className={categoryErrors.description ? 'border-red-500' : ''}
+                                    rows={3}
+                                />
+                                {categoryErrors.description && <p className="text-sm text-red-500 mt-1">{categoryErrors.description}</p>}
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
+                                {/*<div>*/}
+                                {/*    <Label htmlFor="category-color">Color</Label>*/}
+                                {/*    <div className="flex items-center gap-2">*/}
+                                {/*        <Input*/}
+                                {/*            id="category-color"*/}
+                                {/*            type="color"*/}
+                                {/*            value={categoryData.color}*/}
+                                {/*            onChange={(e) => setCategoryData('color', e.target.value)}*/}
+                                {/*            className="w-16 h-10 p-1 border rounded"*/}
+                                {/*        />*/}
+                                {/*        <Input*/}
+                                {/*            placeholder="#6366f1"*/}
+                                {/*            value={categoryData.color}*/}
+                                {/*            onChange={(e) => setCategoryData('color', e.target.value)}*/}
+                                {/*            className="flex-1"*/}
+                                {/*        />*/}
+                                {/*    </div>*/}
+                                {/*    {categoryErrors.color && <p className="text-sm text-red-500 mt-1">{categoryErrors.color}</p>}*/}
+                                {/*</div>*/}
+                                <div>
+                                    <Label htmlFor="category-sort-order">Sort Order</Label>
+                                    <Input
+                                        id="category-sort-order"
+                                        type="number"
+                                        min="0"
+                                        value={categoryData.sort_order}
+                                        onChange={(e) => setCategoryData('sort_order', parseInt(e.target.value) || 0)}
+                                        className={categoryErrors.sort_order ? 'border-red-500' : ''}
+                                    />
+                                    {categoryErrors.sort_order && <p className="text-sm text-red-500 mt-1">{categoryErrors.sort_order}</p>}
+                                </div>
+                            </div>
+                            <div>
+                                <Label htmlFor="category-icon">Icon (Optional)</Label>
+                                <Input
+                                    id="category-icon"
+                                    placeholder="e.g., users, settings, file-text (Lucide icon names)"
+                                    value={categoryData.icon}
+                                    onChange={(e) => setCategoryData('icon', e.target.value)}
+                                    className={categoryErrors.icon ? 'border-red-500' : ''}
+                                />
+                                {categoryErrors.icon && <p className="text-sm text-red-500 mt-1">{categoryErrors.icon}</p>}
+                            </div>
+                        </div>
+                        <DialogFooter className="mt-6">
+                            <Button type="button" variant="outline" onClick={() => setCategoryModal({ open: false, mode: 'create', category: null })}>Cancel</Button>
+                            <Button type="submit" disabled={categoryProcessing}>
+                                {categoryProcessing ? (categoryModal.mode === 'create' ? 'Creating...' : 'Updating...') : (categoryModal.mode === 'create' ? 'Create Category' : 'Update Category')}
+                            </Button>
+                        </DialogFooter>
+                    </form>
+                </DialogContent>
+            </Dialog>
+
+            {/* Permission Management Modal - Updated */}
+            <Dialog open={permissionModal.open} onOpenChange={() => setPermissionModal({ open: false, mode: 'create', permission: null })}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>{permissionModal.mode === 'create' ? 'Create Permission' : 'Edit Permission'}</DialogTitle>
+                        <DialogDescription>
+                            {permissionModal.mode === 'create'
+                                ? 'Create a new permission and assign it to categories.'
+                                : 'Update the permission and its category assignments.'
+                            }
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <form onSubmit={permissionModal.mode === 'create' ? handleCreatePermission : handleUpdatePermission}>
+                        <div className="space-y-4">
+                            <div>
+                                <Label htmlFor="permission-name">Permission Name</Label>
+                                <Input
+                                    id="permission-name"
+                                    placeholder="e.g., users.create, reports.export, settings.edit"
+                                    value={permissionData.name}
+                                    onChange={(e) => setPermissionData('name', e.target.value)}
+                                    className={permissionErrors.name ? 'border-red-500' : ''}
+                                />
+                                {permissionErrors.name && <p className="text-sm text-red-500 mt-1">{permissionErrors.name}</p>}
+                            </div>
+                            <div>
+                                <Label htmlFor="permission-description">Description (Optional)</Label>
+                                <Textarea
+                                    id="permission-description"
+                                    placeholder="Describe what this permission allows users to do..."
+                                    value={permissionData.description}
+                                    onChange={(e) => setPermissionData('description', e.target.value)}
+                                    className={permissionErrors.description ? 'border-red-500' : ''}
+                                    rows={3}
+                                />
+                                {permissionErrors.description && <p className="text-sm text-red-500 mt-1">{permissionErrors.description}</p>}
+                            </div>
+                            <div>
+                                <Label htmlFor="permission-categories">Categories</Label>
+                                <div className="space-y-2 max-h-40 overflow-y-auto border rounded p-3">
+                                    {initialCategories.map(category => (
+                                        <div key={category.id} className="flex items-center space-x-2">
+                                            <Checkbox
+                                                id={`cat-${category.id}`}
+                                                checked={permissionData.category_ids.includes(category.id.toString())}
+                                                onCheckedChange={(checked) => {
+                                                    const newCategoryIds = checked
+                                                        ? [...permissionData.category_ids, category.id.toString()]
+                                                        : permissionData.category_ids.filter(id => id !== category.id.toString());
+                                                    setPermissionData('category_ids', newCategoryIds);
+                                                }}
+                                            />
+                                            <Label
+                                                htmlFor={`cat-${category.id}`}
+                                                className="text-sm flex items-center gap-2"
+                                            >
+                                                <div className="w-3 h-3 rounded" style={{ backgroundColor: category.color }}></div>
+                                                {category.name}
+                                            </Label>
+                                        </div>
+                                    ))}
+                                </div>
+                                {permissionErrors.category_ids && <p className="text-sm text-red-500 mt-1">{permissionErrors.category_ids}</p>}
+                            </div>
+                        </div>
+                        <DialogFooter className="mt-6">
+                            <Button type="button" variant="outline" onClick={() => setPermissionModal({ open: false, mode: 'create', permission: null })}>Cancel</Button>
+                            <Button type="submit" disabled={permissionProcessing}>
+                                {permissionProcessing ? (permissionModal.mode === 'create' ? 'Creating...' : 'Updating...') : (permissionModal.mode === 'create' ? 'Create Permission' : 'Update Permission')}
+                            </Button>
+                        </DialogFooter>
+                    </form>
+                </DialogContent>
+            </Dialog>
+
+            {/* Bulk Category Assignment Modal */}
+            <Dialog open={bulkCategoryModal.open} onOpenChange={(open) => setBulkCategoryModal({ open, selectedPermissions: [] })}>
+                <DialogContent className="max-w-2xl">
+                    <DialogHeader>
+                        <DialogTitle>Bulk Assign Categories</DialogTitle>
+                        <DialogDescription>
+                            Assign categories to multiple permissions at once.
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <form onSubmit={handleBulkCategoryAssignment}>
+                        <div className="space-y-4">
+                            <div>
+                                <Label>Action</Label>
+                                <Select value={bulkCategoryData.action} onValueChange={(value: 'assign' | 'remove' | 'replace') => setBulkCategoryData('action', value)}>
+                                    <SelectTrigger>
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="assign">Assign categories (add to existing)</SelectItem>
+                                        <SelectItem value="remove">Remove categories</SelectItem>
+                                        <SelectItem value="replace">Replace all categories</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+
+                            <div>
+                                <Label>Permissions ({bulkCategoryData.permission_ids.length} selected)</Label>
+                                <div className="space-y-2 max-h-40 overflow-y-auto border rounded p-3">
+                                    {initialPermissions.map(permission => (
+                                        <div key={permission.id} className="flex items-center space-x-2">
+                                            <Checkbox
+                                                id={`bulk-perm-${permission.id}`}
+                                                checked={bulkCategoryData.permission_ids.includes(permission.id.toString())}
+                                                onCheckedChange={(checked) => {
+                                                    const newPermissionIds = checked
+                                                        ? [...bulkCategoryData.permission_ids, permission.id.toString()]
+                                                        : bulkCategoryData.permission_ids.filter(id => id !== permission.id.toString());
+                                                    setBulkCategoryData('permission_ids', newPermissionIds);
+                                                }}
+                                            />
+                                            <Label htmlFor={`bulk-perm-${permission.id}`} className="text-sm">
+                                                {permission.name}
+                                            </Label>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+
+                            <div>
+                                <Label>Categories</Label>
+                                <div className="space-y-2 max-h-40 overflow-y-auto border rounded p-3">
+                                    {initialCategories.map(category => (
+                                        <div key={category.id} className="flex items-center space-x-2">
+                                            <Checkbox
+                                                id={`bulk-cat-${category.id}`}
+                                                checked={bulkCategoryData.category_ids.includes(category.id.toString())}
+                                                onCheckedChange={(checked) => {
+                                                    const newCategoryIds = checked
+                                                        ? [...bulkCategoryData.category_ids, category.id.toString()]
+                                                        : bulkCategoryData.category_ids.filter(id => id !== category.id.toString());
+                                                    setBulkCategoryData('category_ids', newCategoryIds);
+                                                }}
+                                            />
+                                            <Label
+                                                htmlFor={`bulk-cat-${category.id}`}
+                                                className="text-sm flex items-center gap-2"
+                                            >
+                                                <div className="w-3 h-3 rounded" style={{ backgroundColor: category.color }}></div>
+                                                {category.name}
+                                            </Label>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+
+                        <DialogFooter className="mt-6">
+                            <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => setBulkCategoryModal({ open: false, selectedPermissions: [] })}
+                            >
+                                Cancel
+                            </Button>
+                            <Button type="submit" disabled={bulkCategoryProcessing}>
+                                {bulkCategoryProcessing ? 'Processing...' : `${bulkCategoryData.action.charAt(0).toUpperCase() + bulkCategoryData.action.slice(1)} Categories`}
+                            </Button>
+                        </DialogFooter>
+                    </form>
+                </DialogContent>
+            </Dialog>
+
+            {/* User Permissions Modal - keeping existing but updated for new categories */}
             <Dialog open={userPermissionModal.open} onOpenChange={(open) => setUserPermissionModal({ open, user: null })}>
                 <DialogContent className="max-w-2xl">
                     <DialogHeader>
@@ -1454,8 +1905,11 @@ export default function AccessControlPage({
                                 const userRolePermissions = userPermissionModal.user ? getUserRolePermissions(userPermissionModal.user) : new Set<string>();
 
                                 return (
-                                    <div key={category.name}>
-                                        <h4 className="font-medium mb-2">{category.name}</h4>
+                                    <div key={category.category.id}>
+                                        <h4 className="font-medium mb-2 flex items-center gap-2">
+                                            <div className="w-3 h-3 rounded" style={{ backgroundColor: category.category.color }}></div>
+                                            {category.category.name}
+                                        </h4>
                                         <div className="grid grid-cols-1 gap-2">
                                             {category.permissions.map(permission => {
                                                 const hasFromRole = userRolePermissions.has(permission.id.toString());
@@ -1480,7 +1934,7 @@ export default function AccessControlPage({
                                                             htmlFor={`perm-${permission.id}`}
                                                             className={`text-sm flex items-center gap-1 ${hasFromRole ? 'text-muted-foreground' : ''}`}
                                                         >
-                                                            {permission.name.split('-').slice(1).join('-') || permission.name}
+                                                            {permission.name}
                                                             <InfoTooltip title={permission.name} description={permission.description} />
                                                             {hasFromRole && (
                                                                 <Badge variant="secondary" className="text-xs">
@@ -1509,56 +1963,7 @@ export default function AccessControlPage({
                 </DialogContent>
             </Dialog>
 
-            {/* Permission Management Modal */}
-            <Dialog open={permissionModal.open} onOpenChange={() => setPermissionModal({ open: false, mode: 'create', permission: null })}>
-                <DialogContent>
-                    <DialogHeader>
-                        <DialogTitle>{permissionModal.mode === 'create' ? 'Create Permission' : 'Edit Permission'}</DialogTitle>
-                        <DialogDescription>
-                            {permissionModal.mode === 'create'
-                                ? 'Create a new permission. Use format "Category-Action" (e.g., "User-Create", "Report-Export").'
-                                : 'Update the permission name and description.'
-                            }
-                        </DialogDescription>
-                    </DialogHeader>
-
-                    <form onSubmit={permissionModal.mode === 'create' ? handleCreatePermission : handleUpdatePermission}>
-                        <div className="space-y-4">
-                            <div>
-                                <Label htmlFor="permission-name">Permission Name</Label>
-                                <Input
-                                    id="permission-name"
-                                    placeholder="e.g., User-Create, Menu-Edit, Report-Export"
-                                    value={permissionData.name}
-                                    onChange={(e) => setPermissionData('name', e.target.value)}
-                                    className={permissionErrors.name ? 'border-red-500' : ''}
-                                />
-                                {permissionErrors.name && <p className="text-sm text-red-500 mt-1">{permissionErrors.name}</p>}
-                            </div>
-                            <div>
-                                <Label htmlFor="permission-description">Description (Optional)</Label>
-                                <Textarea
-                                    id="permission-description"
-                                    placeholder="Describe what this permission allows users to do..."
-                                    value={permissionData.description}
-                                    onChange={(e) => setPermissionData('description', e.target.value)}
-                                    className={permissionErrors.description ? 'border-red-500' : ''}
-                                    rows={3}
-                                />
-                                {permissionErrors.description && <p className="text-sm text-red-500 mt-1">{permissionErrors.description}</p>}
-                            </div>
-                        </div>
-                        <DialogFooter className="mt-6">
-                            <Button type="button" variant="outline" onClick={() => setPermissionModal({ open: false, mode: 'create', permission: null })}>Cancel</Button>
-                            <Button type="submit" disabled={permissionProcessing}>
-                                {permissionProcessing ? (permissionModal.mode === 'create' ? 'Creating...' : 'Updating...') : (permissionModal.mode === 'create' ? 'Create Permission' : 'Update Permission')}
-                            </Button>
-                        </DialogFooter>
-                    </form>
-                </DialogContent>
-            </Dialog>
-
-            {/* Role Management Modal */}
+            {/* Role Management Modal - keeping existing */}
             <Dialog open={roleModal.open} onOpenChange={() => setRoleModal({ open: false, mode: 'create', role: null })}>
                 <DialogContent>
                     <DialogHeader>
@@ -1578,6 +1983,7 @@ export default function AccessControlPage({
                                     value={roleData.name}
                                     onChange={(e) => setRoleData('name', e.target.value)}
                                     className={roleErrors.name ? 'border-red-500' : ''}
+                                    autoComplete="off"
                                 />
                                 {roleErrors.name && <p className="text-sm text-red-500 mt-1">{roleErrors.name}</p>}
                             </div>
@@ -1605,26 +2011,26 @@ export default function AccessControlPage({
                 </DialogContent>
             </Dialog>
 
-            {/* Delete Dialog */}
+            {/* Delete Dialog - Updated */}
             <AlertDialog open={deleteDialog.open} onOpenChange={() => setDeleteDialog({ open: false, type: 'permission', item: null })}>
                 <AlertDialogContent>
                     <AlertDialogHeader>
-                        <AlertDialogTitle>Delete {deleteDialog.type === 'permission' ? 'Permission' : 'Role'}</AlertDialogTitle>
+                        <AlertDialogTitle>Delete {deleteDialog.type === 'permission' ? 'Permission' : deleteDialog.type === 'role' ? 'Role' : 'Category'}</AlertDialogTitle>
                         <AlertDialogDescription>
                             Are you sure you want to delete the {deleteDialog.type} "{deleteDialog.item?.name}"?
-                            This action cannot be undone and will remove this {deleteDialog.type} from all {deleteDialog.type === 'permission' ? 'roles' : 'users'}.
+                            This action cannot be undone and will remove this {deleteDialog.type} from all {deleteDialog.type === 'permission' ? 'roles' : deleteDialog.type === 'role' ? 'users' : 'permissions'}.
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
                         <AlertDialogCancel onClick={() => setDeleteDialog({ open: false, type: 'permission', item: null })}>Cancel</AlertDialogCancel>
-                        <AlertDialogAction onClick={handleDelete} className="bg-red-600 hover:bg-red-700" disabled={permissionProcessing || roleProcessing}>
-                            {(permissionProcessing || roleProcessing) ? 'Deleting...' : `Delete ${deleteDialog.type === 'permission' ? 'Permission' : 'Role'}`}
+                        <AlertDialogAction onClick={handleDelete} className="bg-red-600 hover:bg-red-700" disabled={permissionProcessing || roleProcessing || categoryProcessing}>
+                            {(permissionProcessing || roleProcessing || categoryProcessing) ? 'Deleting...' : `Delete ${deleteDialog.type === 'permission' ? 'Permission' : deleteDialog.type === 'role' ? 'Role' : 'Category'}`}
                         </AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>
 
-            {/* Bulk Assignment Dialog */}
+            {/* Bulk Assignment Dialog - keeping existing but updated for new permission categorization */}
             <Dialog open={bulkAssignModal.open} onOpenChange={(open) => setBulkAssignModal({ open, groupName: '', routes: [] })}>
                 <DialogContent className="min-w-3xl max-w-4xl ">
                     <DialogHeader>
@@ -1665,13 +2071,16 @@ export default function AccessControlPage({
                             </div>
 
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                {/* Permissions Section */}
+                                {/* Permissions Section - Updated to use categories */}
                                 <div>
                                     <Label className="text-sm font-medium mb-3 block">Permissions</Label>
                                     <div className="space-y-3 max-h-80 overflow-y-auto border rounded p-3">
                                         {permissionCategories.map(category => (
-                                            <div key={category.name}>
-                                                <h4 className="font-medium text-sm mb-2 text-muted-foreground">{category.name}</h4>
+                                            <div key={category.category.id}>
+                                                <h4 className="font-medium text-sm mb-2 text-muted-foreground flex items-center gap-2">
+                                                    <div className="w-3 h-3 rounded" style={{ backgroundColor: category.category.color }}></div>
+                                                    {category.category.name}
+                                                </h4>
                                                 <div className="space-y-2 pl-2">
                                                     {category.permissions.map(permission => {
                                                         const status = getBulkPermissionStatus(permission.id.toString(), bulkAssignModal.routes);
@@ -1779,4 +2188,4 @@ export default function AccessControlPage({
             </Dialog>
         </AppLayout>
     );
-}
+});

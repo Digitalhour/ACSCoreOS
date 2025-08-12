@@ -2,12 +2,13 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Category;
+use App\Models\Permission;
 use App\Models\RoutePermission;
 use App\Models\User;
 use App\Services\RouteDiscoveryService;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
-use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 
 class AccessControlController extends Controller
@@ -26,7 +27,6 @@ class AccessControlController extends Controller
             ->orderBy('name')
             ->get()
             ->map(function ($user) {
-                // Get primary department name for grouping
                 $user->department = $user->departments->first()?->name ?? 'No Department';
                 $user->direct_permissions = $user->permissions;
                 return $user;
@@ -37,8 +37,16 @@ class AccessControlController extends Controller
             ->orderBy('name')
             ->get();
 
-        $permissions = Permission::select('id', 'name', 'description')
+        // Load permissions with their categories
+        $permissions = Permission::with('categories:id,name,color,icon')
+            ->select('id', 'name', 'description')
             ->orderBy('name')
+            ->get();
+
+        // Load categories with permission counts
+        $categories = Category::withCount('permissions')
+            ->active()
+            ->ordered()
             ->get();
 
         $departments = \App\Models\Department::select('id', 'name')
@@ -46,7 +54,6 @@ class AccessControlController extends Controller
             ->orderBy('name')
             ->get();
 
-        // Get route permissions grouped
         $routeGroups = RoutePermission::with('permissions:id,name,description')
             ->active()
             ->orderBy('group_name')
@@ -54,18 +61,64 @@ class AccessControlController extends Controller
             ->get()
             ->groupBy('group_name');
 
-        // Get route statistics
         $routeStats = $this->routeService->getRouteStats();
 
         return Inertia::render('AccessControlPage', [
             'users' => $users,
             'roles' => $roles,
             'permissions' => $permissions,
+            'categories' => $categories,
             'departments' => $departments,
             'routeGroups' => $routeGroups,
             'routeStats' => $routeStats,
         ]);
     }
+
+// Category Management Methods
+    public function storeCategory(Request $request)
+    {
+        $validated = $request->validate([
+            'name' => 'required|string|max:255|unique:categories,name',
+            'description' => 'nullable|string|max:1000',
+            'color' => 'nullable|string|regex:/^#[0-9A-F]{6}$/i',
+            'icon' => 'nullable|string|max:50',
+            'sort_order' => 'nullable|integer|min:0',
+        ]);
+
+        $validated['sort_order'] = $validated['sort_order'] ?? 0;
+        $validated['color'] = $validated['color'] ?? '#6366f1';
+
+        Category::create($validated);
+
+        return redirect()->back()->with('success', 'Category created successfully!');
+    }
+
+    public function updateCategory(Request $request, Category $category)
+    {
+        $validated = $request->validate([
+            'name' => 'required|string|max:255|unique:categories,name,' . $category->id,
+            'description' => 'nullable|string|max:1000',
+            'color' => 'nullable|string|regex:/^#[0-9A-F]{6}$/i',
+            'icon' => 'nullable|string|max:50',
+            'sort_order' => 'nullable|integer|min:0',
+            'is_active' => 'boolean',
+        ]);
+
+        $category->update($validated);
+
+        return redirect()->back()->with('success', 'Category updated successfully!');
+    }
+
+    public function destroyCategory(Category $category)
+    {
+        // Detach all permissions before deleting
+        $category->permissions()->detach();
+
+        $category->delete();
+
+        return redirect()->back()->with('success', 'Category deleted successfully!');
+    }
+
 
     /**
      * Update the role-permission matrix
@@ -250,13 +303,20 @@ class AccessControlController extends Controller
         $validated = $request->validate([
             'name' => 'required|string|max:255|unique:permissions,name',
             'description' => 'nullable|string|max:1000',
+            'category_ids' => 'nullable|array',
+            'category_ids.*' => 'exists:categories,id',
         ]);
 
-        Permission::create([
+        $permission = Permission::create([
             'name' => $validated['name'],
             'description' => $validated['description'],
             'guard_name' => 'web'
         ]);
+
+        // Attach categories if provided
+        if (!empty($validated['category_ids'])) {
+            $permission->categories()->attach($validated['category_ids']);
+        }
 
         return redirect()->back()->with('success', 'Permission created successfully!');
     }
@@ -264,25 +324,102 @@ class AccessControlController extends Controller
     public function updatePermission(Request $request, Permission $permission)
     {
         $validated = $request->validate([
-            'name' => 'required|string|max:255|unique:permissions,name,'.$permission->id,
+            'name' => 'required|string|max:255|unique:permissions,name,' . $permission->id,
             'description' => 'nullable|string|max:1000',
+            'category_ids' => 'nullable|array',
+            'category_ids.*' => 'exists:categories,id',
         ]);
 
-        $permission->update($validated);
+        $permission->update([
+            'name' => $validated['name'],
+            'description' => $validated['description'],
+        ]);
+
+        // Sync categories
+        $categoryIds = $validated['category_ids'] ?? [];
+        $permission->categories()->sync($categoryIds);
+
         return redirect()->back()->with('success', 'Permission updated successfully!');
     }
 
     public function destroyPermission(Permission $permission)
     {
+        // Detach categories
+        $permission->categories()->detach();
+
+        // Detach from roles
         $permission->roles()->detach();
+
+        // Remove direct user permissions
         \DB::table('model_has_permissions')
             ->where('permission_id', $permission->id)
             ->delete();
 
         $permission->delete();
+
         return redirect()->back()->with('success', 'Permission deleted successfully!');
     }
+    public function bulkAssignPermissionCategories(Request $request)
+    {
+        $validated = $request->validate([
+            'permission_ids' => 'required|array',
+            'permission_ids.*' => 'exists:permissions,id',
+            'category_ids' => 'required|array',
+            'category_ids.*' => 'exists:categories,id',
+            'action' => 'required|in:assign,remove,replace'
+        ]);
 
+        try {
+            \DB::beginTransaction();
+
+            foreach ($validated['permission_ids'] as $permissionId) {
+                $permission = Permission::findOrFail($permissionId);
+
+                switch ($validated['action']) {
+                    case 'assign':
+                        $permission->categories()->syncWithoutDetaching($validated['category_ids']);
+                        break;
+                    case 'remove':
+                        $permission->categories()->detach($validated['category_ids']);
+                        break;
+                    case 'replace':
+                        $permission->categories()->sync($validated['category_ids']);
+                        break;
+                }
+            }
+
+            \DB::commit();
+
+            $action = match($validated['action']) {
+                'assign' => 'assigned to',
+                'remove' => 'removed from',
+                'replace' => 'replaced for',
+            };
+
+            $message = "Categories {$action} " . count($validated['permission_ids']) . " permissions successfully!";
+
+            return redirect()->back()->with('success', $message);
+
+        } catch (\Exception $e) {
+            \DB::rollback();
+            return redirect()->back()->with('error', 'Failed to update permission categories: ' . $e->getMessage());
+        }
+    }
+
+// Search categories
+    public function searchCategories(Request $request)
+    {
+        $query = Category::withCount('permissions');
+
+        if ($request->search) {
+            $query->where('name', 'like', '%' . $request->search . '%')
+                ->orWhere('description', 'like', '%' . $request->search . '%');
+        }
+
+        return response()->json([
+            'data' => $query->active()->ordered()->limit(50)->get()
+        ]);
+    }
     // Role Management
     public function storeRole(Request $request)
     {
