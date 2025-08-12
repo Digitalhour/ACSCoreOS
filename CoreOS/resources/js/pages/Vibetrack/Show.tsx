@@ -4,7 +4,9 @@ import {type BreadcrumbItem} from '@/types';
 import {Head, router} from '@inertiajs/react';
 import {Card, CardContent, CardDescription, CardHeader, CardTitle} from '@/components/ui/card';
 import {Button} from '@/components/ui/button';
-import {Calendar} from '@/components/ui/calendar';
+import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue,} from '@/components/ui/select';
+import {Input} from '@/components/ui/input';
+import {Label} from '@/components/ui/label';
 import {Popover, PopoverContent, PopoverTrigger} from '@/components/ui/popover';
 import {
     ChartConfig,
@@ -25,10 +27,9 @@ import {
     ThermometerIcon,
     WifiIcon
 } from 'lucide-react';
-import {format, isWithinInterval, startOfDay, subDays} from 'date-fns';
+import {format, isWithinInterval, startOfDay, subDays, subMonths} from 'date-fns';
 import {Bar, BarChart, CartesianGrid, Line, LineChart, XAxis, YAxis} from 'recharts';
 import {Table, TableBody, TableCell, TableHead, TableHeader, TableRow} from '@/components/ui/table';
-import {cn} from '@/lib/utils';
 import {route} from "ziggy-js";
 
 // Interface for a single data point in the runtime history chart
@@ -86,18 +87,59 @@ interface DateRange {
 }
 
 export default function VibetrackShow({ vibetrack, runtimeHistory, statusHistory }: Props) {
-    const [dateRange, setDateRange] = useState<DateRange>({
-        from: subDays(new Date(), 30),
-        to: new Date(),
-    });
+    const [dateRangeType, setDateRangeType] = useState<string>('30days');
+    const [customFromDate, setCustomFromDate] = useState<string>('');
+    const [customToDate, setCustomToDate] = useState<string>('');
+    const [showCustomDates, setShowCustomDates] = useState(false);
 
-    // Handler for date range selection
-    const handleDateRangeSelect = (selectedRange: DateRange | undefined) => {
-        if (selectedRange) {
-            setDateRange(selectedRange);
-        } else {
-            setDateRange({ from: undefined, to: undefined });
+    // Define predefined date ranges
+    const getDateRangeFromType = (type: string): DateRange => {
+        const now = new Date();
+
+        switch (type) {
+            case '7days':
+                return { from: subDays(now, 7), to: now };
+            case '14days':
+                return { from: subDays(now, 14), to: now };
+            case '30days':
+                return { from: subDays(now, 30), to: now };
+            case '90days':
+                return { from: subDays(now, 90), to: now };
+            case '6months':
+                return { from: subMonths(now, 6), to: now };
+            case '1year':
+                return { from: subMonths(now, 12), to: now };
+            case 'custom':
+                if (customFromDate && customToDate) {
+                    return {
+                        from: new Date(customFromDate),
+                        to: new Date(customToDate)
+                    };
+                }
+                return { from: subDays(now, 30), to: now };
+            case 'all':
+            default:
+                return { from: undefined, to: undefined };
         }
+    };
+
+    const dateRange = getDateRangeFromType(dateRangeType);
+
+    // Handler for date range type change
+    const handleDateRangeTypeChange = (value: string) => {
+        setDateRangeType(value);
+        if (value === 'custom') {
+            setShowCustomDates(true);
+        } else {
+            setShowCustomDates(false);
+        }
+    };
+
+    const clearDateRange = () => {
+        setDateRangeType('all');
+        setShowCustomDates(false);
+        setCustomFromDate('');
+        setCustomToDate('');
     };
 
     const pageTitle = vibetrack.name || vibetrack.device_id;
@@ -294,10 +336,6 @@ export default function VibetrackShow({ vibetrack, runtimeHistory, statusHistory
         }));
     }, [dailyRuntimeData]);
 
-    const clearDateRange = () => {
-        setDateRange({ from: undefined, to: undefined });
-    };
-
     // Chart configuration for environmental data
     const chartConfig = {
         sht4x_temp: {
@@ -365,57 +403,76 @@ export default function VibetrackShow({ vibetrack, runtimeHistory, statusHistory
                                             </div>
                                         </p>
                                     )}
+                                    {dateRange.from && dateRange.to && (
+                                        <p className="text-xs text-muted-foreground mt-1">
+                                            Showing data from {format(dateRange.from, "LLL dd, y")} to {format(dateRange.to, "LLL dd, y")}
+                                        </p>
+                                    )}
                                 </div>
                             </div>
 
                             <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
                                 <div className="flex gap-2 items-center">
-                                    <Popover>
-                                        <PopoverTrigger asChild>
-                                            <Button
-                                                variant="outline"
-                                                className={cn(
-                                                    "w-full sm:w-[280px] justify-start text-left font-normal",
-                                                    !dateRange.from && "text-muted-foreground"
-                                                )}
-                                            >
-                                                <CalendarIcon className="mr-2 h-4 w-4" />
-                                                {dateRange.from ? (
-                                                    dateRange.to ? (
-                                                        <>
-                                                            {format(dateRange.from, "LLL dd, y")} -{" "}
-                                                            {format(dateRange.to, "LLL dd, y")}
-                                                        </>
-                                                    ) : (
-                                                        format(dateRange.from, "LLL dd, y")
-                                                    )
-                                                ) : (
-                                                    <span>Pick a date range</span>
-                                                )}
-                                            </Button>
-                                        </PopoverTrigger>
-                                        <PopoverContent className="w-auto p-0" align="start">
-                                            <Calendar
-                                                initialFocus
-                                                mode="range"
-                                                defaultMonth={dateRange.from}
-                                                selected={dateRange}
-                                                onSelect={handleDateRangeSelect}
-                                                numberOfMonths={2}
-                                                className="hidden sm:block"
-                                            />
-                                            <Calendar
-                                                initialFocus
-                                                mode="range"
-                                                defaultMonth={dateRange.from}
-                                                selected={dateRange}
-                                                onSelect={handleDateRangeSelect}
-                                                numberOfMonths={1}
-                                                className="block sm:hidden"
-                                            />
-                                        </PopoverContent>
-                                    </Popover>
-                                    {(dateRange.from || dateRange.to) && (
+                                    <Select value={dateRangeType} onValueChange={handleDateRangeTypeChange}>
+                                        <SelectTrigger className="w-full sm:w-[200px]">
+                                            <SelectValue placeholder="Select date range" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="all">All Time</SelectItem>
+                                            <SelectItem value="7days">Last 7 Days</SelectItem>
+                                            <SelectItem value="14days">Last 14 Days</SelectItem>
+                                            <SelectItem value="30days">Last 30 Days</SelectItem>
+                                            <SelectItem value="90days">Last 90 Days</SelectItem>
+                                            <SelectItem value="6months">Last 6 Months</SelectItem>
+                                            <SelectItem value="1year">Last Year</SelectItem>
+                                            <SelectItem value="custom">Custom Range</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+
+                                    {showCustomDates && (
+                                        <Popover>
+                                            <PopoverTrigger asChild>
+                                                <Button variant="outline" size="sm">
+                                                    <CalendarIcon className="h-4 w-4 mr-2" />
+                                                    Custom Dates
+                                                </Button>
+                                            </PopoverTrigger>
+                                            <PopoverContent className="w-80" align="start">
+                                                <div className="grid gap-4">
+                                                    <div className="space-y-2">
+                                                        <h4 className="font-medium leading-none">Custom Date Range</h4>
+                                                        <p className="text-sm text-muted-foreground">
+                                                            Select your custom date range
+                                                        </p>
+                                                    </div>
+                                                    <div className="grid gap-2">
+                                                        <div className="grid grid-cols-3 items-center gap-4">
+                                                            <Label htmlFor="from-date">From</Label>
+                                                            <Input
+                                                                id="from-date"
+                                                                type="date"
+                                                                value={customFromDate}
+                                                                onChange={(e) => setCustomFromDate(e.target.value)}
+                                                                className="col-span-2 h-8"
+                                                            />
+                                                        </div>
+                                                        <div className="grid grid-cols-3 items-center gap-4">
+                                                            <Label htmlFor="to-date">To</Label>
+                                                            <Input
+                                                                id="to-date"
+                                                                type="date"
+                                                                value={customToDate}
+                                                                onChange={(e) => setCustomToDate(e.target.value)}
+                                                                className="col-span-2 h-8"
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </PopoverContent>
+                                        </Popover>
+                                    )}
+
+                                    {dateRangeType !== 'all' && (
                                         <Button variant="outline" size="sm" onClick={clearDateRange}>
                                             Clear
                                         </Button>
