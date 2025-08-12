@@ -6,6 +6,7 @@ import {Badge} from '@/components/ui/badge';
 import {Avatar, AvatarFallback, AvatarImage} from '@/components/ui/avatar';
 import {Calendar, Edit, MessageCircle} from 'lucide-react';
 import CommentsSection from '@/components/blog/CommentsSection';
+import {usePermission} from "@/hooks/usePermission";
 
 interface User {
     id: number;
@@ -48,7 +49,7 @@ interface Props {
 
 export default function BlogShow({ article, comments, relatedArticles }: Props) {
     const { auth } = usePage().props as any;
-
+    const { hasPermission, hasRole, hasAnyRole } = usePermission();
     const breadcrumbs: BreadcrumbItem[] = [
         { title: 'blog', href: '/blog' },
         { title: article.title, href: `/blog/${article.slug}` },
@@ -89,7 +90,7 @@ export default function BlogShow({ article, comments, relatedArticles }: Props) 
                                             {article.title}
                                         </h1>
                                     </div>
-                                    {canEditArticle && (
+                                    {(canEditArticle || hasPermission('blog-edit')) && (
                                         <Link href={`/blog/${article.slug}/edit`}>
                                             <Button variant="outline" size="sm">
                                                 <Edit className="h-4 w-4 mr-2" />
@@ -97,6 +98,7 @@ export default function BlogShow({ article, comments, relatedArticles }: Props) 
                                             </Button>
                                         </Link>
                                     )}
+
                                 </div>
 
                                 <div className="flex items-center gap-6">

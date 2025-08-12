@@ -54,7 +54,10 @@ class AccessControlController extends Controller
             ->orderBy('name')
             ->get();
 
-        $routeGroups = RoutePermission::with('permissions:id,name,description')
+        $routeGroups = RoutePermission::with([
+            'permissions:id,name,description',
+            'roles:id,name,description'
+        ])
             ->active()
             ->orderBy('group_name')
             ->orderBy('route_name')
@@ -195,6 +198,8 @@ class AccessControlController extends Controller
             'assignments.*.route_id' => 'required|exists:route_permissions,id',
             'assignments.*.permission_ids' => 'present|array',
             'assignments.*.permission_ids.*' => 'exists:permissions,id',
+            'assignments.*.role_ids' => 'present|array',        // ADD THIS
+            'assignments.*.role_ids.*' => 'exists:roles,id',    // ADD THIS
             'assignments.*.is_protected' => 'boolean',
         ]);
 
@@ -211,10 +216,13 @@ class AccessControlController extends Controller
 
                 // Sync permissions
                 $routePermission->permissions()->sync($assignment['permission_ids']);
+
+                // Sync roles - ADD THIS LINE
+                $routePermission->roles()->sync($assignment['role_ids']);
             }
 
             \DB::commit();
-            return redirect()->back()->with('success', 'Route permissions updated successfully!');
+            return redirect()->back()->with('success', 'Route permissions and roles updated successfully!');
 
         } catch (\Exception $e) {
             \DB::rollback();
@@ -359,50 +367,44 @@ class AccessControlController extends Controller
 
         return redirect()->back()->with('success', 'Permission deleted successfully!');
     }
-    public function bulkAssignPermissionCategories(Request $request)
+    public function bulkUpdateRoutePermissions(Request $request)
     {
         $validated = $request->validate([
-            'permission_ids' => 'required|array',
+            'route_ids' => 'required|array',
+            'route_ids.*' => 'exists:route_permissions,id',
+            'permission_ids' => 'present|array',
             'permission_ids.*' => 'exists:permissions,id',
-            'category_ids' => 'required|array',
-            'category_ids.*' => 'exists:categories,id',
-            'action' => 'required|in:assign,remove,replace'
+            'role_ids' => 'present|array',           // Add this line
+            'role_ids.*' => 'exists:roles,id',      // Add this line
+            'is_protected' => 'boolean',
         ]);
 
         try {
             \DB::beginTransaction();
 
-            foreach ($validated['permission_ids'] as $permissionId) {
-                $permission = Permission::findOrFail($permissionId);
+            foreach ($validated['route_ids'] as $routeId) {
+                $routePermission = RoutePermission::findOrFail($routeId);
 
-                switch ($validated['action']) {
-                    case 'assign':
-                        $permission->categories()->syncWithoutDetaching($validated['category_ids']);
-                        break;
-                    case 'remove':
-                        $permission->categories()->detach($validated['category_ids']);
-                        break;
-                    case 'replace':
-                        $permission->categories()->sync($validated['category_ids']);
-                        break;
+                if (isset($validated['is_protected'])) {
+                    $routePermission->update(['is_protected' => $validated['is_protected']]);
+                }
+
+                if (isset($validated['permission_ids'])) {
+                    $routePermission->permissions()->sync($validated['permission_ids']);
+                }
+
+                // Add this block for roles
+                if (isset($validated['role_ids'])) {
+                    $routePermission->roles()->sync($validated['role_ids']);
                 }
             }
 
             \DB::commit();
-
-            $action = match($validated['action']) {
-                'assign' => 'assigned to',
-                'remove' => 'removed from',
-                'replace' => 'replaced for',
-            };
-
-            $message = "Categories {$action} " . count($validated['permission_ids']) . " permissions successfully!";
-
-            return redirect()->back()->with('success', $message);
+            return redirect()->back()->with('success', 'Route permissions and roles updated for ' . count($validated['route_ids']) . ' routes');
 
         } catch (\Exception $e) {
             \DB::rollback();
-            return redirect()->back()->with('error', 'Failed to update permission categories: ' . $e->getMessage());
+            return redirect()->back()->with('error', 'Failed to update route permissions: ' . $e->getMessage());
         }
     }
 
@@ -591,146 +593,52 @@ class AccessControlController extends Controller
         }
     }
 
-    public function bulkAssignPermissions(Request $request)
+    public function bulkAssignPermissionCategories(Request $request)
     {
         $validated = $request->validate([
-            'role_ids' => 'required|array',
-            'role_ids.*' => 'exists:roles,id',
             'permission_ids' => 'required|array',
             'permission_ids.*' => 'exists:permissions,id',
-        ]);
-
-        foreach ($validated['role_ids'] as $roleId) {
-            $role = Role::findOrFail($roleId);
-            $role->permissions()->sync($validated['permission_ids']);
-        }
-
-        return redirect()->back()->with('success', 'Permissions assigned to ' . count($validated['role_ids']) . ' roles');
-    }
-
-    public function bulkUpdateRoutePermissions(Request $request)
-    {
-        $validated = $request->validate([
-            'route_ids' => 'required|array',
-            'route_ids.*' => 'exists:route_permissions,id',
-            'permission_ids' => 'present|array',
-            'permission_ids.*' => 'exists:permissions,id',
-            'is_protected' => 'boolean',
+            'category_ids' => 'required|array',
+            'category_ids.*' => 'exists:categories,id',
+            'action' => 'required|in:assign,remove,replace'
         ]);
 
         try {
             \DB::beginTransaction();
 
-            foreach ($validated['route_ids'] as $routeId) {
-                $routePermission = RoutePermission::findOrFail($routeId);
+            foreach ($validated['permission_ids'] as $permissionId) {
+                $permission = Permission::findOrFail($permissionId);
 
-                if (isset($validated['is_protected'])) {
-                    $routePermission->update(['is_protected' => $validated['is_protected']]);
-                }
-
-                if (isset($validated['permission_ids'])) {
-                    $routePermission->permissions()->sync($validated['permission_ids']);
+                switch ($validated['action']) {
+                    case 'assign':
+                        $permission->categories()->syncWithoutDetaching($validated['category_ids']);
+                        break;
+                    case 'remove':
+                        $permission->categories()->detach($validated['category_ids']);
+                        break;
+                    case 'replace':
+                        $permission->categories()->sync($validated['category_ids']);
+                        break;
                 }
             }
 
             \DB::commit();
-            return redirect()->back()->with('success', 'Route permissions updated for ' . count($validated['route_ids']) . ' routes');
+
+            $action = match($validated['action']) {
+                'assign' => 'assigned to',
+                'remove' => 'removed from',
+                'replace' => 'replaced for',
+            };
+
+            $message = "Categories {$action} " . count($validated['permission_ids']) . " permissions successfully!";
+
+            return redirect()->back()->with('success', $message);
 
         } catch (\Exception $e) {
             \DB::rollback();
-            return redirect()->back()->with('error', 'Failed to update route permissions: ' . $e->getMessage());
+            return redirect()->back()->with('error', 'Failed to update permission categories: ' . $e->getMessage());
         }
     }
 
-    /**
-     * Export user-role matrix to CSV
-     */
-    public function export()
-    {
-        $users = User::with('roles:id,name,description')
-            ->select('id', 'name', 'email')
-            ->orderBy('name')
-            ->get();
 
-        $roles = Role::select('id', 'name', 'description')
-            ->orderBy('name')
-            ->get();
-
-        $headers = [
-            'Content-Type' => 'text/csv',
-            'Content-Disposition' => 'attachment; filename="user-role-matrix.csv"',
-        ];
-
-        $callback = function() use ($users, $roles) {
-            $file = fopen('php://output', 'w');
-
-            $header = ['User', 'Email'];
-            foreach ($roles as $role) {
-                $header[] = $role->name;
-            }
-            fputcsv($file, $header);
-
-            foreach ($users as $user) {
-                $row = [$user->name, $user->email];
-
-                foreach ($roles as $role) {
-                    $hasRole = $user->roles->contains('id', $role->id);
-                    $row[] = $hasRole ? 'Yes' : 'No';
-                }
-
-                fputcsv($file, $row);
-            }
-
-            fclose($file);
-        };
-
-        return response()->stream($callback, 200, $headers);
-    }
-
-    /**
-     * Export route permissions to CSV
-     */
-    public function exportRoutePermissions()
-    {
-        $routes = RoutePermission::with('permissions:id,name')
-            ->active()
-            ->orderBy('group_name')
-            ->orderBy('route_name')
-            ->get();
-
-        $headers = [
-            'Content-Type' => 'text/csv',
-            'Content-Disposition' => 'attachment; filename="route-permissions.csv"',
-        ];
-
-        $callback = function() use ($routes) {
-            $file = fopen('php://output', 'w');
-
-            fputcsv($file, [
-                'Group',
-                'Route Name',
-                'Route URI',
-                'Methods',
-                'Controller',
-                'Protected',
-                'Permissions'
-            ]);
-
-            foreach ($routes as $route) {
-                fputcsv($file, [
-                    $route->group_name,
-                    $route->route_name,
-                    $route->route_uri,
-                    $route->methods_string,
-                    $route->controller_name,
-                    $route->is_protected ? 'Yes' : 'No',
-                    $route->permissions->pluck('name')->join(', ')
-                ]);
-            }
-
-            fclose($file);
-        };
-
-        return response()->stream($callback, 200, $headers);
-    }
 }

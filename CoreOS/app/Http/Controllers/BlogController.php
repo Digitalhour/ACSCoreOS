@@ -184,7 +184,10 @@ class BlogController extends Controller
 
     public function edit(BlogArticle $blogArticle)
     {
-        if (!$blogArticle->canBeEditedBy(Auth::user())) {
+        if (
+            !$blogArticle->canBeEditedBy(Auth::user()) &&
+            !Auth::user()->can('blog-edit')
+        ) {
             abort(403);
         }
 
