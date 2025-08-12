@@ -91,10 +91,10 @@ require __DIR__ . '/ai-chat-routes.php';
 require __DIR__.'/settings.php';
 require __DIR__.'/impersonate.php';
 require __DIR__.'/emergency-contacts.php';
-//require __DIR__.'/pto-routes.php';
-//require __DIR__.'/parts-database.php';
-////require __DIR__.'/admin-routes.php';.
-//require __DIR__.'/department.php';
+require __DIR__.'/pto-routes.php';
+require __DIR__.'/parts-database.php';
+//require __DIR__.'/admin-routes.php';.
+require __DIR__.'/department.php';
 require __DIR__.'/api.php';
 //require __DIR__.'/product-picture-manager.php';
 require __DIR__.'/auth.php';
