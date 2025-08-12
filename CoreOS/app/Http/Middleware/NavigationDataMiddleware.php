@@ -14,6 +14,12 @@ class NavigationDataMiddleware
      */
     public function handle(Request $request, Closure $next)
     {
+        \Log::info('NavigationDataMiddleware running', [
+            'path' => $request->path(),
+            'authenticated' => auth()->check(),
+            'is_api' => $request->is('api/*'),
+        ]);
+
         // Only add navigation data for authenticated users and non-API routes
         if (auth()->check() && !$request->is('api/*')) {
             $user = auth()->user();
