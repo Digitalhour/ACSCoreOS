@@ -5,6 +5,12 @@ use App\Http\Controllers\BlogController;
 use App\Http\Controllers\BlogTemplateController;
 use Illuminate\Support\Facades\Route;
 
+
+Route::group([
+    'middleware' => ['auth', 'verified', 'route.permission'],
+    'as' => 'blog.',
+], function () {
+
 Route::get('/blog', [BlogController::class, 'index'])->name('blog.index');
 Route::get('/blog/create', [BlogController::class, 'create'])->name('blog.create');
 Route::post('/blog/{blogArticle}/comments', [BlogController::class, 'storeComment'])->name('blog.comments.store');
@@ -42,4 +48,4 @@ Route::get('/blog/{blogArticle}', [BlogController::class, 'show'])->name('blog.s
     // API route for SunEditor to fetch templates
     Route::get('/api/blog-templates', [BlogTemplateController::class, 'apiIndex'])->name('api.blog-templates.index');
 
-
+});
