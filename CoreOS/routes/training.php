@@ -3,15 +3,17 @@
 // Old Style Training Tracking Routes
 use App\Http\Controllers\OldStyleTrainingTrackingController;
 use Illuminate\Support\Facades\Route;
+use Laravel\WorkOS\Http\Middleware\ValidateSessionWithWorkOS;
 
 
-Route::group([
-    'middleware' => ['auth', 'verified', 'route.permission'],
+Route::middleware('auth')
+    ->middleware(ValidateSessionWithWorkOS::class)
+    ->group(function () {
 
-    'as' => 'training.',
-], function () {
-
-
+        Route::group([
+            'middleware' => ['auth', 'verified', 'route.permission'],
+            'as' => 'old-style-training-tracking.',
+        ], function () {
             Route::get('/old-style-training-tracking', [OldStyleTrainingTrackingController::class, 'index'])
             ->name('old-style-training-tracking.index');
 
@@ -30,5 +32,5 @@ Route::group([
             Route::get('/old-style-training-tracking/export-logs', [OldStyleTrainingTrackingController::class, 'exportLogs'])
             ->name('old-style-training-tracking.export-logs');
 
-  
+        });
 });
