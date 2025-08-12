@@ -40,6 +40,7 @@ import {
 } from 'lucide-react';
 import {cn} from '@/lib/utils';
 import type {BreadcrumbItem} from "@/types";
+import {usePermission} from "@/hooks/usePermission";
 
 interface FolderData {
     id: number;
@@ -460,7 +461,7 @@ export default function FoldersIndex({
         filters.tag_ids ? filters.tag_ids.split(',').map(Number) : []
     );
     const [uploadModalOpen, setUploadModalOpen] = useState(false);
-
+    const { hasPermission, hasRole, hasAnyRole } = usePermission();
     // Build breadcrumbs for AppLayout
     const appBreadcrumbs: BreadcrumbItem[] = [
         {
@@ -568,12 +569,15 @@ export default function FoldersIndex({
                         )}
 
                         {/* Create Folder */}
+                        {hasPermission('documents-create') && (
                         <Button variant="outline" asChild>
                             <Link href={route('folders.create', { parent_id: filters.parent_id })}>
                                 <Plus className="mr-2 h-4 w-4" />
                                 New Folder
                             </Link>
                         </Button>
+                            )}
+
                     </div>
                 </div>
 

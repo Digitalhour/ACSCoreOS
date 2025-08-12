@@ -242,7 +242,7 @@ export default function DepartmentTimeOffDashboard({ requests, department_pto_re
         }
 
         if (actionType === 'approve') {
-            postAction(route('department.pto.approve', selectedRequest.id), {
+            postAction(route('departments.pto.approve', selectedRequest.id), {
                 onSuccess: () => {
                     toast.success('Request approved successfully!');
                     setShowActionModal(false);
@@ -254,7 +254,7 @@ export default function DepartmentTimeOffDashboard({ requests, department_pto_re
                 },
             });
         } else {
-            postAction(route('department.pto.deny', selectedRequest.id), {
+            postAction(route('departments.pto.deny', selectedRequest.id), {
                 onSuccess: () => {
                     toast.success('Request denied successfully!');
                     setShowActionModal(false);
@@ -275,7 +275,7 @@ export default function DepartmentTimeOffDashboard({ requests, department_pto_re
             reason: approved ? 'Override approved by manager' : 'Override denied by manager'
         });
 
-        postOverride(route('department.pto.approve-override', request.id), {
+        postOverride(route('departments.pto.approve-override', request.id), {
             onSuccess: () => {
                 toast.success(`Emergency override ${approved ? 'approved' : 'denied'} successfully!`);
             },

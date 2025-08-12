@@ -15,7 +15,7 @@ Route::middleware('auth')
 
         // Department manager approval actions (from manager interface)
         Route::middleware('permission:Manager-Department-Pto')->group(function () {
-            Route::get('/department-pto',[DepartmentTimeOffController::class, 'dashboard'])->name('department.manager.pto.dashboard');
+            Route::get('/department-pto',[DepartmentTimeOffController::class, 'dashboard'])->name('departments.manager.pto.dashboard');
             Route::post('/pto-requests/{ptoRequest}/approve',[DepartmentTimeOffController::class, 'approve'])->name('pto.requests.approve');
             Route::post('/pto-requests/{ptoRequest}/deny',[DepartmentTimeOffController::class, 'deny'])->name('pto.requests.deny');
         });
@@ -41,11 +41,11 @@ Route::middleware('auth')
 
 
         // Approve PTO Request
-        Route::post('/department-pto/{ptoRequest}/approve', [DepartmentTimeOffController::class, 'approve'])->name('department.pto.approve');
+        Route::post('/department-pto/{ptoRequest}/approve', [DepartmentTimeOffController::class, 'approve'])->name('departments.pto.approve');
         // Deny PTO Request
-        Route::post('/department-pto/{ptoRequest}/deny', [DepartmentTimeOffController::class, 'deny'])->name('department.pto.deny');
+        Route::post('/department-pto/{ptoRequest}/deny', [DepartmentTimeOffController::class, 'deny'])->name('departments.pto.deny');
         // Approve Emergency Override
-        Route::post('/department-pto/{ptoRequest}/approve-override', [DepartmentTimeOffController::class, 'approveOverride'])->name('department.pto.approve-override');
+        Route::post('/department-pto/{ptoRequest}/approve-override', [DepartmentTimeOffController::class, 'approveOverride'])->name('departments.pto.approve-override');
 
         // Admin PTO request approval/denial (from admin interface)
         Route::post('/admin/pto-requests/{ptoRequest}/approve',[PtoAdminController::class, 'approveRequest'])->name('admin.pto-requests.approve');
