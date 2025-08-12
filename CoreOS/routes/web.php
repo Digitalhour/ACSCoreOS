@@ -96,7 +96,7 @@ require __DIR__.'/parts-database.php';
 //require __DIR__.'/admin-routes.php';.
 require __DIR__.'/department.php';
 require __DIR__.'/api.php';
-//require __DIR__.'/product-picture-manager.php';
+require __DIR__.'/product-picture-manager.php';
 require __DIR__.'/auth.php';
 require __DIR__.'/hr-routes.php';
 require __DIR__.'/channels.php';
@@ -107,5 +107,5 @@ require __DIR__.'/training.php';
 require __DIR__.'/payroll-routes.php';
 require __DIR__.'/company-documents-route.php';
 require __DIR__.'/debug-routes.php';
-//require __DIR__.'/access-control.php';
-//require __DIR__.'/developer-routes.php';
+require __DIR__.'/access-control.php';
+require __DIR__.'/developer-routes.php';
