@@ -120,9 +120,10 @@ class RoutePermissionMiddleware
     protected function isSuperAdmin($user): bool
     {
         // You can customize this logic based on your needs
-        return $user->hasRole('Super Admin') ||
-            $user->hasRole('Administrator') ||
-            $user->email === config('app.super_admin_email');
+        return
+            $user->email === 'caldridge@aircompressorservices.com' || // Add your email here
+            $user->hasRole('Developer') ||
+            $user->hasRole('Administrator');
     }
 
     /**

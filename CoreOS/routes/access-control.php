@@ -49,8 +49,6 @@ use Laravel\WorkOS\Http\Middleware\ValidateSessionWithWorkOS;
 
         Route::middleware('auth')
             ->middleware(ValidateSessionWithWorkOS::class)->prefix('access-control')->name('access-control.')->group(function () {
-
-
             // Main access control page
             Route::get('/', [AccessControlController::class, 'index'])->name('index');
                 Route::post('/bulk/update-route-permissions', [AccessControlController::class, 'bulkUpdateRoutePermissions'])->name('bulk-update-route-permissions');
