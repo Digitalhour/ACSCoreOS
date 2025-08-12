@@ -1,5 +1,4 @@
 import {Card, CardContent, CardHeader, CardTitle} from '@/components/ui/card';
-import UserCount from '@/components/UserCount';
 import AppLayout from '@/layouts/app-layout';
 import QueueDashboardPage from '@/pages/quese-status'; // Ensured all icons are imported
 import {type BreadcrumbItem} from '@/types';
@@ -334,7 +333,7 @@ export default function adminDashboard({ userStats }: { userStats: { totalUsers:
                 <div className="mt-8 grid auto-rows-min gap-4 md:grid-cols-3">
                     <div className="flex flex-col gap-4">
                         <div className="border-sidebar-border/70 dark:border-sidebar-border relative aspect-video overflow-hidden rounded-xl border">
-                            <UserCount totalUsers={userStats.totalUsers} activeUsers={userStats.activeUsers} totalLogins={userStats.totalLogins} />
+                            {/*<UserCount totalUsers={userStats.totalUsers} activeUsers={userStats.activeUsers} totalLogins={userStats.totalLogins} />*/}
                         </div>
                     </div>
                     <div className="border-sidebar-border/70 dark:border-sidebar-border relative col-span-2 rounded-xl border">
