@@ -1345,8 +1345,9 @@ export default function AccessControlPage({
                                                             </div>
 
                                                             {/* Permissions and Roles */}
-                                                            <div className="w-80">
-                                                                <div className="space-y-4">
+                                                            <div>
+                                                                <div className="flex flex-row gap-5">
+
                                                                     {/* Permissions Section */}
                                                                     <div>
                                                                         <Label className="text-xs font-medium mb-2 block">Assigned Permissions</Label>
@@ -1398,9 +1399,10 @@ export default function AccessControlPage({
                                                                             })}
                                                                         </div>
                                                                     </div>
+                                                                    </div>
                                                                 </div>
                                                             </div>
-                                                        </div>
+
                                                     </div>
                                                 ))}
                                             </div>
@@ -1415,13 +1417,13 @@ export default function AccessControlPage({
                 {/* Save Reminders */}
                 {(hasRolePermChanges || hasUserRoleChanges || hasRoutePermChanges) && (
                     <div className="fixed bottom-6 right-6 z-50">
-                        <Card className="border-orange-200 bg-orange-50 dark:bg-orange-950 dark:border-orange-800">
+                        <Card className="border-2 border-gray-300">
                             <CardContent className="p-4">
                                 <div className="flex items-center gap-3">
-                                    <div className="text-sm text-orange-800 dark:text-orange-200">
+                                    <div className="text-sm text-orange-800 ">
                                         You have unsaved changes
                                     </div>
-                                    <Button size="sm" onClick={
+                                    <Button variation={"ghost"} size="sm" onClick={
                                         activeTab === 'role-permissions' ? saveRolePermissions :
                                             activeTab === 'user-roles' ? saveUserRoles :
                                                 saveRoutePermissions
@@ -1624,7 +1626,7 @@ export default function AccessControlPage({
 
             {/* Bulk Assignment Dialog */}
             <Dialog open={bulkAssignModal.open} onOpenChange={(open) => setBulkAssignModal({ open, groupName: '', routes: [] })}>
-                <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+                <DialogContent className="min-w-3xl max-w-4xl ">
                     <DialogHeader>
                         <DialogTitle>Bulk Assign Permissions & Roles to {bulkAssignModal.groupName}</DialogTitle>
                         <DialogDescription>
