@@ -11,8 +11,7 @@ Route::middleware('auth')
     ->group(function () {
 
         Route::group([
-            'middleware' => ['auth', 'verified', 'route.permission'],
-            'as' => 'old-style-training-tracking.',
+            'middleware' => ['auth', 'verified', 'route.permission']
         ], function () {
             Route::get('/old-style-training-tracking', [OldStyleTrainingTrackingController::class, 'index'])
             ->name('old-style-training-tracking.index');
