@@ -17,7 +17,7 @@ Route::middleware('auth')->middleware(ValidateSessionWithWorkOS::class)->group(f
                 'userStats' => [
                     'totalUsers' => User::count(),
 //                    'activeUsers' => User::where('last_login_at', '>=', now()->subDays(30))->count(),
-                    'totalLogins' => User::sum('login_count')
+//                    'totalLogins' => User::sum('login_count')
                 ]
             ]);
         })->name('admin.index');
