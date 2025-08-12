@@ -25,8 +25,8 @@ import {
     ThermometerIcon,
     WifiIcon
 } from 'lucide-react';
-import {format, isWithinInterval, subDays} from 'date-fns';
-import {CartesianGrid, Line, LineChart, XAxis, YAxis} from 'recharts';
+import {format, isWithinInterval, startOfDay, subDays} from 'date-fns';
+import {Bar, BarChart, CartesianGrid, Line, LineChart, XAxis, YAxis} from 'recharts';
 import {Table, TableBody, TableCell, TableHead, TableHeader, TableRow} from '@/components/ui/table';
 import {cn} from '@/lib/utils';
 import {route} from "ziggy-js";
@@ -91,6 +91,15 @@ export default function VibetrackShow({ vibetrack, runtimeHistory, statusHistory
         to: new Date(),
     });
 
+    // Handler for date range selection
+    const handleDateRangeSelect = (selectedRange: DateRange | undefined) => {
+        if (selectedRange) {
+            setDateRange(selectedRange);
+        } else {
+            setDateRange({ from: undefined, to: undefined });
+        }
+    };
+
     const pageTitle = vibetrack.name || vibetrack.device_id;
 
     const breadcrumbs: BreadcrumbItem[] = [
@@ -118,32 +127,128 @@ export default function VibetrackShow({ vibetrack, runtimeHistory, statusHistory
         return { trueStartTime, trueEndTime };
     };
 
+    // Helper function to aggregate runtime data by day
+    const aggregateRuntimeByDay = (data: RuntimeHistoryPoint[]) => {
+        const grouped = data.reduce((acc, entry) => {
+            const dayKey = format(startOfDay(new Date(entry.created_at)), 'yyyy-MM-dd');
+
+            if (!acc[dayKey]) {
+                acc[dayKey] = {
+                    date: dayKey,
+                    total_runtime_sec: 0,
+                    session_count: 0,
+                    entries: []
+                };
+            }
+
+            acc[dayKey].total_runtime_sec += entry.runtime_sec || 0;
+            acc[dayKey].session_count += 1;
+            acc[dayKey].entries.push(entry);
+
+            return acc;
+        }, {} as Record<string, { date: string; total_runtime_sec: number; session_count: number; entries: RuntimeHistoryPoint[] }>);
+
+        return Object.values(grouped).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    };
+
+    // Helper function to aggregate status data by day (taking daily averages)
+    const aggregateStatusByDay = (data: StatusHistoryPoint[]) => {
+        const grouped = data.reduce((acc, entry) => {
+            const dayKey = format(startOfDay(new Date(entry.created_at)), 'yyyy-MM-dd');
+
+            if (!acc[dayKey]) {
+                acc[dayKey] = {
+                    date: dayKey,
+                    battery_soc_sum: 0,
+                    temperature_sum: 0,
+                    signal_strength_sum: 0,
+                    sht4x_temp_sum: 0,
+                    sht4x_humidity_sum: 0,
+                    modem_temp_sum: 0,
+                    count: 0,
+                    battery_soc: null,
+                    temperature: null,
+                    signal_strength: null,
+                    sht4x_temp: null,
+                    sht4x_humidity: null,
+                    modem_temp: null,
+                    created_at: entry.created_at
+                };
+            }
+
+            const day = acc[dayKey];
+
+            if (entry.battery_soc !== null) day.battery_soc_sum += entry.battery_soc;
+            if (entry.temperature !== null) day.temperature_sum += entry.temperature;
+            if (entry.signal_strength !== null) day.signal_strength_sum += entry.signal_strength;
+            if (entry.sht4x_temp !== null) day.sht4x_temp_sum += entry.sht4x_temp;
+            if (entry.sht4x_humidity !== null) day.sht4x_humidity_sum += entry.sht4x_humidity;
+            if (entry.modem_temp !== null) day.modem_temp_sum += entry.modem_temp;
+
+            day.count += 1;
+
+            return acc;
+        }, {} as Record<string, any>);
+
+        // Calculate averages
+        return Object.values(grouped).map((day: any) => ({
+            ...day,
+            battery_soc: day.count > 0 ? day.battery_soc_sum / day.count : null,
+            temperature: day.count > 0 ? day.temperature_sum / day.count : null,
+            signal_strength: day.count > 0 ? day.signal_strength_sum / day.count : null,
+            sht4x_temp: day.count > 0 ? day.sht4x_temp_sum / day.count : null,
+            sht4x_humidity: day.count > 0 ? day.sht4x_humidity_sum / day.count : null,
+            modem_temp: day.count > 0 ? day.modem_temp_sum / day.count : null,
+        })).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    };
+
     // Centralized data filtering based on the selected date range
     const filteredRuntimeHistory = useMemo(() => {
         const sorted = [...runtimeHistory].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
+        let filtered = sorted;
         if (dateRange.from && dateRange.to) {
-            return sorted.filter(item => {
+            const fromDate = new Date(dateRange.from);
+            fromDate.setHours(0, 0, 0, 0);
+            const toDate = new Date(dateRange.to);
+            toDate.setHours(23, 59, 59, 999);
+
+            filtered = sorted.filter(item => {
                 const itemDate = new Date(item.created_at);
-                return isWithinInterval(itemDate, { start: dateRange.from!, end: dateRange.to! });
+                return isWithinInterval(itemDate, { start: fromDate, end: toDate });
             });
         }
 
-        return sorted;
+        return filtered;
     }, [runtimeHistory, dateRange]);
 
     const filteredStatusHistory = useMemo(() => {
         const sorted = [...statusHistory].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
 
+        let filtered = sorted;
         if (dateRange.from && dateRange.to) {
-            return sorted.filter(item => {
+            const fromDate = new Date(dateRange.from);
+            fromDate.setHours(0, 0, 0, 0);
+            const toDate = new Date(dateRange.to);
+            toDate.setHours(23, 59, 59, 999);
+
+            filtered = sorted.filter(item => {
                 const itemDate = new Date(item.created_at);
-                return isWithinInterval(itemDate, { start: dateRange.from!, end: dateRange.to! });
+                return isWithinInterval(itemDate, { start: fromDate, end: toDate });
             });
         }
 
-        return sorted;
+        return filtered;
     }, [statusHistory, dateRange]);
+
+    // Aggregate data by day for charts
+    const dailyRuntimeData = useMemo(() => {
+        return aggregateRuntimeByDay(filteredRuntimeHistory);
+    }, [filteredRuntimeHistory]);
+
+    const dailyStatusData = useMemo(() => {
+        return aggregateStatusByDay(filteredStatusHistory);
+    }, [filteredStatusHistory]);
 
     const formatTick = (tick: string) => format(new Date(tick), 'MM/dd HH:mm');
     const formatTooltipLabel = (label: string) => format(new Date(label), 'PPpp');
@@ -178,6 +283,17 @@ export default function VibetrackShow({ vibetrack, runtimeHistory, statusHistory
         }, 0);
     }, [filteredRuntimeHistory]);
 
+    // Prepare bar chart data for runtime history (daily aggregated)
+    const runtimeBarChartData = useMemo(() => {
+        return dailyRuntimeData.map((day) => ({
+            date: format(new Date(day.date), 'MM/dd'),
+            dateLabel: format(new Date(day.date), 'PP'),
+            runtime_minutes: Math.round(day.total_runtime_sec / 60),
+            runtime_sec: day.total_runtime_sec,
+            session_count: day.session_count,
+        }));
+    }, [dailyRuntimeData]);
+
     const clearDateRange = () => {
         setDateRange({ from: undefined, to: undefined });
     };
@@ -204,102 +320,128 @@ export default function VibetrackShow({ vibetrack, runtimeHistory, statusHistory
             label: "Runtime",
             color: "var(--chart-vibetreck-1)",
         },
+        runtime_minutes: {
+            label: "Runtime (min)",
+            color: "var(--chart-vibetreck-1)",
+        },
         signal_strength: {
             label: "Signal",
             color: "var(--chart-vibetreck-3)",
         },
     } satisfies ChartConfig;
 
-    // Use filtered status history directly (respects calendar date range)
+    // Use daily aggregated status history for environmental charts
     const environmentalData = useMemo(() => {
-        return filteredStatusHistory.map(item => ({
+        return dailyStatusData.map(item => ({
             ...item,
-            date: item.created_at,
+            date: item.date,
         }));
-    }, [filteredStatusHistory]);
+    }, [dailyStatusData]);
+
     const formatUTCToLocal = (utcDateString: string) => {
-        // Parse as UTC by ensuring 'Z' suffix, then format in local time
-        const utcDate = new Date(utcDateString ? utcDateString : utcDateString);
+        const utcDate = new Date(utcDateString);
         return format(utcDate, 'PPpp');
     };
+
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title={pageTitle!} />
             <div className="flex flex-1 flex-col">
                 <div className="@container/main flex flex-1 flex-col gap-2">
-                    <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
+                    <div className="flex flex-col gap-4 py-2 md:gap-6 md:py-6">
 
                         {/* Header Section */}
-                        <div className="flex items-center justify-between px-4 lg:px-6">
+                        <div className="flex flex-col gap-4 px-4 lg:px-6 lg:flex-row lg:items-center lg:justify-between">
                             <div className="flex items-center gap-4">
                                 <div>
-                                    <h1 className="text-3xl font-bold tracking-tight">{pageTitle}</h1>
-                                    {vibetrack.name && <p className=" flex px-1 text-muted-foreground font-mono text-sm">
-                                        <div className="flex items-center gap-1">
-                                            <Cpu className="h-4 w-4 text-primary" />
-                                            <div>
-                                                <div className="text-sm text-muted-foreground">     {vibetrack.device_id}</div>
+                                    <h1 className="text-2xl md:text-3xl font-bold tracking-tight">{pageTitle}</h1>
+                                    {vibetrack.name && (
+                                        <p className="flex px-1 text-muted-foreground font-mono text-sm">
+                                            <div className="flex items-center gap-1">
+                                                <Cpu className="h-4 w-4 text-primary" />
+                                                <div>
+                                                    <div className="text-sm text-muted-foreground">{vibetrack.device_id}</div>
+                                                </div>
                                             </div>
-                                        </div>
-
-                                    </p>}
-
+                                        </p>
+                                    )}
                                 </div>
                             </div>
-                            <div className="flex gap-2 items-center">
-                                <Popover>
-                                    <PopoverTrigger asChild>
-                                        <Button variant="outline" className={cn("w-[280px] justify-start text-left font-normal", !dateRange.from && "text-muted-foreground")}>
-                                            <CalendarIcon className="mr-2 h-4 w-4" />
-                                            {dateRange.from ? (
-                                                dateRange.to ? (
-                                                    <>
-                                                        {format(dateRange.from, "LLL dd, y")} -{" "}
-                                                        {format(dateRange.to, "LLL dd, y")}
-                                                    </>
+
+                            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                                <div className="flex gap-2 items-center">
+                                    <Popover>
+                                        <PopoverTrigger asChild>
+                                            <Button
+                                                variant="outline"
+                                                className={cn(
+                                                    "w-full sm:w-[280px] justify-start text-left font-normal",
+                                                    !dateRange.from && "text-muted-foreground"
+                                                )}
+                                            >
+                                                <CalendarIcon className="mr-2 h-4 w-4" />
+                                                {dateRange.from ? (
+                                                    dateRange.to ? (
+                                                        <>
+                                                            {format(dateRange.from, "LLL dd, y")} -{" "}
+                                                            {format(dateRange.to, "LLL dd, y")}
+                                                        </>
+                                                    ) : (
+                                                        format(dateRange.from, "LLL dd, y")
+                                                    )
                                                 ) : (
-                                                    format(dateRange.from, "LLL dd, y")
-                                                )
-                                            ) : (
-                                                <span>Pick a date range</span>
-                                            )}
+                                                    <span>Pick a date range</span>
+                                                )}
+                                            </Button>
+                                        </PopoverTrigger>
+                                        <PopoverContent className="w-auto p-0" align="start">
+                                            <Calendar
+                                                initialFocus
+                                                mode="range"
+                                                defaultMonth={dateRange.from}
+                                                selected={dateRange}
+                                                onSelect={handleDateRangeSelect}
+                                                numberOfMonths={2}
+                                                className="hidden sm:block"
+                                            />
+                                            <Calendar
+                                                initialFocus
+                                                mode="range"
+                                                defaultMonth={dateRange.from}
+                                                selected={dateRange}
+                                                onSelect={handleDateRangeSelect}
+                                                numberOfMonths={1}
+                                                className="block sm:hidden"
+                                            />
+                                        </PopoverContent>
+                                    </Popover>
+                                    {(dateRange.from || dateRange.to) && (
+                                        <Button variant="outline" size="sm" onClick={clearDateRange}>
+                                            Clear
                                         </Button>
-                                    </PopoverTrigger>
-                                    <PopoverContent className="w-auto p-0" align="start">
-                                        <Calendar
-                                            initialFocus
-                                            mode="range"
-                                            defaultMonth={dateRange.from}
-                                            selected={dateRange}
-                                            onSelect={setDateRange}
-                                            numberOfMonths={2}
-                                        />
-                                    </PopoverContent>
-                                </Popover>
-                                {(dateRange.from || dateRange.to) && (
-                                    <Button variant="outline" size="sm" onClick={clearDateRange}>
-                                        Clear
-                                    </Button>
-                                )}
+                                    )}
+                                </div>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => router.reload({ preserveScroll: true })}
+                                >
+                                    <RefreshCwIcon className="h-4 w-4 mr-2" />
+                                    Refresh
+                                </Button>
                             </div>
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => router.reload({ preserveScroll: true })}
-                            >
-                                <RefreshCwIcon className="h-4 w-4 mr-2" />
-                                Refresh
-                            </Button>
                         </div>
 
                         {/* Current Status Section */}
                         <div className="px-4 lg:px-6">
-                            <div>
-                                <h3 className="font-semibold">Device Stats</h3>
-                                <p className="text-muted-foreground text-xs">
-                                    Latest readings from device sensors - Last updated: {formatUTCToLocal(vibetrack.created_at)}
-                                </p>
-                                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                            <div className="space-y-4">
+                                <div>
+                                    <h3 className="font-semibold">Device Stats</h3>
+                                    <p className="text-muted-foreground text-xs">
+                                        Latest readings from device sensors - Last updated: {formatUTCToLocal(vibetrack.created_at)}
+                                    </p>
+                                </div>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                                     <div className="flex items-center gap-2">
                                         <WifiIcon className="h-4 w-4 text-primary" />
                                         <div>
@@ -309,25 +451,27 @@ export default function VibetrackShow({ vibetrack, runtimeHistory, statusHistory
                                     </div>
 
                                     <div className="flex items-center gap-2">
-                                        <BatteryFullIcon className="h-8 w-8 text-primary" />
+                                        <BatteryFullIcon className="h-6 w-6 text-primary" />
                                         <div>
                                             <div className="text-xs text-muted-foreground">Battery</div>
                                             <div className="text-md font-bold">{vibetrack.battery_soc?.toFixed(1) ?? 'N/A'}%</div>
                                             <div className="text-xs text-muted-foreground">{vibetrack.battery_voltage ?? 'N/A'}V</div>
                                         </div>
                                     </div>
+
                                     <div className="flex items-center gap-2">
-                                        <ThermometerIcon className="h-8 w-8 " />
+                                        <ThermometerIcon className="h-6 w-6" />
                                         <div>
                                             <div className="text-xs text-muted-foreground">Device Temperature</div>
                                             <div className="text-sm font-bold">{vibetrack.json?.modem?.temp ? vibetrack.json.modem.temp.toFixed(1) : 'N/A'} °F</div>
                                             <div className="text-xs text-muted-foreground">Modem</div>
                                         </div>
                                     </div>
+
                                     <div className="flex items-center gap-2">
-                                        <Braces className="h-8 w-8 " />
+                                        <Braces className="h-6 w-6" />
                                         <div>
-                                            <a className={"text-sm font-bold"} target="_blank" href={route('api.getVibetrackDeviceData', vibetrack.device_id)}>
+                                            <a className="text-sm font-bold" target="_blank" href={route('api.getVibetrackDeviceData', vibetrack.device_id)}>
                                                 <div className="text-xs text-muted-foreground">Device API</div>
                                                 Link
                                                 <div className="text-xs text-muted-foreground">API</div>
@@ -335,83 +479,87 @@ export default function VibetrackShow({ vibetrack, runtimeHistory, statusHistory
                                         </div>
                                     </div>
                                 </div>
-                            </div>
 
-                            {/* Environmental Data */}
-                            <div>
-                                <h3 className="font-semibold">Environmental Data</h3>
-                                <div className="grid grid-cols-2 md:grid-cols-8 gap-2">
-                                    <div className="flex items-center gap-2">
-                                        <ThermometerIcon className="h-6 w-6 " />
-                                        <div>
-                                            <div className="text-xs text-muted-foreground">Ambient Temperature</div>
-                                            <div className="text-md font-bold">{vibetrack.json?.sht4x?.temp?.toFixed(1) ?? 'N/A'} °F</div>
-                                            <div className="text-xs text-muted-foreground">SHT4x Sensor</div>
+                                {/* Environmental Data */}
+                                <div>
+                                    <h3 className="font-semibold">Environmental Data</h3>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                        <div className="flex items-center gap-2">
+                                            <ThermometerIcon className="h-6 w-6" />
+                                            <div>
+                                                <div className="text-xs text-muted-foreground">Ambient Temperature</div>
+                                                <div className="text-md font-bold">{vibetrack.json?.sht4x?.temp?.toFixed(1) ?? 'N/A'} °F</div>
+                                                <div className="text-xs text-muted-foreground">SHT4x Sensor</div>
+                                            </div>
                                         </div>
-                                    </div>
-                                    <div className="flex items-center gap-4">
-                                        <Droplets className="h-6 w-6"/>
-                                        <div>
-                                            <div className="text-xs text-muted-foreground">Humidity</div>
-                                            <div className="text-md font-bold">{vibetrack.json?.sht4x?.hum?.toFixed(1) ?? 'N/A'}%</div>
-                                            <div className="text-xs text-muted-foreground">SHT4x Sensor</div>
+                                        <div className="flex items-center gap-2">
+                                            <Droplets className="h-6 w-6"/>
+                                            <div>
+                                                <div className="text-xs text-muted-foreground">Humidity</div>
+                                                <div className="text-md font-bold">{vibetrack.json?.sht4x?.hum?.toFixed(1) ?? 'N/A'}%</div>
+                                                <div className="text-xs text-muted-foreground">SHT4x Sensor</div>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
                             </div>
-
                         </div>
-
 
                         {/* Metrics Cards Section */}
                         <div className="grid gap-4 px-4 md:grid-cols-2 lg:grid-cols-4 lg:px-6">
                             <Card>
-                                <CardHeader className="flex flex-row items-center justify-between space-y-0 ">
+                                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                                     <CardTitle className="text-sm font-medium">Total Runtime</CardTitle>
                                     <ClockArrowUp className="h-4 w-4 text-muted-foreground"/>
                                 </CardHeader>
                                 <CardContent>
                                     <div className="text-2xl font-bold">{formatRuntimeTotal(totalRuntimeSeconds)}</div>
                                     <p className="text-xs text-muted-foreground mb-2">
-                                        From {filteredRuntimeHistory.length} sessions
+                                        From {filteredRuntimeHistory.length} sessions over {dailyRuntimeData.length} days
                                     </p>
-                                    <div className="h-[60px]">
+                                    <div className="h-[80px]">
                                         <ChartContainer
-                                            config={{
-                                                runtime_sec: {
-                                                    label: "Runtime",
-                                                    color: "var(--chart-vibetreck-1)",
-                                                },
-                                            }}
+                                            config={chartConfig}
                                             className="h-[80px] w-full"
                                         >
-                                            <LineChart data={[...filteredRuntimeHistory].reverse()}>
-                                                <Line
-                                                    type="monotone"
-                                                    dataKey="runtime_sec"
-                                                    stroke="var(--color-runtime_sec)"
-                                                    strokeWidth={2}
-                                                    dot={false}
+                                            <BarChart data={runtimeBarChartData}>
+                                                <CartesianGrid vertical={false} />
+                                                <XAxis
+                                                    dataKey="date"
+                                                    tickLine={false}
+                                                    tickMargin={10}
+                                                    axisLine={false}
+                                                    tickFormatter={(value) => value}
                                                 />
                                                 <ChartTooltip
                                                     cursor={false}
-                                                    content={<ChartTooltipContent
-                                                        labelFormatter={(value, payload) => {
-                                                            if (payload && payload[0] && payload[0].payload) {
-                                                                return format(new Date(payload[0].payload.created_at), 'PPp');
-                                                            }
-                                                            return '';
-                                                        }}
-                                                    />}
+                                                    content={
+                                                        <ChartTooltipContent
+                                                            labelFormatter={(value, payload) => {
+                                                                if (payload && payload[0] && payload[0].payload) {
+                                                                    return payload[0].payload.dateLabel;
+                                                                }
+                                                                return '';
+                                                            }}
+                                                            formatter={(value, name, props) => [
+                                                                `${value} min (${props.payload.session_count} sessions)`,
+                                                                'Total Runtime'
+                                                            ]}
+                                                        />
+                                                    }
                                                 />
-                                            </LineChart>
+                                                <Bar
+                                                    dataKey="runtime_minutes"
+                                                    fill="var(--color-runtime_minutes)"
+                                                />
+                                            </BarChart>
                                         </ChartContainer>
                                     </div>
                                 </CardContent>
                             </Card>
 
                             <Card>
-                                <CardHeader className="flex flex-row items-center justify-between space-y-0 ">
+                                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                                     <CardTitle className="text-sm font-medium">Battery Level</CardTitle>
                                     <BatteryFullIcon className="h-4 w-4 text-muted-foreground" />
                                 </CardHeader>
@@ -420,21 +568,16 @@ export default function VibetrackShow({ vibetrack, runtimeHistory, statusHistory
                                     <p className="text-xs text-muted-foreground mb-2">
                                         {vibetrack.battery_voltage ?? 'N/A'}V
                                     </p>
-                                    <div className="h-[60px]">
+                                    <div className="h-[80px]">
                                         <ChartContainer
-                                            config={{
-                                                battery_soc: {
-                                                    label: "Battery",
-                                                    color: "var(--chart-2)",
-                                                },
-                                            }}
+                                            config={chartConfig}
                                             className="h-[80px] w-full"
                                         >
-                                            <LineChart data={filteredStatusHistory}>
+                                            <LineChart data={dailyStatusData}>
                                                 <Line
                                                     type="monotone"
                                                     dataKey="battery_soc"
-                                                    stroke="var(--chart-vibetreck-2)"
+                                                    stroke="var(--color-battery_soc)"
                                                     strokeWidth={2}
                                                     dot={false}
                                                 />
@@ -443,7 +586,7 @@ export default function VibetrackShow({ vibetrack, runtimeHistory, statusHistory
                                                     content={<ChartTooltipContent
                                                         labelFormatter={(value, payload) => {
                                                             if (payload && payload[0] && payload[0].payload) {
-                                                                return format(new Date(payload[0].payload.created_at), 'PPp');
+                                                                return format(new Date(payload[0].payload.date), 'PP');
                                                             }
                                                             return '';
                                                         }}
@@ -456,7 +599,7 @@ export default function VibetrackShow({ vibetrack, runtimeHistory, statusHistory
                             </Card>
 
                             <Card>
-                                <CardHeader className="flex flex-row items-center justify-between space-y-0 ">
+                                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                                     <CardTitle className="text-sm font-medium">Signal Strength</CardTitle>
                                     <WifiIcon className="h-4 w-4 text-muted-foreground" />
                                 </CardHeader>
@@ -465,17 +608,12 @@ export default function VibetrackShow({ vibetrack, runtimeHistory, statusHistory
                                     <p className="text-xs text-muted-foreground mb-2">
                                         dBm
                                     </p>
-                                    <div className="h-[60px]">
+                                    <div className="h-[80px]">
                                         <ChartContainer
-                                            config={{
-                                                signal_strength: {
-                                                    label: "Signal",
-                                                    color: "var(--chart-vibetreck-3)",
-                                                },
-                                            }}
+                                            config={chartConfig}
                                             className="h-[80px] w-full"
                                         >
-                                            <LineChart data={filteredStatusHistory}>
+                                            <LineChart data={dailyStatusData}>
                                                 <Line
                                                     type="monotone"
                                                     dataKey="signal_strength"
@@ -488,7 +626,7 @@ export default function VibetrackShow({ vibetrack, runtimeHistory, statusHistory
                                                     content={<ChartTooltipContent
                                                         labelFormatter={(value, payload) => {
                                                             if (payload && payload[0] && payload[0].payload) {
-                                                                return format(new Date(payload[0].payload.created_at), 'PPp');
+                                                                return format(new Date(payload[0].payload.date), 'PP');
                                                             }
                                                             return '';
                                                         }}
@@ -501,26 +639,21 @@ export default function VibetrackShow({ vibetrack, runtimeHistory, statusHistory
                             </Card>
 
                             <Card>
-                                <CardHeader className="flex flex-row items-center justify-between space-y-0 ">
+                                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                                     <CardTitle className="text-sm font-medium">Temperature</CardTitle>
                                     <ThermometerIcon className="h-4 w-4 text-muted-foreground" />
                                 </CardHeader>
                                 <CardContent>
                                     <div className="text-2xl font-bold">{vibetrack.json?.sht4x?.temp ?? 'N/A'}</div>
-                                    <p className="text-xs text-muted-foreground mb-3">
+                                    <p className="text-xs text-muted-foreground mb-2">
                                         °F ambient
                                     </p>
-                                    <div className="h-[60px]">
+                                    <div className="h-[80px]">
                                         <ChartContainer
-                                            config={{
-                                                sht4x_temp: {
-                                                    label: "Temperature",
-                                                    color: "var(--chart-vibetreck-4)",
-                                                },
-                                            }}
+                                            config={chartConfig}
                                             className="h-[80px] w-full"
                                         >
-                                            <LineChart data={filteredStatusHistory}>
+                                            <LineChart data={dailyStatusData}>
                                                 <Line
                                                     type="monotone"
                                                     dataKey="sht4x_temp"
@@ -533,7 +666,7 @@ export default function VibetrackShow({ vibetrack, runtimeHistory, statusHistory
                                                     content={<ChartTooltipContent
                                                         labelFormatter={(value, payload) => {
                                                             if (payload && payload[0] && payload[0].payload) {
-                                                                return format(new Date(payload[0].payload.created_at), 'PPp');
+                                                                return format(new Date(payload[0].payload.date), 'PP');
                                                             }
                                                             return '';
                                                         }}
@@ -546,21 +679,20 @@ export default function VibetrackShow({ vibetrack, runtimeHistory, statusHistory
                             </Card>
                         </div>
 
-
                         {/* Interactive Chart Section */}
                         <div className="px-4 lg:px-6">
                             <Card>
                                 <CardHeader>
                                     <CardTitle>Environmental, Device & System Metrics</CardTitle>
                                     <CardDescription>
-                                       Monitoring of temperature, humidity, battery, runtime, and signal strength
+                                        Daily averages of temperature, humidity, battery, and signal strength
                                     </CardDescription>
                                 </CardHeader>
                                 <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6">
                                     {environmentalData && environmentalData.length > 0 ? (
                                         <ChartContainer
                                             config={chartConfig}
-                                            className="aspect-auto h-[400px] w-full"
+                                            className="aspect-auto h-[300px] md:h-[400px] w-full"
                                         >
                                             <LineChart data={environmentalData}>
                                                 <CartesianGrid vertical={false} />
@@ -627,7 +759,7 @@ export default function VibetrackShow({ vibetrack, runtimeHistory, statusHistory
                                             </LineChart>
                                         </ChartContainer>
                                     ) : (
-                                        <div className="flex items-center justify-center h-[400px] text-muted-foreground">
+                                        <div className="flex items-center justify-center h-[300px] md:h-[400px] text-muted-foreground">
                                             No data available for the selected period.
                                         </div>
                                     )}
@@ -649,7 +781,7 @@ export default function VibetrackShow({ vibetrack, runtimeHistory, statusHistory
                                         <Table>
                                             <TableHeader>
                                                 <TableRow>
-                                                    <TableHead>Date</TableHead>
+                                                    <TableHead className="hidden sm:table-cell">Date</TableHead>
                                                     <TableHead>Start Time</TableHead>
                                                     <TableHead>End Time</TableHead>
                                                     <TableHead className="text-right">Duration</TableHead>
@@ -662,16 +794,29 @@ export default function VibetrackShow({ vibetrack, runtimeHistory, statusHistory
                                                             const { trueStartTime, trueEndTime } = calculateTrueTimes(entry);
                                                             return (
                                                                 <TableRow key={index}>
-                                                                    <TableCell className="font-medium">{format(new Date(entry.created_at), 'PP')}</TableCell>
-                                                                    <TableCell>{format(trueStartTime, 'pp')}</TableCell>
-                                                                    <TableCell>{format(trueEndTime, 'pp')}</TableCell>
-                                                                    <TableCell className="text-right font-mono">{formatRuntime(entry.runtime_sec)}</TableCell>
+                                                                    <TableCell className="font-medium hidden sm:table-cell">
+                                                                        {format(new Date(entry.created_at), 'PP')}
+                                                                    </TableCell>
+                                                                    <TableCell className="text-xs sm:text-sm">
+                                                                        <div className="sm:hidden text-xs text-muted-foreground">
+                                                                            {format(new Date(entry.created_at), 'PP')}
+                                                                        </div>
+                                                                        {format(trueStartTime, 'pp')}
+                                                                    </TableCell>
+                                                                    <TableCell className="text-xs sm:text-sm">
+                                                                        {format(trueEndTime, 'pp')}
+                                                                    </TableCell>
+                                                                    <TableCell className="text-right font-mono text-xs sm:text-sm">
+                                                                        {formatRuntime(entry.runtime_sec)}
+                                                                    </TableCell>
                                                                 </TableRow>
                                                             );
                                                         })}
                                                         <TableRow className="border-t-2 font-semibold bg-muted/50">
                                                             <TableCell colSpan={3} className="font-semibold">Total Runtime</TableCell>
-                                                            <TableCell className="text-right font-mono font-bold">{formatRuntimeTotal(totalRuntimeSeconds)}</TableCell>
+                                                            <TableCell className="text-right font-mono font-bold">
+                                                                {formatRuntimeTotal(totalRuntimeSeconds)}
+                                                            </TableCell>
                                                         </TableRow>
                                                     </>
                                                 ) : (
@@ -698,7 +843,7 @@ export default function VibetrackShow({ vibetrack, runtimeHistory, statusHistory
                                     </CardDescription>
                                 </CardHeader>
                                 <CardContent>
-                                    <pre className="max-h-96 overflow-y-auto bg-muted/30 p-4 rounded-lg text-sm font-mono">
+                                    <pre className="max-h-96 overflow-y-auto bg-muted/30 p-4 rounded-lg text-xs sm:text-sm font-mono whitespace-pre-wrap break-words">
                                         {JSON.stringify(vibetrack.json, null, 2)}
                                     </pre>
                                 </CardContent>
