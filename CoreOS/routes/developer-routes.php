@@ -57,7 +57,7 @@ Route::middleware('auth')->middleware(ValidateSessionWithWorkOS::class)->group(f
         });
 
         //Navigation Control
-        Route::group(['prefix' => '/admin/navigation'], function () {
+
             Route::get('/', [NavigationController::class, 'index'])->name('navigation.index');
 
             // CRUD operations
@@ -69,7 +69,6 @@ Route::middleware('auth')->middleware(ValidateSessionWithWorkOS::class)->group(f
             Route::post('/admin/navigation/update-order', [NavigationController::class, 'updateOrder'])->name('navigation.update-order');
             Route::post('/admin/navigation/{navigationItem}/toggle-active', [NavigationController::class, 'toggleActive'])->name('navigation.toggle-active');
 
-        });
             // API endpoint for getting navigation data (used by sidebar)
             Route::get('/api/navigation-data', [NavigationController::class, 'getNavigationData'])->name('navigation.data');
 
