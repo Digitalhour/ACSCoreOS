@@ -12,7 +12,7 @@ Route::put('/blog-comments/{blogComment}', [BlogController::class, 'updateCommen
 Route::delete('/blog-comments/{blogComment}', [BlogController::class, 'destroyComment'])->name('blog.comments.destroy');
 Route::get('/blog/{blogArticle}', [BlogController::class, 'show'])->name('blog.show');
 
-
+Route::get('/blog/create', [BlogController::class, 'create'])->name('blog.create');
 
 
 
@@ -20,7 +20,7 @@ Route::middleware(['permission:blog-create'])->group(function () {
     // Admin blog management
     Route::get('/admin/blog', [BlogController::class, 'manage'])->name('admin.blog.manage');
     // blog management routes
-        Route::get('/blog/create', [BlogController::class, 'create'])->name('blog.create');
+
         Route::post('/blog', [BlogController::class, 'store'])->name('blog.store');
         Route::get('/blog/{blogArticle}/edit', [BlogController::class, 'edit'])->name('blog.edit');
         Route::put('/blog/{blogArticle}', [BlogController::class, 'update'])->name('blog.update');
