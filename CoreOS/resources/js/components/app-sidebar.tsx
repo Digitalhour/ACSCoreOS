@@ -131,16 +131,16 @@ export const NavigationLink = React.forwardRef<any, NavigationLinkProps>(
         if (external ?? isExternalUrl(href)) {
             return (
                 <a
-                  
+
                     href={href}
                     target="_blank"
                     rel="noopener noreferrer"
                     ref={ref as React.Ref<HTMLAnchorElement>}
-                    {...(rest as ExternalProps)}
+                    {...(rest as Omit<ExternalProps, 'href'>)}
                 />
             );
         }
-        return <InertiaLink href={href} ref={ref} {...(rest as InternalProps)} />;
+        return <InertiaLink href={href} ref={ref} {...(rest as Omit<InternalProps, 'href'>)} />;
     }
 );
 NavigationLink.displayName = 'NavigationLink';

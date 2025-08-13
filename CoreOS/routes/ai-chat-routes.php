@@ -19,7 +19,7 @@ Route::group([
 ], function () {
 
 
-    Route::get('/billy', [BillyAIController::class, 'chat'])->name('billy');
+    Route::get('/billy', [BillyAIController::class, 'chat'])->name('billy.chat');;
 
     // Messages & feedback
     Route::post('/billy/messages', [BillyAIController::class, 'storeMessage'])->name('billy.messages.store');

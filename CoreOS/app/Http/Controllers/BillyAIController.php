@@ -19,9 +19,8 @@ class BillyAIController extends Controller
     // Display the main chat page (billy.tsx)
     public function chat()
     {
-        // Assuming your Inertia page is named 'BillyChat' based on component export
-        // If your file is resources/js/Pages/billy.tsx, Inertia usually expects 'billy'
-        return Inertia::render('BillyAi/billy'); // Or 'BillyChat' if that's how you've registered it
+
+        return Inertia::render('BillyAi/billy');
     }
 
     public function storeMessageFeedback(Request $request, Message $message)

@@ -24,7 +24,7 @@ Route::get('/blog/{blogArticle}', [BlogController::class, 'show'])->name('blog.s
 
 
     // Admin blog management
-    Route::get('/admin/blog', [BlogController::class, 'manage'])->name('admin.blog.manage');
+    Route::get('/blog-management/blog', [BlogController::class, 'manage'])->name('admin.blog.manage');
     // blog management routes
 
         Route::post('/blog', [BlogController::class, 'store'])->name('blog.store');
@@ -33,7 +33,7 @@ Route::get('/blog/{blogArticle}', [BlogController::class, 'show'])->name('blog.s
         Route::delete('/blog/{blogArticle}', [BlogController::class, 'destroy'])->name('blog.destroy');
         Route::post('/blog/upload-image', [BlogController::class, 'uploadEditorImage'])->name('blog.upload-image');
     // blog comment routes
-    Route::prefix('admin')->group(function () {
+    Route::prefix('acs-news')->group(function () {
         Route::get('/blog-templates', [BlogTemplateController::class, 'index'])->name('admin.blog-templates.index');
         Route::get('/blog-templates/create', [BlogTemplateController::class, 'create'])->name('admin.blog-templates.create');
         Route::post('/blog-templates', [BlogTemplateController::class, 'store'])->name('admin.blog-templates.store');

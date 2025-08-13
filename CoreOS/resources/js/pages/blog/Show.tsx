@@ -102,7 +102,6 @@ export default function BlogShow({ article, comments, relatedArticles }: Props) 
                                             </Button>
                                         </Link>
                                     )}
-
                                 </div>
 
                                 <div className="flex items-center gap-6">
