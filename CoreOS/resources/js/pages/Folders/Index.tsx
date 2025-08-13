@@ -469,7 +469,7 @@ export default function FoldersIndex({
             href: '/dashboard',
         },
         {
-            title: 'Folders',
+            title: 'Company Documents',
             href: route('folders.index'),
         },
         ...(currentFolder ? [
@@ -531,12 +531,12 @@ export default function FoldersIndex({
                 <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                     <div>
                         <h1 className="text-3xl font-bold tracking-tight">
-                            {currentFolder ? currentFolder.name : 'Folders'}
+                            {currentFolder ? currentFolder.name : 'Company Documents'}
                         </h1>
                         <p className="text-muted-foreground">
                             {currentFolder
                                 ? `${currentFolder.full_path} • ${folders.length} folders, ${documents.length} documents`
-                                : 'Organize your documents into folders and manage access'
+                                : 'Organize company documents into folders and manage access'
                             }
                         </p>
                     </div>
