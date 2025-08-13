@@ -181,60 +181,45 @@ export default function OldStyleTrainingTracking() {
             case 'module':
                 item = modules.find(m => m.module_id === id);
                 if (item) {
-                    setData({
-                        ...data,
-                        name: item.module_name,
-                        description: item.module_description || '',
-                        status: item.module_status
-                    });
+                    setData('name', item.module_name);
+                    setData('description', item.module_description || '');
+                    setData('status', item.module_status);
                 }
                 break;
             case 'lesson':
                 item = lessons.find(l => l.lesson_id === id);
                 if (item) {
-                    setData({
-                        ...data,
-                        name: item.lesson_name,
-                        description: item.lesson_description || '',
-                        status: item.lesson_status,
-                        moduleId: item.module_id.toString()
-                    });
+                    setData('name', item.lesson_name);
+                    setData('description', item.lesson_description || '');
+                    setData('status', item.lesson_status);
+                    setData('moduleId', item.module_id.toString());
                 }
                 break;
             case 'quiz':
                 item = quizzes.find(q => q.quiz_id === id);
                 if (item) {
-                    setData({
-                        ...data,
-                        name: item.quiz_name,
-                        description: item.quiz_description || '',
-                        status: item.quiz_status,
-                        lessonId: item.lesson_id.toString()
-                    });
+                    setData('name', item.quiz_name);
+                    setData('description', item.quiz_description || '');
+                    setData('status', item.quiz_status);
+                    setData('lessonId', item.lesson_id.toString());
                 }
                 break;
             case 'test':
                 item = tests.find(t => t.test_id === id);
                 if (item) {
-                    setData({
-                        ...data,
-                        name: item.test_name,
-                        description: item.test_description || '',
-                        status: item.test_status,
-                        moduleId: item.module_id.toString()
-                    });
+                    setData('name', item.test_name);
+                    setData('description', item.test_description || '');
+                    setData('status', item.test_status);
+                    setData('moduleId', item.module_id.toString());
                 }
                 break;
             case 'grade':
                 item = grades.find(g => g.grade_id === id);
                 if (item) {
-                    setData({
-                        ...data,
-                        employeeId: item.grade_employee_id.toString(),
-                        assessmentType: item.grade_assessment_type,
-                        assessmentId: item.grade_assessment_id.toString(),
-                        score: item.grade_score.toString()
-                    });
+                    setData('employeeId', item.grade_employee_id.toString());
+                    setData('assessmentType', item.grade_assessment_type);
+                    setData('assessmentId', item.grade_assessment_id.toString());
+                    setData('score', item.grade_score.toString());
                 }
                 break;
         }
@@ -244,15 +229,15 @@ export default function OldStyleTrainingTracking() {
         if (editingId) {
             put(route('old-style-training-tracking.update', { type: modalType, id: editingId }), {
                 onSuccess: () => {
-                    closeModal();
                     toast.success(`${modalType.charAt(0).toUpperCase() + modalType.slice(1)} updated successfully`);
+                    closeModal();
                 }
             });
         } else {
             post(route('old-style-training-tracking.store'), {
                 onSuccess: () => {
-                    closeModal();
                     toast.success(`${modalType.charAt(0).toUpperCase() + modalType.slice(1)} created successfully`);
+                    closeModal();
                 }
             });
         }
