@@ -141,7 +141,20 @@ export default function OldStyleTrainingTracking() {
         assessmentId: '',
         score: ''
     });
-
+    const clearForm = () => {
+        setData({
+            type: '',
+            name: '',
+            description: '',
+            status: 'Active',
+            moduleId: '',
+            lessonId: '',
+            employeeId: '',
+            assessmentType: '',
+            assessmentId: '',
+            score: ''
+        });
+    };
     // Memoized values for reports - moved to top level
     const sortedEmployees = useMemo(() =>
             [...employees].sort((a, b) => a.full_name.localeCompare(b.full_name)),
@@ -155,22 +168,22 @@ export default function OldStyleTrainingTracking() {
     }, [sortedEmployees, searchTerm]);
 
     const openModal = (type: string, id: number | null = null) => {
-        reset();
+        clearForm();
         setModalType(type);
         setEditingId(id);
-        setShowModal(true);
-        reset();
         setData('type', type);
         setData('status', 'Active');
 
         if (id) {
             loadItemForEdit(type, id);
         }
+
+        setShowModal(true);
     };
 
     const closeModal = () => {
         setShowModal(false);
-        reset();
+        clearForm();
         setEditingId(null);
         setModalType('');
     };
@@ -230,15 +243,15 @@ export default function OldStyleTrainingTracking() {
         if (editingId) {
             put(route('old-style-training-tracking.update', { type: modalType, id: editingId }), {
                 onSuccess: () => {
-                    toast.success(`${modalType.charAt(0).toUpperCase() + modalType.slice(1)} updated successfully`);
                     closeModal();
+                    toast.success(`${modalType.charAt(0).toUpperCase() + modalType.slice(1)} updated successfully`);
                 }
             });
         } else {
             post(route('old-style-training-tracking.store'), {
                 onSuccess: () => {
-                    toast.success(`${modalType.charAt(0).toUpperCase() + modalType.slice(1)} created successfully`);
                     closeModal();
+                    toast.success(`${modalType.charAt(0).toUpperCase() + modalType.slice(1)} created successfully`);
                 }
             });
         }
