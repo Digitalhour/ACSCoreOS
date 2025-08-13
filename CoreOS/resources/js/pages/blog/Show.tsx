@@ -5,7 +5,6 @@ import {Button} from '@/components/ui/button';
 import {Badge} from '@/components/ui/badge';
 import {Avatar, AvatarFallback, AvatarImage} from '@/components/ui/avatar';
 import {Calendar, Edit, MessageCircle} from 'lucide-react';
-import CommentsSection from '@/components/blog/CommentsSection';
 import {usePermission} from "@/hooks/usePermission";
 import {BlogPermissionsEnum} from "@/types/permissions";
 
@@ -131,17 +130,17 @@ export default function BlogShow({ article, comments, relatedArticles }: Props) 
                     </div>
 
                     {/* Featured Image */}
-                    {article.featured_image && (
-                        <div className="col-span-4">
-                            <div className="border-sidebar-border/70 dark:border-sidebar-border relative overflow-hidden rounded-xl border">
-                                <img
-                                    src={article.featured_image}
-                                    alt={article.title}
-                                    className="w-full h-auto object-cover"
-                                />
-                            </div>
-                        </div>
-                    )}
+                    {/*{article.featured_image && (*/}
+                    {/*    <div className="col-span-4">*/}
+                    {/*        <div className="border-sidebar-border/70 dark:border-sidebar-border relative overflow-hidden rounded-xl border">*/}
+                    {/*            <img*/}
+                    {/*                src={article.featured_image}*/}
+                    {/*                alt={article.title}*/}
+                    {/*                className="w-full h-auto object-cover"*/}
+                    {/*            />*/}
+                    {/*        </div>*/}
+                    {/*    </div>*/}
+                    {/*)}*/}
 
                     {/* Article Content */}
                     <div className="col-span-4">
@@ -187,7 +186,7 @@ export default function BlogShow({ article, comments, relatedArticles }: Props) 
 
                     {/* Comments Section */}
                     <div className="col-span-4">
-                        <CommentsSection article={article} comments={comments} />
+                        {/*<CommentsSection article={article} comments={comments} />*/}
                     </div>
                 </div>
             </div>

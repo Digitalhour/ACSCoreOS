@@ -90,14 +90,14 @@ export default function BlogIndex({ articles, filters }: Props) {
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
-            <Head title="Company Blog" />
+            <Head title="ACS Blog" />
 
             <div className="container mx-auto px-4 py-8">
                 {/* Header Section */}
                 <div className="flex flex-col gap-6 mb-8">
                     <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                         <div>
-                            <h1 className="text-3xl font-bold tracking-tight">Company Blog</h1>
+                            <h1 className="text-3xl font-bold tracking-tight">ACS Blog</h1>
                             <p className="text-muted-foreground mt-2">
                                 Stay updated with the latest news and insights from our team
                             </p>
