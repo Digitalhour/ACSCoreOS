@@ -155,6 +155,7 @@ export default function OldStyleTrainingTracking() {
     }, [sortedEmployees, searchTerm]);
 
     const openModal = (type: string, id: number | null = null) => {
+        reset();
         setModalType(type);
         setEditingId(id);
         setShowModal(true);
