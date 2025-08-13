@@ -2,7 +2,7 @@ import * as React from "react"
 import AdminCommandDialog from '@/components/admin-command';
 import {NavFooter} from '@/components/nav-footer';
 import {NavUser} from '@/components/nav-user';
-import {Collapsible, CollapsibleContent, CollapsibleTrigger,} from "@/components/ui/collapsible"
+import {Collapsible, CollapsibleContent, CollapsibleTrigger} from "@/components/ui/collapsible";
 import {
     Sidebar,
     SidebarContent,
@@ -18,7 +18,7 @@ import {
     SidebarRail,
 } from '@/components/ui/sidebar';
 import {type NavItem, type User} from '@/types';
-import {Link, usePage} from '@inertiajs/react';
+import {Link as InertiaLink, Link, usePage} from '@inertiajs/react';
 import {
     Activity,
     Bell,
@@ -97,16 +97,56 @@ interface NavCategory {
     permission?: string;
 }
 
-// Utility functions for URL handling
-const isExternalUrl = (url: string): boolean => {
-    return url.startsWith('http://') || url.startsWith('https://');
+/* ---------------------------------------------
+ * URL helpers
+ * -------------------------------------------*/
+const isExternalUrl = (href: string) => /^https?:\/\//i.test(href);
+
+const normalizePath = (url: string) =>
+    url.replace(/\/+$/, '').split('?')[0].split('#')[0];
+
+const isActiveUrl = (currentUrl: string, itemHref: string): boolean => {
+    if (isExternalUrl(itemHref) || itemHref === '#') return false;
+
+    const cleanCurrent = normalizePath(currentUrl);
+    const cleanItem = normalizePath(itemHref);
+
+    // exact match or sub-path (so /holidays matches /holidays and /holidays/new)
+    return cleanCurrent === cleanItem || cleanCurrent.startsWith(`${cleanItem}/`);
 };
 
-const isInternalUrl = (url: string): boolean => {
-    return url.startsWith('/') || url === '#';
-};
+/* ---------------------------------------------
+ * Link component that works with asChild
+ * and keeps types correct for Inertia vs <a>
+ * -------------------------------------------*/
+type InternalProps = React.ComponentPropsWithoutRef<typeof InertiaLink>;
+type ExternalProps = React.ComponentPropsWithoutRef<'a'>;
 
-// Icon mapping - maps string names to actual Lucide icons
+type NavigationLinkProps =
+    | ({ href: string; external?: false } & Omit<InternalProps, 'href'>)
+    | ({ href: string; external: true } & Omit<ExternalProps, 'href'>);
+
+export const NavigationLink = React.forwardRef<any, NavigationLinkProps>(
+    ({ href, external, ...rest }, ref) => {
+        if (external ?? isExternalUrl(href)) {
+            return (
+                <a
+                    href={href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    ref={ref as React.Ref<HTMLAnchorElement>}
+                    {...(rest as ExternalProps)}
+                />
+            );
+        }
+        return <InertiaLink href={href} ref={ref} {...(rest as InternalProps)} />;
+    }
+);
+NavigationLink.displayName = 'NavigationLink';
+
+/* ---------------------------------------------
+ * Icon map
+ * -------------------------------------------*/
 const iconMap: Record<string, LucideIcon> = {
     Activity,
     BookOpenText,
@@ -151,20 +191,16 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     const navigationData = page.props.navigationData || {
         header: [],
         categories: [],
-        footer: []
+        footer: [],
     };
 
     const can = (permissionName: string): boolean => {
-        if (!user || !user.permissions) {
-            return false;
-        }
+        if (!user || !user.permissions) return false;
         return user.permissions.includes(permissionName);
     };
 
     const hasRole = (roles: string | string[]): boolean => {
-        if (!user || !user.roles) {
-            return false;
-        }
+        if (!user || !user.roles) return false;
 
         const userRoleNames = user.roles;
 
@@ -173,32 +209,28 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
 
             if (roles.startsWith('[') && roles.endsWith(']')) {
                 const roleString = roles.slice(1, -1);
-                const roleArray = roleString.split(',').map(role => role.trim());
-                return roleArray.some(role => userRoleNames.includes(role));
+                const roleArray = roleString.split(',').map((role) => role.trim());
+                return roleArray.some((role) => userRoleNames.includes(role));
             }
 
             return userRoleNames.includes(roles);
         }
 
         if (Array.isArray(roles)) {
-            return roles.some(role => userRoleNames.includes(role));
+            return roles.some((role) => userRoleNames.includes(role));
         }
 
         return false;
     };
 
-    // Convert NavigationItem to NavItem format
+    // Convert NavigationItem -> NavItem
     const convertToNavItem = (item: NavigationItem): NavItem => {
-        const IconComponent = item.icon && iconMap[item.icon] ? iconMap[item.icon] : Users; // Default icon
+        const IconComponent =
+            item.icon && iconMap[item.icon] ? iconMap[item.icon] : Users;
 
-        // Convert roles array back to your original string format
         let rolesString: string | undefined = undefined;
         if (item.roles && item.roles.length > 0) {
-            if (item.roles.length === 1) {
-                rolesString = item.roles[0];
-            } else {
-                rolesString = `[${item.roles.join(', ')}]`;
-            }
+            rolesString = item.roles.length === 1 ? item.roles[0] : `[${item.roles.join(', ')}]`;
         }
 
         return {
@@ -206,57 +238,49 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             href: item.href,
             icon: IconComponent,
             roles: rolesString,
-            permission: item.permissions?.[0], // Take first permission for compatibility
+            permission: item.permissions?.[0],
             description: item.description || null,
-            external: isExternalUrl(item.href), // Set external property based on URL
+            external: isExternalUrl(item.href),
         };
     };
 
-    // Convert NavigationItem to NavCategory format
+    // Convert NavigationItem -> NavCategory
     const convertToNavCategory = (item: NavigationItem): NavCategory => {
-        const IconComponent = item.icon && iconMap[item.icon] ? iconMap[item.icon] : Users; // Default icon
+        const IconComponent =
+            item.icon && iconMap[item.icon] ? iconMap[item.icon] : Users;
 
-        // Convert roles array back to your original string format
         let rolesString: string | undefined = undefined;
         if (item.roles && item.roles.length > 0) {
-            if (item.roles.length === 1) {
-                rolesString = item.roles[0];
-            } else {
-                rolesString = `[${item.roles.join(', ')}]`;
-            }
+            rolesString = item.roles.length === 1 ? item.roles[0] : `[${item.roles.join(', ')}]`;
         }
 
         return {
             title: item.title,
             icon: IconComponent,
             roles: rolesString,
-            permission: item.permissions?.[0], // Take first permission for compatibility
+            permission: item.permissions?.[0],
             items: item.children ? item.children.map(convertToNavItem) : [],
         };
     };
 
-    // Check if user can access navigation item
+    // Access checks
     const canAccessNavigationItem = (item: NavigationItem): boolean => {
         if (!user) return true;
 
-        // If no restrictions, allow access
         if ((!item.roles || item.roles.length === 0) && (!item.permissions || item.permissions.length === 0)) {
             return true;
         }
 
-        // Check roles
         if (item.roles && item.roles.length > 0) {
-            const hasRequiredRole = item.roles.some(role => hasRole(role));
+            const hasRequiredRole = item.roles.some((role) => hasRole(role));
             if (hasRequiredRole) return true;
         }
 
-        // Check permissions
         if (item.permissions && item.permissions.length > 0) {
-            const hasRequiredPermission = item.permissions.some(permission => can(permission));
+            const hasRequiredPermission = item.permissions.some((permission) => can(permission));
             if (hasRequiredPermission) return true;
         }
 
-        // If we have restrictions but don't meet them, deny access
         if ((item.roles && item.roles.length > 0) || (item.permissions && item.permissions.length > 0)) {
             return false;
         }
@@ -264,16 +288,14 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         return true;
     };
 
-    // Filter navigation items based on user access
     const filterNavigationItems = (items: NavigationItem[]): NavigationItem[] => {
         return items
-            .filter(item => canAccessNavigationItem(item))
-            .map(item => ({
+            .filter((item) => canAccessNavigationItem(item))
+            .map((item) => ({
                 ...item,
-                children: item.children ? item.children.filter(child => canAccessNavigationItem(child)) : []
+                children: item.children ? item.children.filter((child) => canAccessNavigationItem(child)) : [],
             }))
-            .filter(item => {
-                // For categories, only show if they have accessible children or are not just containers
+            .filter((item) => {
                 if (item.type === 'category' && item.href === '#') {
                     return item.children && item.children.length > 0;
                 }
@@ -281,66 +303,31 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             });
     };
 
-    // Process navigation data
+    // Processed nav data
     const filteredHeaderItems = filterNavigationItems(navigationData.header).map(convertToNavItem);
     const filteredCategoryItems = filterNavigationItems(navigationData.categories).map(convertToNavCategory);
     const filteredFooterItems = filterNavigationItems(navigationData.footer).map(convertToNavItem);
 
-    // Check if a category contains the active page
-    const categoryContainsActivePage = (category: NavCategory): boolean => {
-        return category.items.some(item => !isExternalUrl(item.href) && currentUrl.startsWith(item.href));
-    };
+    // Helpers for auto-expansion
+    const categoryContainsActivePage = (category: NavCategory): boolean =>
+        category.items.some((item) => isActiveUrl(currentUrl, item.href));
 
-    // Check if any footer nav item is active
-    const footerContainsActivePage = (): boolean => {
-        return filteredFooterItems.some(item => !isExternalUrl(item.href) && currentUrl.startsWith(item.href));
-    };
+    const footerContainsActivePage = (): boolean =>
+        filteredFooterItems.some((item) => isActiveUrl(currentUrl, item.href));
 
-    // Check if any header nav item is active
-    const headerContainsActivePage = (): boolean => {
-        return filteredHeaderItems.some(item => !isExternalUrl(item.href) && currentUrl.startsWith(item.href));
-    };
+    const headerContainsActivePage = (): boolean =>
+        filteredHeaderItems.some((item) => isActiveUrl(currentUrl, item.href));
 
-    // Check if we should expand categories based on active page location
     const shouldExpandCategory = (category: NavCategory, index: number): boolean => {
-        // Always expand first category if no active page found anywhere
-        if (index === 0 && !categoryContainsActivePage(category) && !footerContainsActivePage() && !headerContainsActivePage()) {
+        if (
+            index === 0 &&
+            !categoryContainsActivePage(category) &&
+            !footerContainsActivePage() &&
+            !headerContainsActivePage()
+        ) {
             return true;
         }
-        // Expand if this category contains the active page
         return categoryContainsActivePage(category);
-    };
-
-    // Component to render navigation link (internal vs external)
-    const NavigationLink = ({
-                                href,
-                                children,
-                                isActive = false,
-                                className = ""
-                            }: {
-        href: string;
-        children: React.ReactNode;
-        isActive?: boolean;
-        className?: string;
-    }) => {
-        if (isExternalUrl(href)) {
-            return (
-                <a
-                    href={href}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className={className}
-                >
-                    {children}
-                </a>
-            );
-        }
-
-        return (
-            <Link href={href} prefetch className={className}>
-                {children}
-            </Link>
-        );
     };
 
     // For AdminCommandDialog
@@ -374,7 +361,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                                     <CollapsibleTrigger asChild>
                                         <SidebarMenuButton>
                                             {category.icon && <category.icon />}
-                                            {category.title}{" "}
+                                            {category.title}
                                             <ChevronRight className="ml-auto group-data-[state=open]/collapsible:hidden" />
                                             <ChevronDown className="ml-auto group-data-[state=closed]/collapsible:hidden" />
                                         </SidebarMenuButton>
@@ -386,9 +373,9 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                                                     <SidebarMenuSubItem key={item.title}>
                                                         <SidebarMenuSubButton
                                                             asChild
-                                                            isActive={!isExternalUrl(item.href) && currentUrl.startsWith(item.href)}
+                                                            isActive={isActiveUrl(currentUrl, item.href)}
                                                         >
-                                                            <NavigationLink href={item.href}>
+                                                            <NavigationLink href={item.href} external={item.external}>
                                                                 {item.icon && <item.icon />}
                                                                 <span>{item.title}</span>
                                                             </NavigationLink>
@@ -405,7 +392,6 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                 </SidebarGroup>
             </SidebarContent>
 
-            {/* AdminCommandDialog with role check */}
             {user && hasRole(ROLE_FOR_ADMIN_DIALOG) && <AdminCommandDialog />}
 
             <SidebarFooter>
