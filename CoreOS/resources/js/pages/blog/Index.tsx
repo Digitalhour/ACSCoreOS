@@ -8,6 +8,7 @@ import {Card, CardContent, CardFooter, CardHeader} from '@/components/ui/card';
 import {Avatar, AvatarFallback, AvatarImage} from '@/components/ui/avatar';
 import {Calendar, Clock, MessageCircle, Plus, Search} from 'lucide-react';
 import {usePermission} from '@/hooks/usePermission';
+import {BlogPermissionsEnum} from "@/types/permissions";
 
 interface User {
     id: number;
@@ -101,7 +102,8 @@ export default function BlogIndex({ articles, filters }: Props) {
                                 Stay updated with the latest news and insights from our team
                             </p>
                         </div>
-                        {hasPermission('blog-create') && (
+
+                        {hasPermission(BlogPermissionsEnum.Create) && (
                         <Link href="/blog/create">
                             <Button>
                                 <Plus className="h-4 w-4 mr-2" />

@@ -6,6 +6,7 @@ import {Badge} from '@/components/ui/badge';
 import {Calendar, Edit, Eye, FileText, Plus, User} from 'lucide-react';
 import {type BreadcrumbItem} from '@/types';
 import {usePermission} from "@/hooks/usePermission";
+import {WikiPermissionsEnum} from "@/types/permissions";
 
 interface User {
     id: number;
@@ -118,6 +119,8 @@ export default function WikiChapterShow({ book, chapter }: Props) {
                         <div className="text-center py-12">
                             <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
                             <h3 className="text-lg font-semibold mb-2">No pages yet</h3>
+                            {hasPermission(WikiPermissionsEnum.Create) && (
+                                <>
                             <p className="text-muted-foreground mb-4">
                                 Create your first page to start adding content to this chapter.
                             </p>
@@ -128,6 +131,8 @@ export default function WikiChapterShow({ book, chapter }: Props) {
                                 <Plus className="mr-2 h-4 w-4" />
                                 Create First Page
                             </Link>
+                                </>
+                        )}
                         </div>
                     ) : (
                         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">

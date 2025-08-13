@@ -2,7 +2,7 @@ import {Separator} from '@/components/ui/separator';
 import {type NavItem} from '@/types';
 import {Link} from '@inertiajs/react';
 import {type PropsWithChildren} from 'react';
-import {BarChart3, CalendarIcon, Clock, FileText, RefreshCcwDot} from 'lucide-react';
+import {BarChart3, CalendarIcon, Clock, FileText} from 'lucide-react';
 import {Button} from "@/components/ui/button";
 import Heading from "@/components/heading";
 
@@ -68,12 +68,6 @@ const sidebarNavItems: NavItem[] = [
         href: '/user-management/onboard',
         description: "Onboard new employees.",
         icon: FileText,
-    },
-    {
-        title: 'Roles and permissions',
-        href: '/roles-permissions',
-        description: "Roles and permissions management.",
-        icon: RefreshCcwDot,
     },
 ];
 

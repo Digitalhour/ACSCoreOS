@@ -5,6 +5,7 @@ import {Badge} from '@/components/ui/badge';
 import {Book, Calendar, CircleSmall, Edit, FileText, Plus, User} from 'lucide-react';
 import {type BreadcrumbItem} from '@/types';
 import {usePermission} from "@/hooks/usePermission";
+import {WikiPermissionsEnum} from "@/types/permissions";
 
 interface User {
     id: number;
@@ -104,7 +105,7 @@ export default function WikiBookShow({ book }: Props) {
                             </div>
                         </div>
                     </div>
-                    {hasPermission('wiki-create') && (
+                    {hasPermission(WikiPermissionsEnum.Create) && (
                     <div className="flex gap-2">
                         <Link
                             href={`/wiki/books/${book.slug}/edit`}
@@ -129,6 +130,8 @@ export default function WikiBookShow({ book }: Props) {
                     <div className="flex flex-col items-center justify-center py-12 text-center">
                         <Book className="h-12 w-12 text-muted-foreground mb-4" />
                         <h3 className="text-lg font-semibold">No chapters yet</h3>
+                        {hasPermission(WikiPermissionsEnum.Create) && (
+                            <>
                         <p className="text-muted-foreground mt-2 mb-4">
                             Create your first chapter to start organizing content.
                         </p>
@@ -139,6 +142,8 @@ export default function WikiBookShow({ book }: Props) {
                             <Plus className="mr-2 h-4 w-4" />
                             Create First Chapter
                         </Link>
+                            </>
+                            )}
                     </div>
                 ) : (
                     <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">

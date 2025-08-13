@@ -7,6 +7,7 @@ import {Avatar, AvatarFallback, AvatarImage} from '@/components/ui/avatar';
 import {Calendar, Edit, MessageCircle} from 'lucide-react';
 import CommentsSection from '@/components/blog/CommentsSection';
 import {usePermission} from "@/hooks/usePermission";
+import {BlogPermissionsEnum} from "@/types/permissions";
 
 interface User {
     id: number;
@@ -63,10 +64,13 @@ export default function BlogShow({ article, comments, relatedArticles }: Props) 
         });
     };
 
-    const canEditArticle = auth.user && (
-        auth.user.id === article.user.id ||
-        auth.user.roles?.some((role: any) => role.name === 'admin')
-    );
+    const canEditArticle =
+        auth.user &&
+        (
+            auth.user.id === article.user.id ||
+            auth.user.roles?.some((role: any) => role.name === 'Developer') ||
+            hasPermission(BlogPermissionsEnum.Edit)
+        );
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
@@ -90,7 +94,7 @@ export default function BlogShow({ article, comments, relatedArticles }: Props) 
                                             {article.title}
                                         </h1>
                                     </div>
-                                    {(canEditArticle || hasPermission('blog-edit')) && (
+                                    {(canEditArticle || hasPermission(BlogPermissionsEnum.Edit)) && (
                                         <Link href={`/blog/${article.slug}/edit`}>
                                             <Button variant="outline" size="sm">
                                                 <Edit className="h-4 w-4 mr-2" />

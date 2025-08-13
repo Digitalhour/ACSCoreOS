@@ -1,7 +1,8 @@
-import { cn } from '@/lib/utils'; // Assuming you have cn utility
-import { ScrollArea } from '@radix-ui/react-scroll-area';
-import { Edit3, Loader2, MessageSquarePlus, MessageSquareText, Trash2 } from 'lucide-react';
-import { useRef, useState } from 'react';
+import {Button} from '@/components/ui/button';
+import {ScrollArea} from '@/components/ui/scroll-area';
+import {cn} from '@/lib/utils';
+import {Edit3, Loader2, MessageSquarePlus, MessageSquareText, Trash2} from 'lucide-react';
+import {useRef, useState} from 'react';
 
 export interface ConversationSummary {
     id: number;
@@ -24,17 +25,17 @@ interface BillyPastConversationProps {
 }
 
 export function BillyPastConversation({
-    className,
-    conversations,
-    currentConversationId,
-    onSelectConversation,
-    onNewConversation,
-    onDeleteConversation,
-    onUpdateConversationTitle,
-    hasMoreConversations,
-    isLoadingMore,
-    onLoadMoreConversations,
-}: BillyPastConversationProps) {
+                                          className,
+                                          conversations,
+                                          currentConversationId,
+                                          onSelectConversation,
+                                          onNewConversation,
+                                          onDeleteConversation,
+                                          onUpdateConversationTitle,
+                                          hasMoreConversations,
+                                          isLoadingMore,
+                                          onLoadMoreConversations,
+                                      }: BillyPastConversationProps) {
     const [editingConversationId, setEditingConversationId] = useState<number | null>(null);
     const [newTitle, setNewTitle] = useState('');
     const listRef = useRef<HTMLUListElement>(null);
@@ -99,56 +100,37 @@ export function BillyPastConversation({
         }
     };
 
-    // breadcrumbs are not used in this component, can be removed if not needed elsewhere
-    // const breadcrumbs: BreadcrumbItem[] = [
-    //     {
-    //         title: 'Dashboard',
-    //         href: '/dashboard',
-    //     },
-    // ];
-
     return (
         <div className={cn('flex h-full flex-col', className)}>
-            {' '}
-            {/* Ensure h-full for flex-grow to work */}
-            <div className="mt-3 mb-1 flex shrink-0 items-center justify-between px-2 sm:px-0">
-                {' '}
-                {/* Added padding for mobile */}
-                <h2 className="mt-1 ml-4 hidden text-lg font-semibold md:block">Chat History</h2>
-                <button
+            {/* Header with New Conversation Button */}
+            <div className="flex items-center justify-between p-4">
+                <h2 className="text-lg font-semibold text-foreground">Chat History</h2>
+                <Button
                     onClick={onNewConversation}
-                    className="focus:ring-opacity-50 flex items-center rounded-md bg-red-500 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-red-600 focus:ring-2 focus:ring-red-500 focus:outline-none"
-                    title="Start New Conversation"
+                    size="sm"
+                    className="h-8 bg-gradient-to-r from-red-500 to-red-600 text-white hover:from-red-600 hover:to-red-700"
                 >
-                    <MessageSquarePlus size={16} className="mr-1.5" /> New
-                </button>
+                    <MessageSquarePlus size={14} className="mr-1.5" />
+                    New
+                </Button>
             </div>
-            <ScrollArea className="flex-grow rounded-md border pr-1">
-                {' '}
-                {/* Removed space-y-1 from here */}
-                <ul ref={listRef} className="space-y-0.5 p-1">
-                    {' '}
-                    {/* Added padding to ul and adjusted space-y */}
-                    {conversations.map(
-                        (
-                            conv,
-                            index, // Added index here
-                        ) => (
-                            <li
+
+            {/* Conversations List */}
+            <div className="flex-1 overflow-hidden px-2">
+                <ScrollArea className="h-full">
+                    <div className="space-y-1 pb-4">
+                        {conversations.map((conv) => (
+                            <div
                                 key={conv.id}
                                 className={cn(
-                                    'group cursor-pointer rounded-md border p-2.5 transition-colors duration-150 ease-in-out', // Added cursor-pointer
+                                    'group relative cursor-pointer rounded-lg p-3 transition-all duration-200',
                                     currentConversationId === conv.id
-                                        ? 'border-red-500 bg-red-600 text-white dark:border-red-600 dark:bg-red-700' // Specific border for active
-                                        : [
-                                              'border-gray-200 dark:border-gray-700', // Default border
-                                              index % 2 === 0 ? 'bg-white dark:bg-gray-800/30' : 'bg-gray-50 dark:bg-gray-800/60', // Zebra striping
-                                              'hover:bg-gray-100 dark:hover:bg-gray-700', // Hover state
-                                          ],
+                                        ? 'bg-gradient-to-r from-red-500 to-red-600 text-white shadow-md'
+                                        : 'hover:bg-muted/50 active:bg-muted/70'
                                 )}
                                 onClick={() => handleSelect(conv.id)}
                             >
-                                <div className="flex items-center justify-between">
+                                <div className="flex items-start justify-between">
                                     {editingConversationId === conv.id ? (
                                         <input
                                             type="text"
@@ -168,107 +150,125 @@ export function BillyPastConversation({
                                                 }
                                             }}
                                             className={cn(
-                                                'mr-2 flex-grow rounded border px-1.5 py-0.5 text-sm shadow-sm',
+                                                'w-full rounded border-none bg-white/90 p-1 text-sm text-gray-900 outline-none ring-2 ring-blue-500',
                                                 currentConversationId === conv.id
-                                                    ? 'border-red-300 bg-red-500 text-white placeholder-red-300 dark:border-red-400 dark:bg-red-600'
-                                                    : 'border-gray-300 bg-white text-gray-900 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100',
+                                                    ? 'bg-white/20 text-white placeholder-white/70 ring-white/50'
+                                                    : 'ring-blue-500'
                                             )}
                                             autoFocus
                                         />
                                     ) : (
-                                        <div className="flex-grow truncate py-0.5">
-                                            {' '}
-                                            {/* Removed cursor-pointer from here */}
-                                            <span
-                                                className={cn(
-                                                    'flex items-center text-sm font-medium',
-                                                    currentConversationId === conv.id ? 'text-white' : 'text-gray-800 dark:text-gray-200',
-                                                )}
-                                            >
+                                        <div className="flex-1 min-w-0">
+                                            <div className="flex items-center space-x-2">
                                                 <MessageSquareText
                                                     size={16}
                                                     className={cn(
-                                                        'mr-2 shrink-0',
-                                                        currentConversationId === conv.id ? 'text-red-200' : 'text-gray-500 dark:text-gray-400',
+                                                        'shrink-0',
+                                                        currentConversationId === conv.id
+                                                            ? 'text-white/80'
+                                                            : 'text-muted-foreground'
                                                     )}
                                                 />
-                                                {conv.title || `Chat from ${formatDate(conv.created_at)}`}
-                                            </span>
+                                                <span
+                                                    className={cn(
+                                                        'truncate text-sm font-medium',
+                                                        currentConversationId === conv.id
+                                                            ? 'text-white'
+                                                            : 'text-foreground'
+                                                    )}
+                                                >
+                                                    {conv.title || `Chat from ${formatDate(conv.created_at)}`}
+                                                </span>
+                                            </div>
                                             <p
                                                 className={cn(
-                                                    'ml-8 text-xs',
+                                                    'ml-6 mt-1 text-xs',
                                                     currentConversationId === conv.id
-                                                        ? 'text-red-100 opacity-90'
-                                                        : 'text-gray-500 dark:text-gray-400',
+                                                        ? 'text-white/70'
+                                                        : 'text-muted-foreground'
                                                 )}
                                             >
                                                 {formatDate(conv.updated_at)}
                                             </p>
                                         </div>
                                     )}
-                                    <div className="flex shrink-0 items-center pl-1 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
+
+                                    {/* Action Buttons */}
+                                    <div className="flex items-center  opacity-0 transition-opacity group-hover:opacity-100">
                                         {editingConversationId !== conv.id && (
-                                            <button
-                                                onClick={(e) => handleEditTitle(e, conv)}
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
                                                 className={cn(
-                                                    'mr-1 rounded p-1 hover:text-blue-600 dark:hover:text-blue-400',
+                                                    'h-6 w-6',
                                                     currentConversationId === conv.id
-                                                        ? 'text-red-200 hover:text-white'
-                                                        : 'text-gray-500 dark:text-gray-400',
+                                                        ? 'text-white/80 hover:bg-white/20 hover:text-white'
+                                                        : 'text-muted-foreground hover:bg-muted hover:text-foreground'
                                                 )}
+                                                onClick={(e) => handleEditTitle(e, conv)}
                                                 title="Edit title"
                                             >
-                                                <Edit3 size={16} />
-                                            </button>
+                                                <Edit3 size={12} />
+                                            </Button>
                                         )}
-                                        <button
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className={cn(
+                                                'h-6 w-6',
+                                                currentConversationId === conv.id
+                                                    ? 'text-white/80 hover:bg-red-400/20 hover:text-white'
+                                                    : 'text-muted-foreground hover:bg-destructive/10 hover:text-destructive'
+                                            )}
                                             onClick={async (e) => {
                                                 e.stopPropagation();
                                                 await handleDelete(conv.id);
                                             }}
-                                            className={cn(
-                                                'rounded p-1 hover:text-red-600 dark:hover:text-red-400',
-                                                currentConversationId === conv.id
-                                                    ? 'text-red-200 hover:text-white'
-                                                    : 'text-gray-500 dark:text-gray-400',
-                                            )}
                                             title="Delete conversation"
                                         >
-                                            <Trash2 size={16} />
-                                        </button>
+                                            <Trash2 size={12} />
+                                        </Button>
                                     </div>
                                 </div>
-                            </li>
-                        ),
-                    )}
-                </ul>
-            </ScrollArea>
-            <div className="mt-auto shrink-0 px-1 pt-2 pb-2">
-                {' '}
-                {/* Adjusted padding */}
-                {hasMoreConversations && (
-                    <div className="flex justify-center">
-                        <button
-                            onClick={onLoadMoreConversations}
-                            disabled={isLoadingMore}
-                            className="flex w-full items-center justify-center rounded-md bg-gray-200 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-300 disabled:cursor-not-allowed disabled:opacity-70 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600"
-                        >
-                            {isLoadingMore ? (
-                                <>
-                                    <Loader2 size={18} className="mr-2 animate-spin" />
-                                    Loading...
-                                </>
-                            ) : (
-                                'Load More Conversations'
-                            )}
-                        </button>
+                            </div>
+                        ))}
                     </div>
+                </ScrollArea>
+            </div>
+
+            {/* Load More Section */}
+            <div className="shrink-0 p-4 pt-2">
+                {hasMoreConversations && (
+                    <Button
+                        onClick={onLoadMoreConversations}
+                        disabled={isLoadingMore}
+                        variant="outline"
+                        size="sm"
+                        className="w-full"
+                    >
+                        {isLoadingMore ? (
+                            <>
+                                <Loader2 size={14} className="mr-2 animate-spin" />
+                                Loading...
+                            </>
+                        ) : (
+                            'Load More'
+                        )}
+                    </Button>
                 )}
+
                 {!hasMoreConversations && conversations.length > 0 && (
-                    <p className="mt-2 text-center text-xs text-gray-500 dark:text-gray-400">No more conversations to load.</p>
+                    <p className="text-center text-xs text-muted-foreground">
+                        No more conversations
+                    </p>
                 )}
-                {conversations.length === 0 && !isLoadingMore && !hasMoreConversations && (
-                    <p className="py-4 text-center text-sm text-gray-500 dark:text-gray-400">No past conversations found.</p>
+
+                {conversations.length === 0 && !isLoadingMore && (
+                    <div className="py-8 text-center">
+                        <MessageSquareText size={48} className="mx-auto mb-3 text-muted-foreground/30" />
+                        <p className="text-sm text-muted-foreground">No conversations yet</p>
+                        <p className="text-xs text-muted-foreground/70">Start chatting to see your history</p>
+                    </div>
                 )}
             </div>
         </div>

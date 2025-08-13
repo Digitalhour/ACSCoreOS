@@ -41,8 +41,16 @@ use Illuminate\Support\Facades\Route;
     Route::get('/employee/documents/{document}/view', [DocumentController::class, 'employeeView'])
         ->name('employee.documents.view');
 
-Route::middleware(['permission:Document-Manager-view'])->group(function () {
+
+
+Route::group([
+    'middleware' => ['auth', 'verified', 'route.permission']
+], function () {
     // Main folder management routes
+    Route::get('/folders', [FolderController::class, 'index'])->name('folders.index');
+    Route::get('/admin/folders', [FolderController::class, 'index'])->name('admin.folders.index');
+
+
     Route::resource('folders', FolderController::class);
     Route::prefix('tags')->name('tags.')->group(function () {
         Route::get('/', [TagController::class, 'index'])->name('index');

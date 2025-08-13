@@ -10,6 +10,7 @@ import {Edit, History, Paperclip, User} from 'lucide-react';
 import {type BreadcrumbItem} from '@/types';
 import 'suneditor/dist/css/suneditor.min.css';
 import {usePermission} from "@/hooks/usePermission";
+import {WikiPermissionsEnum} from "@/types/permissions";
 
 interface User {
     id: number;
@@ -103,7 +104,7 @@ export default function WikiPageShow({ book, chapter, page }: Props) {
                         <Badge variant={page.status === 'published' ? 'default' : 'secondary'}>
                             {page.status}
                         </Badge>
-                        {hasPermission('wiki-create') && (
+                        {hasPermission(WikiPermissionsEnum.Create) && (
                             <>
                             <Link
                                 href={`/wiki/${book.slug}/${chapter.slug}/${page.slug}/versions`}
