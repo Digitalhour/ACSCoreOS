@@ -256,7 +256,7 @@ export default function SunEditorComponent({
                         '                    <div style="flex: 2; min-width: 300px;">\n' +
                         '                        <ul style="font-size: clamp(14px, 2vw, 16px); color: #555; line-height: 1.8; margin: 0; padding-left: 20px;">\n' +
                         '                            <li><strong>Greg</strong> and <strong>Natalie</strong> are on the ACS recruiting trail! Greg recently attended a collegiate recruiting fair at the Hartness Hotel, connecting with intern and career coordinators.</li>\n' +
-                        '                            <li>New hires consistently praise <strong>Sam Kirkland</strong> for his thoroughness and kindness during warehouse training.</li>\n' +
+                        '                            <li>New hires consistently praise <strong>Sam Kirkland</strong> for his thoroughness and kindness during Warehouse training.</li>\n' +
                         '                            <li><strong>David Nichols</strong> has been promoted to Key Account Manager! Big congrats on this well-deserved move!</li>\n' +
                         '                            <li><strong>Chloe Burnett</strong> is transitioning from Customer Support to Inside Sales, bringing her product knowledge and problem-solving skills.</li>\n' +
                         '                            <li><strong>Patrick</strong> and <strong>Eddie</strong> both closed Q2 strong - Patrick at 125% to goal, Eddie at 108.6% to goal.</li>\n' +

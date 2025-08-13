@@ -3,10 +3,10 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
-use Inertia\Inertia;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
+use Inertia\Inertia;
 
 class EnhancedDashboardController extends Controller
 {
@@ -22,7 +22,7 @@ class EnhancedDashboardController extends Controller
             $tablesWithMetadata = $this->getTablesWithMetadata($tableList);
         } catch (\Exception $e) {
             Log::error("Data Warehouse connection/listing failed: ".$e->getMessage());
-            return Inertia::render('Dashboard/PowerBI', ['error' => 'Could not connect to the data warehouse.']);
+            return Inertia::render('Dashboard/PowerBI', ['error' => 'Could not connect to the data Warehouse.']);
         }
 
         return Inertia::render('Dashboard/PowerBI', [

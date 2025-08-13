@@ -180,6 +180,10 @@
       <excludeFolder url="file://$MODULE_DIR$/CoreOS/vendor/mews/purifier" />
       <excludeFolder url="file://$MODULE_DIR$/CoreOS/vendor/spatie/laravel-honeypot" />
       <excludeFolder url="file://$MODULE_DIR$/CoreOS/vendor/predis/predis" />
+      <excludeFolder url="file://$MODULE_DIR$/CoreOS/vendor/maennchen/zipstream-php" />
+      <excludeFolder url="file://$MODULE_DIR$/CoreOS/vendor/markbaker/complex" />
+      <excludeFolder url="file://$MODULE_DIR$/CoreOS/vendor/markbaker/matrix" />
+      <excludeFolder url="file://$MODULE_DIR$/CoreOS/vendor/phpoffice/phpspreadsheet" />
     </content>
     <content url="file://$MODULE_DIR$/CoreOS/node_modules" />
     <orderEntry type="inheritedJdk" />

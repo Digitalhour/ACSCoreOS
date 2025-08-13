@@ -17,6 +17,8 @@ Route::get('/', function () {
 Route::get('/test', function () {
     return 'Homepage test working!';
 });
+
+
 Route::middleware('auth')->middleware(ValidateSessionWithWorkOS::class)->group(function () {
 
    Route::get('dashboard', function () {
@@ -86,7 +88,7 @@ Route::middleware('auth')->middleware(ValidateSessionWithWorkOS::class)->group(f
 
 
 });
-
+require __DIR__.'/warehouse-routes.php';
 require __DIR__ . '/ai-chat-routes.php';
 require __DIR__.'/settings.php';
 require __DIR__.'/impersonate.php';
@@ -109,3 +111,4 @@ require __DIR__.'/company-documents-route.php';
 require __DIR__.'/debug-routes.php';
 require __DIR__.'/access-control.php';
 require __DIR__.'/developer-routes.php';
+
