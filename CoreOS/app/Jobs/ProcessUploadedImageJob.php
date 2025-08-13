@@ -34,7 +34,7 @@ class ProcessUploadedImageJob implements ShouldQueue
      *
      * @var int
      */
-    public $timeout = 300; // 5 minutes
+    public $timeout = 1800; // 5 minutes
 
     /**
      * Create a new job instance.
