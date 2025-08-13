@@ -11,7 +11,20 @@ Route::middleware('auth')
     ->middleware(ValidateSessionWithWorkOS::class)
     ->group(function () {
 
+        // CSV & Data Management
+        Route::get('/csv-uploader', function () {
+            return Inertia::render('CsvUploaderPage');
+        })->name('csv.uploader');
 
+        Route::get('/data-management', function () {
+            return Inertia::render('DataManagementPage');
+        })->name('data.management');
+
+        Route::get('/data-management/file/{fileName}', function (string $fileName) {
+            return Inertia::render('FileDetailsPage', [
+                'fileName' => $fileName
+            ]);
+        })->name('data.file.details');
 
 
     Route::get('/parts-catalog', [PartsCatalogController::class, 'index'])->name('parts.catalog');

@@ -80,16 +80,12 @@ Route::middleware('auth')->middleware(ValidateSessionWithWorkOS::class)->group(f
 
 
 
-        Route::get('/organization-chart', function () {
-            return Inertia::render('Admin/OrganizationChartPage');
-        })->name('acs-origination');
-
 
 
 
 });
 require __DIR__.'/warehouse-routes.php';
-require __DIR__ . '/ai-chat-routes.php';
+require __DIR__ .'/ai-chat-routes.php';
 require __DIR__.'/settings.php';
 require __DIR__.'/impersonate.php';
 require __DIR__.'/emergency-contacts.php';

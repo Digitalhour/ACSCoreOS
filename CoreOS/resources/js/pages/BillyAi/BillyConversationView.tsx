@@ -1,12 +1,12 @@
 import ImportedMarkdownComponents from '@/components/custom/markdown'; // Your markdown components
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import {Avatar, AvatarFallback} from '@/components/ui/avatar';
+import {Badge} from '@/components/ui/badge';
+import {Button} from '@/components/ui/button';
+import {Card, CardContent, CardDescription, CardHeader, CardTitle} from '@/components/ui/card';
 import AppLayout from '@/layouts/app-layout';
-import { type BreadcrumbItem } from '@/types';
-import { Head, Link } from '@inertiajs/react';
-import { ArrowLeft, Calendar, MessageCircle, ThumbsDown, ThumbsUp, UserCircle } from 'lucide-react';
+import {type BreadcrumbItem} from '@/types';
+import {Head, Link} from '@inertiajs/react';
+import {ArrowLeft, Calendar, MessageCircle, ThumbsDown, ThumbsUp, UserCircle} from 'lucide-react';
 import React from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -81,7 +81,7 @@ const BillyConversationView: React.FC<BillyConversationViewProps> = ({ conversat
 
             <div className="p-4">
                 <Button asChild variant="outline" className="mb-4">
-                    <Link href="/BillyAi/billy.tsx/feedback">
+                    <Link href="/billy/feedback">
                         <ArrowLeft className="mr-2 h-4 w-4" />
                         Back
                     </Link>

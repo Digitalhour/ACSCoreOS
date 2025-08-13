@@ -7,9 +7,6 @@ import {
     Activity,
     BookOpen,
     Briefcase,
-    Calendar,
-    CalendarDays,
-    CalendarOff,
     DatabaseZap,
     FileText,
     ImagePlay,
@@ -19,10 +16,8 @@ import {
     Network,
     Plane,
     Settings2,
-    ThumbsUp,
     UploadCloud,
     Users,
-    Wallet,
 } from 'lucide-react';
 
 // Breadcrumbs for the page
@@ -54,68 +49,68 @@ interface LinkCategory {
 // Define the links, using route names for href generation
 // Ensure these route names exist in your web.php and are passed to the frontend
 const adminLinks: LinkCategory[] = [
-    {
-        title: 'Time Management',
-        icon: Calendar,
-        links: [
-            {
-                routeName: 'holidays',
-                href: '/holidays',
-                label: 'Holidays',
-                icon: Calendar,
-                description: 'Holiday Controller',
-            },
-            {
-                routeName: 'admin.pto.dashboard',
-                href: '/admin/pto',
-                label: 'HR PTO Dashboard',
-                icon: Calendar,
-                description: 'Overview of PTO system.',
-            },
-            {
-                routeName: 'admin.pto.types',
-                href: '/admin/pto-types',
-                label: 'PTO Types',
-                icon: Settings2,
-                description: 'Manage PTO types and settings.',
-            },
-            {
-                routeName: 'admin.pto.policies',
-                href: '/admin/pto-policies',
-                label: 'PTO Policies',
-                icon: FileText,
-                description: 'Configure PTO policies.',
-            },
-            {
-                routeName: 'admin.pto.requests',
-                href: '/admin/pto-requests',
-                label: 'PTO Requests',
-                icon: CalendarDays,
-                description: 'Manage PTO requests.',
-            },
-            {
-                routeName: 'admin.pto.approvals',
-                href: '/admin/pto-approvals',
-                label: 'PTO Approvals',
-                icon: ThumbsUp,
-                description: 'Review and approve PTO requests.',
-            },
-            {
-                routeName: 'admin.pto.balances',
-                href: '/admin/pto-balances',
-                label: 'PTO Balances',
-                icon: Wallet,
-                description: 'Manage Employee PTO balances.',
-            },
-            {
-                routeName: 'admin.pto.Blackouts',
-                href: '/admin/Blackouts',
-                label: 'Blackout Periods',
-                icon: CalendarOff,
-                description: 'Manage holidays and blackout periods.',
-            },
-        ],
-    },
+    // {
+    //     title: 'Time Management',
+    //     icon: Calendar,
+    //     links: [
+    //         {
+    //             routeName: 'holidays',
+    //             href: '/holidays',
+    //             label: 'Holidays',
+    //             icon: Calendar,
+    //             description: 'Holiday Controller',
+    //         },
+    //         {
+    //             routeName: 'admin.pto.dashboard',
+    //             href: '/admin/pto',
+    //             label: 'HR PTO Dashboard',
+    //             icon: Calendar,
+    //             description: 'Overview of PTO system.',
+    //         },
+    //         {
+    //             routeName: 'admin.pto.types',
+    //             href: '/admin/pto-types',
+    //             label: 'PTO Types',
+    //             icon: Settings2,
+    //             description: 'Manage PTO types and settings.',
+    //         },
+    //         {
+    //             routeName: 'admin.pto.policies',
+    //             href: '/admin/pto-policies',
+    //             label: 'PTO Policies',
+    //             icon: FileText,
+    //             description: 'Configure PTO policies.',
+    //         },
+    //         {
+    //             routeName: 'admin.pto.requests',
+    //             href: '/admin/pto-requests',
+    //             label: 'PTO Requests',
+    //             icon: CalendarDays,
+    //             description: 'Manage PTO requests.',
+    //         },
+    //         {
+    //             routeName: 'admin.pto.approvals',
+    //             href: '/admin/pto-approvals',
+    //             label: 'PTO Approvals',
+    //             icon: ThumbsUp,
+    //             description: 'Review and approve PTO requests.',
+    //         },
+    //         {
+    //             routeName: 'admin.pto.balances',
+    //             href: '/admin/pto-balances',
+    //             label: 'PTO Balances',
+    //             icon: Wallet,
+    //             description: 'Manage Employee PTO balances.',
+    //         },
+    //         {
+    //             routeName: 'admin.pto.Blackouts',
+    //             href: '/admin/Blackouts',
+    //             label: 'Blackout Periods',
+    //             icon: CalendarOff,
+    //             description: 'Manage holidays and blackout periods.',
+    //         },
+    //     ],
+    // },
     {
         title: 'User & Access Management',
         icon: Users,
@@ -135,7 +130,7 @@ const adminLinks: LinkCategory[] = [
                 description: 'Set or modify Employee structures.',
             },
             {
-                routeName: 'admin.organization-chart.view',
+                routeName: 'acs-origination',
                 href: '/organization-chart',
                 label: 'Organization Chart',
                 icon: Network,
@@ -253,9 +248,9 @@ const adminLinks: LinkCategory[] = [
                 description: 'Go to the Departments dashboard.',
             },
             {
-                routeName: 'user-roles-matrix',
+                routeName: 'access-control.index',
                 href: route('access-control.index'),
-                label: 'user-roles-matrix',
+                label: 'access-control.index',
                 icon: LayoutDashboardIcon,
                 description: 'Go to the user-roles-matrix dashboard.',
             },

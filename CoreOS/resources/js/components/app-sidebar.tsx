@@ -131,6 +131,7 @@ export const NavigationLink = React.forwardRef<any, NavigationLinkProps>(
         if (external ?? isExternalUrl(href)) {
             return (
                 <a
+                  
                     href={href}
                     target="_blank"
                     rel="noopener noreferrer"

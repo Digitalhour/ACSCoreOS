@@ -1,7 +1,7 @@
-import { ProcessedUser } from '@/pages/Admin/OrganizationChartPage'; // Use ProcessedUser type
+import {ProcessedUser} from '@/pages/Organization/OrganizationChartPage'; // Use ProcessedUser type
 import * as d3 from 'd3';
-import { OrgChart } from 'd3-org-chart';
-import React, { useLayoutEffect, useRef } from 'react';
+import {OrgChart} from 'd3-org-chart';
+import React, {useLayoutEffect, useRef} from 'react';
 
 interface D3OrgChartWrapperProps {
     data: ProcessedUser[];
