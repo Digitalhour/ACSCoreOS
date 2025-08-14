@@ -6,7 +6,7 @@ use Illuminate\Support\Facades\Route;
 
 Route::group([
     'middleware' => ['auth', 'verified', 'route.permission'],
-    'prefix' => '/warehouse',
+    'prefix' => 'warehouse',
     'as' => 'Warehouse.',
 ], function () {
 

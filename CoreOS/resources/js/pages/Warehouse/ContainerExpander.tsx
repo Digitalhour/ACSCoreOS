@@ -89,7 +89,7 @@ const ContainerExpander: React.FC = () => {
             formData.append('spreadsheet', file);
             formData.append('startRow', startRow.toString());
 
-            const response = await axios.post<UploadResponse>('/warehouse/container-expander/upload', formData, {
+            const response = await axios.post<UploadResponse>('/api/warehouse/container-expander/upload', formData, {
                 headers: {
                     'Content-Type': 'multipart/form-data',
                     'X-Requested-With': 'XMLHttpRequest',
