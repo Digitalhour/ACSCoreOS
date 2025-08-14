@@ -184,6 +184,7 @@
       <excludeFolder url="file://$MODULE_DIR$/CoreOS/vendor/markbaker/complex" />
       <excludeFolder url="file://$MODULE_DIR$/CoreOS/vendor/markbaker/matrix" />
       <excludeFolder url="file://$MODULE_DIR$/CoreOS/vendor/phpoffice/phpspreadsheet" />
+      <excludeFolder url="file://$MODULE_DIR$/CoreOS/vendor/league/csv" />
     </content>
     <content url="file://$MODULE_DIR$/CoreOS/node_modules" />
     <orderEntry type="inheritedJdk" />
