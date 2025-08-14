@@ -1,11 +1,11 @@
 import React from 'react';
-import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Separator } from '@/components/ui/separator';
-import { ImageOff, ShoppingCart, Store, Wrench } from 'lucide-react';
-import { Part } from './types';
-import { slugify } from './utils';
+import {HoverCard, HoverCardContent, HoverCardTrigger} from '@/components/ui/hover-card';
+import {Badge} from '@/components/ui/badge';
+import {Button} from '@/components/ui/button';
+import {Separator} from '@/components/ui/separator';
+import {ImageOff, ShoppingCart, Store, Wrench} from 'lucide-react';
+import {Part} from './types';
+import {slugify} from './utils';
 
 interface PartHoverCardProps {
     part: Part;
@@ -104,7 +104,7 @@ const PartHoverCard: React.FC<PartHoverCardProps> = ({ part, children }) => {
                                 <p className="flex justify-between">
                                     <Button asChild variant="outline">
                                         <a
-                                            href={`https://aircompressorservices.com/products/${slugify(part.nsproduct_match.name)}`}
+                                            href={`${slugify(part.nsproduct_match.storefront_url)}`}
                                             target={'_blank'}
                                         >
                                             <Store className="h-3 w-3" />
@@ -117,7 +117,7 @@ const PartHoverCard: React.FC<PartHoverCardProps> = ({ part, children }) => {
                                             target={'_blank'}
                                         >
                                             <Wrench className="h-3 w-3" />
-                                            Shopify
+                                            Shopify Admin
                                         </a>
                                     </Button>
                                 </p>

@@ -26,7 +26,8 @@
         "spatie/laravel-activitylog": "^4.10",
         "spatie/laravel-permission": "^6.19",
         "tightenco/ziggy": "^2.4",
-        "workos/workos-php-laravel": "^4.2"
+        "workos/workos-php-laravel": "^4.2",
+        "ext-zip": "*"
     },
     "require-dev": {
         "fakerphp/faker": "^1.23",

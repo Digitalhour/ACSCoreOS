@@ -67,6 +67,10 @@ class PartsCatalogController extends Controller
         ]);
     }
 
+//https://aircompressorservices.com/products/ingersoll-rand-actuator-repair-kit-replacement-23127053
+//https://aircompressorservices.com/products/ingersoll-rand-actuator-kit-23127053
+
+
     /**
      * Build optimized query using stored data and indexes
      */
@@ -239,6 +243,7 @@ class PartsCatalogController extends Controller
                 'is_active' => $partInstance->is_active,
                 // Use stored Shopify ID from the database
                 'shopify_id' => $partInstance->shopify_id,
+                'storefront_url' => $this->generateStorefrontUrl($partInstance),
                 'has_shopify_match' => !empty($partInstance->shopify_id),
             ];
 
@@ -250,6 +255,7 @@ class PartsCatalogController extends Controller
                     'number' => $partInstance->part_number,
                     'shop_id' => $partInstance->shopify_id,
                     'name' => $this->generateProductName($partInstance),
+                    'storefront_url' => $this->generateStorefrontUrl($partInstance),
                 ];
 
                 $transformedPart['shopify_data'] = [

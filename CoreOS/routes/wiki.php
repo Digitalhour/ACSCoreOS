@@ -9,6 +9,7 @@ use App\Http\Controllers\WikiPageController;
 use App\Http\Controllers\WikiTemplateController;
 use Illuminate\Support\Facades\Route;
 
+
 Route::group([
     'middleware' => ['auth', 'verified', 'route.permission'],
     'prefix' => 'wiki',
