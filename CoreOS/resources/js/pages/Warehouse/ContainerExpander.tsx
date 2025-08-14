@@ -208,7 +208,7 @@ const ContainerExpander: React.FC = () => {
         clearFieldError('expansion');
 
         try {
-            const response = await axios.post<ExpandResponse>('/warehouse/container-expander/expand', {
+            const response = await axios.post<ExpandResponse>('/api/warehouse/container-expander/expand', {
                 tempPath,
                 startRow,
                 mappedColumns
