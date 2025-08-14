@@ -1,10 +1,19 @@
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Calendar, FileText, ImageOff, Package, ShoppingCart, Store, Wrench } from 'lucide-react';
+import {Badge} from '@/components/ui/badge';
+import {Button} from '@/components/ui/button';
+import {
+    Dialog,
+    DialogClose,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle
+} from '@/components/ui/dialog';
+import {Calendar, FileText, ImageOff, Package, ShoppingCart, Store, Wrench} from 'lucide-react';
 import React from 'react';
-import { Part } from './types';
-import { slugify } from './utils';
+import {Part} from './types';
+
+// import {slugify} from './utils';
 
 interface PartDetailsModalProps {
     isOpen: boolean;
@@ -17,6 +26,14 @@ interface PartDetailsModalProps {
  */
 const PartDetailsModal: React.FC<PartDetailsModalProps> = ({ isOpen, setIsOpen, part }) => {
     if (!part) return null;
+    const getOnlineStoreUrl = (): string | null => {
+        return part.online_store_url ||
+            part.nsproduct_match?.online_store_url ||
+            part.shopify_data?.online_store_url ||
+            null;
+    };
+
+    const onlineStoreUrl = getOnlineStoreUrl();
 
     return (
         <Dialog open={isOpen} onOpenChange={setIsOpen}>
@@ -153,24 +170,32 @@ const PartDetailsModal: React.FC<PartDetailsModalProps> = ({ isOpen, setIsOpen, 
                                                 <strong>List Price</strong> {part.nsproduct_match.list_price}
                                             </p>
                                             <div className="flex justify-between pt-2">
-                                                <Button asChild variant="outline">
-                                                    <a
-                                                        target={'_blank'}
-                                                        href={`https://admin.shopify.com/store/aircompressorservices/products/${part.nsproduct_match.shop_id}`}
-                                                    >
+                                                <Button
+                                                    variant="outline"
+                                                    size="sm"
+                                                    onClick={() => window.open(`https://admin.shopify.com/store/aircompressorservices/products/${part.nsproduct_match.shop_id}`, '_blank')}
+                                                    className="flex items-center space-x-1"
+                                                >
+                                                    {/*<a*/}
+                                                    {/*    target={'_blank'}*/}
+                                                    {/*    href={`https://admin.shopify.com/store/aircompressorservices/products/${part.nsproduct_match.shop_id}`}*/}
+                                                    {/*>*/}
                                                         <Wrench className="mr-1 h-4 w-4" />
                                                         Shopify
-                                                    </a>
+                                                    {/*</a>*/}
                                                 </Button>
-                                                <Button asChild variant="outline">
-                                                    <a
-                                                        target={'_blank'}
-                                                        href={`https://aircompressorservices.com/products/${slugify(part.nsproduct_match.name)}`}
+                                                {onlineStoreUrl && (
+                                                    <Button
+                                                        variant="outline"
+                                                        size="sm"
+                                                        onClick={() => window.open(onlineStoreUrl, '_blank')}
+                                                        className="flex items-center space-x-1"
                                                     >
-                                                        <Store className="mr-1 h-4 w-4" />
-                                                        ACS Store
-                                                    </a>
-                                                </Button>
+                                                        <Store className="h-3 w-3" />
+                                                        <span>ACS Online</span>
+
+                                                    </Button>
+                                                )}
                                             </div>
                                         </div>
                                     )}

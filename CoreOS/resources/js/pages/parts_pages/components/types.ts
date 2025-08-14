@@ -34,6 +34,8 @@ export interface Part {
     shopify_image?: string | null;
     has_shopify_match?: boolean;
     nsproduct_match?: any;
+    shopify_data?: any;
+
     [key: string]: any;
 }
 
@@ -97,8 +99,8 @@ export interface PartsCatalogPageProps {
  */
 export const defaultPaginatedData: PaginatedPartsResponse = {
     data: [],
-    links: { first: null, last: null, prev: null, next: null },
-    meta: { current_page: 1, from: null, last_page: 1, path: '', per_page: 25, to: null, total: 0, links: [] },
+    links: {first: null, last: null, prev: null, next: null},
+    meta: {current_page: 1, from: null, last_page: 1, path: '', per_page: 25, to: null, total: 0, links: []},
 };
 
 /**

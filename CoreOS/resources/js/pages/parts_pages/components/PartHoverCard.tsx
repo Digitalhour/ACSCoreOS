@@ -5,7 +5,6 @@ import {Button} from '@/components/ui/button';
 import {Separator} from '@/components/ui/separator';
 import {ImageOff, ShoppingCart, Store, Wrench} from 'lucide-react';
 import {Part} from './types';
-import {slugify} from './utils';
 
 interface PartHoverCardProps {
     part: Part;
@@ -16,6 +15,16 @@ interface PartHoverCardProps {
  * Enhanced Hover Card Component for Parts with Shopify image
  */
 const PartHoverCard: React.FC<PartHoverCardProps> = ({ part, children }) => {
+    // Get the online store URL from various possible locations
+    const getOnlineStoreUrl = (): string | null => {
+        return part.online_store_url ||
+            part.nsproduct_match?.online_store_url ||
+            part.shopify_data?.online_store_url ||
+            null;
+    };
+
+    const onlineStoreUrl = getOnlineStoreUrl();
+
     return (
         <HoverCard openDelay={300} closeDelay={100}>
             <HoverCardTrigger asChild>{children}</HoverCardTrigger>
@@ -26,7 +35,11 @@ const PartHoverCard: React.FC<PartHoverCardProps> = ({ part, children }) => {
                         {/* Original image */}
                         <div className="flex flex-col items-center space-y-1">
                             {part.image_url ? (
-                                <img src={part.image_url} alt={part.part_number || 'Part Image'} className="h-32 w-32 rounded-lg object-cover" />
+                                <img
+                                    src={part.image_url}
+                                    alt={part.part_number || 'Part Image'}
+                                    className="h-32 w-32 rounded-lg object-cover"
+                                />
                             ) : (
                                 <div className="flex h-32 w-32 items-center justify-center rounded-lg bg-gray-100 text-gray-400">
                                     <ImageOff size={24} />
@@ -38,7 +51,11 @@ const PartHoverCard: React.FC<PartHoverCardProps> = ({ part, children }) => {
                         {/* Shopify image */}
                         {part.shopify_image && (
                             <div className="flex flex-col items-center space-y-1">
-                                <img src={part.shopify_image} alt={`${part.part_number} - Shopify`} className="h-32 w-32 rounded-lg object-cover" />
+                                <img
+                                    src={part.shopify_image}
+                                    alt={`${part.part_number} - Shopify`}
+                                    className="h-32 w-32 rounded-lg object-cover"
+                                />
                                 <div className="flex items-center space-x-1">
                                     <ShoppingCart size={10} className="text-gray-500" />
                                     <span className="text-xs text-gray-500">Shopify</span>
@@ -54,7 +71,9 @@ const PartHoverCard: React.FC<PartHoverCardProps> = ({ part, children }) => {
                             <p className="text-muted-foreground text-xs">{part.part_type || 'Unknown Type'}</p>
                         </div>
 
-                        {part.description && <p className="text-muted-foreground line-clamp-2 text-xs">{part.description}</p>}
+                        {part.description && (
+                            <p className="text-muted-foreground line-clamp-2 text-xs">{part.description}</p>
+                        )}
 
                         <Separator />
 
@@ -98,29 +117,52 @@ const PartHoverCard: React.FC<PartHoverCardProps> = ({ part, children }) => {
                             </>
                         )}
 
-                        {part.has_shopify_match && part.nsproduct_match && part.nsproduct_match.name && (
+                        {/* FIXED: Shopify Store Links Section */}
+                        {part.has_shopify_match && (
                             <>
                                 <Separator />
-                                <p className="flex justify-between">
-                                    <Button asChild variant="outline">
-                                        <a
-                                            href={`${slugify(part.nsproduct_match.storefront_url)}`}
-                                            target={'_blank'}
-                                        >
-                                            <Store className="h-3 w-3" />
-                                            ACS Store
-                                        </a>
-                                    </Button>
-                                    <Button asChild variant="outline">
-                                        <a
-                                            href={`https://admin.shopify.com/store/aircompressorservices/products/${part.nsproduct_match.shop_id}`}
-                                            target={'_blank'}
-                                        >
-                                            <Wrench className="h-3 w-3" />
-                                            Shopify Admin
-                                        </a>
-                                    </Button>
-                                </p>
+                                <div className="space-y-2">
+                                    {/*/!* Show the actual online store URL *!/*/}
+                                    {/*{onlineStoreUrl && (*/}
+                                    {/*    <div className="text-xs">*/}
+                                    {/*        <span className="font-medium">Store URL:</span>*/}
+                                    {/*        <p className="text-muted-foreground break-all">*/}
+                                    {/*            {onlineStoreUrl}*/}
+                                    {/*        </p>*/}
+                                    {/*    </div>*/}
+                                    {/*)}*/}
+
+                                    {/* Action buttons */}
+                                    <div className="flex flex-wrap gap-2">
+                                        {onlineStoreUrl && (
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                onClick={() => window.open(onlineStoreUrl, '_blank')}
+                                                className="flex items-center space-x-1"
+                                            >
+                                                <Store className="h-3 w-3" />
+                                                <span>ACS Online</span>
+
+                                            </Button>
+                                        )}
+
+
+
+                                        {part.shopify_data?.admin_url && (
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                onClick={() => window.open(part.shopify_data.admin_url, '_blank')}
+                                                className="flex items-center space-x-1"
+                                            >
+                                                <Wrench className="h-3 w-3" />
+                                                <span>Shopify Admin</span>
+
+                                            </Button>
+                                        )}
+                                    </div>
+                                </div>
                             </>
                         )}
                     </div>

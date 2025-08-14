@@ -1,7 +1,7 @@
 import AppLayout from '@/layouts/app-layout';
 import {type BreadcrumbItem} from '@/types';
 import {Head, router} from '@inertiajs/react';
-import React, {useCallback, useEffect, useState} from 'react';
+import React, {useCallback, useEffect, useRef, useState} from 'react';
 
 // Shadcn/ui Components
 import {Badge} from '@/components/ui/badge';
@@ -45,7 +45,7 @@ const breadcrumbs: BreadcrumbItem[] = [
 // Main Component
 export default function PartsCatalog({ initialParts, initialFilterOptions, filters: initialFiltersFromUrl }: PartsCatalogPageProps) {
     const [partsData, setPartsData] = useState<PaginatedPartsResponse>(initialParts || defaultPaginatedData);
-    const [filterOptions, setFilterOptions] = useState<FilterOptions>(initialFilterOptions || defaultFilterOptions);
+    const [filterOptions] = useState<FilterOptions>(initialFilterOptions || defaultFilterOptions);
     const [searchTerm, setSearchTerm] = useState<string>(initialFiltersFromUrl?.search || '');
     const [viewMode, setViewMode] = useState<'table' | 'grid'>('table');
 
@@ -59,6 +59,12 @@ export default function PartsCatalog({ initialParts, initialFilterOptions, filte
     const [isLoading, setIsLoading] = useState<boolean>(false);
     const [error, setError] = useState<string | null>(null);
 
+    // Refs for preventing duplicate requests
+    const currentRequestRef = useRef<string | null>(null);
+    const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+    const isInitialMount = useRef<boolean>(true);
+
+    // Initialize data on mount
     useEffect(() => {
         if (initialParts && initialParts.data && initialParts.links && initialParts.meta) {
             setPartsData(initialParts);
@@ -66,94 +72,105 @@ export default function PartsCatalog({ initialParts, initialFilterOptions, filte
             setPartsData(defaultPaginatedData);
             setError('Error: Initial parts data is incomplete.');
         }
+        isInitialMount.current = false;
     }, [initialParts]);
 
-    useEffect(() => {
-        if (initialFilterOptions) {
-            setFilterOptions(initialFilterOptions);
-        }
-    }, [initialFilterOptions]);
-
-    // Function to load filter options if they weren't provided initially
-    const loadFilterOptions = useCallback(() => {
-        if (!filterOptions.manufacturers.length && !filterOptions.categories.length) {
-            setIsLoading(true);
-            router.get(
-                '/parts-catalog',
-                { load_filters: true },
-                {
-                    preserveState: true,
-                    preserveScroll: true,
-                    replace: false,
-                    only: ['initialFilterOptions'],
-                    onError: (errors) => {
-                        console.error('Filter options fetch error:', errors);
-                    },
-                    onFinish: () => setIsLoading(false),
-                },
-            );
-        }
-    }, [filterOptions]);
-
-    // AJAX-based fetch function that only updates the table data
+    // Single consolidated fetch function with request deduplication
     const fetchParts = useCallback(
-        (page: number = 1, newSearchTerm?: string) => {
-            setIsLoading(true);
-            setError(null);
+        (page: number = 1, newSearchTerm?: string, immediate: boolean = false) => {
+            // Build query params
             const queryParams: Record<string, string | number> = {};
             const currentSearch = newSearchTerm !== undefined ? newSearchTerm : searchTerm;
 
-            // Only add page parameter if it's not page 1
             if (page > 1) queryParams.page = page;
-
             if (currentSearch) queryParams.search = currentSearch;
             if (selectedManufacturers.length > 0) queryParams.manufacturer = selectedManufacturers.join(',');
             if (selectedCategories.length > 0) queryParams.category = selectedCategories.join(',');
             if (selectedModels.length > 0) queryParams.model = selectedModels.join(',');
             if (selectedPartTypes.length > 0) queryParams.part_type = selectedPartTypes.join(',');
 
-            router.get('/parts-catalog', queryParams, {
-                preserveState: true,
-                preserveScroll: true,
-                replace: false,
-                only: ['initialParts'],
-                onError: (errors) => {
-                    setError('Failed to load parts. Please try again.');
-                    console.error('Parts fetch error:', errors);
-                },
-                onFinish: () => setIsLoading(false),
-            });
+            // Create request signature for deduplication
+            const requestSignature = JSON.stringify(queryParams);
+
+            // Prevent duplicate requests
+            if (currentRequestRef.current === requestSignature) {
+                return;
+            }
+
+            const executeRequest = () => {
+                currentRequestRef.current = requestSignature;
+                setIsLoading(true);
+                setError(null);
+
+                router.get('/parts-catalog', queryParams, {
+                    preserveState: true,
+                    preserveScroll: true,
+                    replace: false,
+                    only: ['initialParts'],
+                    onSuccess: () => {
+                        currentRequestRef.current = null;
+                    },
+                    onError: (errors) => {
+                        setError('Failed to load parts. Please try again.');
+                        console.error('Parts fetch error:', errors);
+                        currentRequestRef.current = null;
+                    },
+                    onFinish: () => {
+                        setIsLoading(false);
+                    },
+                });
+            };
+
+            if (immediate) {
+                executeRequest();
+            } else {
+                // Clear any existing timeout
+                if (searchTimeoutRef.current) {
+                    clearTimeout(searchTimeoutRef.current);
+                }
+
+                // Set new timeout for search debouncing
+                searchTimeoutRef.current = setTimeout(executeRequest, 500);
+            }
         },
         [searchTerm, selectedManufacturers, selectedCategories, selectedModels, selectedPartTypes],
     );
 
-    // Debounced search effect
-    useEffect(() => {
-        const handler = setTimeout(() => {
-            if (searchTerm !== (initialFiltersFromUrl?.search || '')) {
-                fetchParts(1, searchTerm);
-            }
-        }, 500);
-        return () => clearTimeout(handler);
-    }, [searchTerm, initialFiltersFromUrl?.search, fetchParts]);
+    // Handle search input changes (debounced)
+    const handleSearchInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+        const newSearchTerm = event.target.value;
+        setSearchTerm(newSearchTerm);
 
-    // Immediate filter change effect (no debounce for dropdown selections)
+        // Skip on initial mount
+        if (!isInitialMount.current) {
+            fetchParts(1, newSearchTerm, false); // false = use debounce
+        }
+    };
+
+    // Handle filter changes (immediate)
     useEffect(() => {
-        // Skip initial render to avoid duplicate requests
-        if (initialFiltersFromUrl) {
-            fetchParts(1);
+        // Skip initial mount to avoid duplicate requests
+        if (!isInitialMount.current) {
+            fetchParts(1, undefined, true); // true = immediate
         }
     }, [selectedManufacturers, selectedCategories, selectedModels, selectedPartTypes]);
 
-    const handleSearchInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-        setSearchTerm(event.target.value);
-    };
+    // Cleanup timeouts on unmount
+    useEffect(() => {
+        return () => {
+            if (searchTimeoutRef.current) {
+                clearTimeout(searchTimeoutRef.current);
+            }
+        };
+    }, []);
 
     const handlePageChange = (pageUrl: string | null) => {
         if (pageUrl) {
             const url = new URL(pageUrl, window.location.origin);
             const page = url.searchParams.get('page');
-            if (page) fetchParts(parseInt(page, 10));
+            if (page) {
+                fetchParts(parseInt(page, 10), undefined, true); // true = immediate
+            }
         }
     };
 
@@ -169,7 +186,10 @@ export default function PartsCatalog({ initialParts, initialFilterOptions, filte
         setSelectedModels([]);
         setSelectedPartTypes([]);
 
-        // Use router.get with only to just update the data, not reload page
+        // Use router.get to reset to clean URL
+        currentRequestRef.current = 'reset';
+        setIsLoading(true);
+
         router.get(
             '/parts-catalog',
             {}, // Empty query params to reset to clean URL
@@ -178,8 +198,15 @@ export default function PartsCatalog({ initialParts, initialFilterOptions, filte
                 preserveScroll: true,
                 replace: false,
                 only: ['initialParts'],
+                onSuccess: () => {
+                    currentRequestRef.current = null;
+                },
                 onError: (errors) => {
                     console.error('Reset filters error:', errors);
+                    currentRequestRef.current = null;
+                },
+                onFinish: () => {
+                    setIsLoading(false);
                 },
             },
         );
@@ -224,7 +251,6 @@ export default function PartsCatalog({ initialParts, initialFilterOptions, filte
                                 selectedValues={selectedManufacturers}
                                 setSelectedValues={setSelectedManufacturers}
                                 filterKey="manufacturer"
-                                onOpen={loadFilterOptions}
                                 enableSearch={true}
                             />
                             <DataTableFilterPopover
@@ -233,7 +259,6 @@ export default function PartsCatalog({ initialParts, initialFilterOptions, filte
                                 selectedValues={selectedCategories}
                                 setSelectedValues={setSelectedCategories}
                                 filterKey="category"
-                                onOpen={loadFilterOptions}
                                 enableSearch={true}
                             />
                             <DataTableFilterPopover
@@ -242,7 +267,6 @@ export default function PartsCatalog({ initialParts, initialFilterOptions, filte
                                 selectedValues={selectedModels}
                                 setSelectedValues={setSelectedModels}
                                 filterKey="model"
-                                onOpen={loadFilterOptions}
                                 enableSearch={true}
                             />
                             <DataTableFilterPopover
@@ -251,7 +275,6 @@ export default function PartsCatalog({ initialParts, initialFilterOptions, filte
                                 selectedValues={selectedPartTypes}
                                 setSelectedValues={setSelectedPartTypes}
                                 filterKey="part_type"
-                                onOpen={loadFilterOptions}
                                 enableSearch={true}
                             />
 
@@ -426,10 +449,13 @@ export default function PartsCatalog({ initialParts, initialFilterOptions, filte
                                             </TableCell>
                                             <TableCell>
                                                 {part.has_shopify_match && (
+                                                    <>
                                                     <Badge variant="outline" className="text-xs text-green-600">
                                                         <ShoppingCart className="mr-1 h-3 w-3" />
                                                         Yes
                                                     </Badge>
+
+                                                    </>
                                                 )}
                                             </TableCell>
                                         </TableRow>

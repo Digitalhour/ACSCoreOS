@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Parts\PartInstance;
 use App\Services\ShopifyService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
@@ -21,7 +22,7 @@ class PartsCatalogController extends Controller
     }
 
     /**
-     * Main index method - optimized to use stored data with optional Shopify enhancement
+     * Main index method - heavily optimized
      */
     public function index(Request $request)
     {
@@ -31,11 +32,11 @@ class PartsCatalogController extends Controller
         // Execute paginated query
         $paginator = $query->paginate(12)->withQueryString();
 
-        // Transform the current page's items using stored data
+        // Transform the current page's items using stored data ONLY
         $transformedItems = $this->transformPartInstancesFromStoredData($paginator->items());
 
-        // Enhance with Shopify images if needed (but use stored data as foundation)
-        $enhancedItems = $this->enhanceWithShopifyImages($transformedItems);
+        // BATCH enhance with Shopify images - this is the key optimization
+        $enhancedItems = $this->batchEnhanceWithShopifyImages($transformedItems);
 
         // Prepare data for Inertia response
         $initialPartsData = [
@@ -58,18 +59,15 @@ class PartsCatalogController extends Controller
             ],
         ];
 
-        $shouldLoadFilters = $this->shouldLoadFilterOptions($request);
+        // ALWAYS include filter options to prevent separate requests
+        $filterOptions = $this->getOptimizedFilterOptions();
 
         return Inertia::render('parts_pages/Parts-Database', [
             'initialParts' => $initialPartsData,
             'filters' => $request->only(['search', 'manufacturer', 'category', 'model', 'serial_number', 'part_type']),
-            'initialFilterOptions' => $shouldLoadFilters ? $this->getOptimizedFilterOptions() : null,
+            'initialFilterOptions' => $filterOptions, // Always include
         ]);
     }
-
-//https://aircompressorservices.com/products/ingersoll-rand-actuator-repair-kit-replacement-23127053
-//https://aircompressorservices.com/products/ingersoll-rand-actuator-kit-23127053
-
 
     /**
      * Build optimized query using stored data and indexes
@@ -156,7 +154,7 @@ class PartsCatalogController extends Controller
     }
 
     /**
-     * Apply search term to the query - ENHANCED TO INCLUDE MODEL SEARCH
+     * Apply search term to the query
      */
     private function applySearch($query, Request $request): void
     {
@@ -168,12 +166,9 @@ class PartsCatalogController extends Controller
 
         // Use full-text search if available and term is long enough
         if ($this->supportsFullTextSearch() && strlen($searchTerm) >= 3) {
-            // Enhanced full-text search to include model search
             $query->where(function ($q) use ($searchTerm) {
-                // Search in part fields using full-text
                 $q->whereRaw('MATCH(description, part_number, ccn_number) AGAINST(? IN NATURAL LANGUAGE MODE)',
                     [$searchTerm])
-                    // OR search in associated models
                     ->orWhereExists(function ($modelQuery) use ($searchTerm) {
                         $modelQuery->select(DB::raw(1))
                             ->from('part_instance_models as pim')
@@ -183,13 +178,11 @@ class PartsCatalogController extends Controller
                     });
             });
         } else {
-            // Enhanced LIKE search prioritizing most selective fields and including models
             $query->where(function ($q) use ($searchTerm) {
                 $q->where('part_number', 'like', "%{$searchTerm}%")
                     ->orWhere('ccn_number', 'like', "%{$searchTerm}%")
                     ->orWhere('manufacturer_serial', 'like', "%{$searchTerm}%")
                     ->orWhere('description', 'like', "%{$searchTerm}%")
-                    // Add model search using EXISTS subquery
                     ->orWhereExists(function ($modelQuery) use ($searchTerm) {
                         $modelQuery->select(DB::raw(1))
                             ->from('part_instance_models as pim')
@@ -237,14 +230,17 @@ class PartsCatalogController extends Controller
                 'img_page_number' => $partInstance->img_page_number,
                 'img_page_path' => $partInstance->img_page_path,
                 'custom_fields' => $customFields,
-                // Use stored S3 image URL from the database
                 'image_url' => $partInstance->s3_img_url,
                 'batch_id' => $partInstance->import_batch_id,
                 'is_active' => $partInstance->is_active,
-                // Use stored Shopify ID from the database
                 'shopify_id' => $partInstance->shopify_id,
                 'storefront_url' => $this->generateStorefrontUrl($partInstance),
                 'has_shopify_match' => !empty($partInstance->shopify_id),
+                'onlineStoreUrl' => $partInstance->onlineStoreUrl,
+                // Initialize as null - will be populated by batch Shopify service if needed
+                'shopify_image' => null,
+                'nsproduct_match' => null,
+                'shopify_data' => null,
             ];
 
             // If the part has a Shopify ID, create basic structures from stored data
@@ -256,6 +252,9 @@ class PartsCatalogController extends Controller
                     'shop_id' => $partInstance->shopify_id,
                     'name' => $this->generateProductName($partInstance),
                     'storefront_url' => $this->generateStorefrontUrl($partInstance),
+                    'handle' => $this->generateProductHandle($partInstance),
+                    'title' => $this->generateProductName($partInstance),
+                    'onlineStoreUrl'=> $partInstance->onlineStoreUrl,
                 ];
 
                 $transformedPart['shopify_data'] = [
@@ -270,13 +269,6 @@ class PartsCatalogController extends Controller
                     'all_images' => [],
                     'variant_info' => [],
                 ];
-
-                // Initialize shopify_image as null - will be populated by Shopify service if needed
-                $transformedPart['shopify_image'] = null;
-            } else {
-                $transformedPart['nsproduct_match'] = null;
-                $transformedPart['shopify_data'] = null;
-                $transformedPart['shopify_image'] = null;
             }
 
             return $transformedPart;
@@ -284,52 +276,68 @@ class PartsCatalogController extends Controller
     }
 
     /**
-     * Enhance parts with Shopify images for parts that have shopify_id
+     * OPTIMIZED: Batch enhance parts with Shopify images using single batch request
      */
-    private function enhanceWithShopifyImages(array $parts): array
+    private function batchEnhanceWithShopifyImages(array $parts): array
     {
         if (empty($parts)) {
             return $parts;
         }
 
-        // Collect parts that have Shopify IDs but might need image enhancement
-        $partsNeedingShopifyImages = [];
-        foreach ($parts as $part) {
-            if (!empty($part['shopify_id'])) {
-                $partsNeedingShopifyImages[] = [
-                    'original_part_id' => $part['id'],
-                    'shopify_id' => $part['shopify_id'],
-                ];
-            }
-        }
+        $partsForBatchQuery = [];
+        $partIndexMap = [];
 
-        $shopifyImageData = [];
-        if (!empty($partsNeedingShopifyImages)) {
-            // Get Shopify product data for parts with Shopify IDs
-            foreach ($partsNeedingShopifyImages as $item) {
-                try {
-                    $productData = $this->shopifyService->getProductById($item['shopify_id']);
-                    if ($productData && !empty($productData['image_url'])) {
-                        $shopifyImageData[$item['original_part_id']] = $productData;
+        foreach ($parts as $index => $part) {
+            if (!empty($part['shopify_id']) && !empty($part['manufacture']) && !empty($part['part_number'])) {
+                // Check cache first (1 hour cache)
+                $cacheKey = "shopify_product_data_{$part['shopify_id']}";
+                $cachedData = Cache::get($cacheKey);
+
+                if ($cachedData) {
+                    // Use cached data
+                    $parts[$index]['shopify_image'] = $cachedData['image_url'] ?? null;
+                    $parts[$index]['online_store_url'] = $cachedData['online_store_url'] ?? null;
+
+                    if (!empty($parts[$index]['shopify_data'])) {
+                        $parts[$index]['shopify_data'] = array_merge($parts[$index]['shopify_data'], $cachedData);
                     }
-                } catch (\Exception $e) {
-                    Log::warning('Failed to get Shopify product data for ID: '.$item['shopify_id'], [
-                        'error' => $e->getMessage()
-                    ]);
+                } else {
+                    // Need to fetch from API
+                    $partsForBatchQuery[] = [
+                        'original_part_id' => $part['id'],
+                        'vendor' => $part['manufacture'],
+                        'sku' => $part['part_number'],
+                    ];
+                    $partIndexMap[$part['id']] = $index;
                 }
             }
         }
 
-        // Merge Shopify image data with parts
-        foreach ($parts as &$part) {
-            if (isset($shopifyImageData[$part['id']])) {
-                $shopifyData = $shopifyImageData[$part['id']];
-                $part['shopify_image'] = $shopifyData['image_url'] ?? null;
+        // Only make API calls for non-cached items
+        if (!empty($partsForBatchQuery)) {
+            try {
+                $shopifyImageData = $this->shopifyService->getBatchProductImages($partsForBatchQuery);
 
-                // Update shopify_data with real data if available
-                if (!empty($part['shopify_data'])) {
-                    $part['shopify_data'] = array_merge($part['shopify_data'], $shopifyData);
+                foreach ($shopifyImageData as $originalPartId => $shopifyData) {
+                    if (isset($partIndexMap[$originalPartId])) {
+                        $index = $partIndexMap[$originalPartId];
+                        $parts[$index]['shopify_image'] = $shopifyData['image_url'] ?? null;
+                        $parts[$index]['online_store_url'] = $shopifyData['online_store_url'] ?? null;
+
+                        // Cache for 1 hour (3600 seconds)
+                        $cacheKey = "shopify_product_data_{$parts[$index]['shopify_id']}";
+                        Cache::put($cacheKey, $shopifyData, 3600);
+
+                        if (!empty($parts[$index]['shopify_data'])) {
+                            $parts[$index]['shopify_data'] = array_merge($parts[$index]['shopify_data'], $shopifyData);
+                        }
+                    }
                 }
+            } catch (\Exception $e) {
+                Log::warning('Failed to get batch Shopify product data', [
+                    'error' => $e->getMessage(),
+                    'parts_count' => count($partsForBatchQuery)
+                ]);
             }
         }
 
@@ -358,7 +366,7 @@ class PartsCatalogController extends Controller
         }
     }
 
-    // Optimized filter option methods
+    // Optimized filter option methods (unchanged)
     private function getSimpleManufacturers(): array
     {
         return DB::connection('parts_database')
@@ -480,15 +488,58 @@ class PartsCatalogController extends Controller
         return DB::connection('parts_database')->getDriverName() === 'mysql';
     }
 
-    private function shouldLoadFilterOptions(Request $request): bool
+
+
+    public function debugShopifyData(Request $request)
     {
-        return $request->boolean('load_filters') || (
-                !$request->filled('search') &&
-                !$request->filled('manufacturer') &&
-                !$request->filled('category') &&
-                !$request->filled('model') &&
-                !$request->filled('serial_number') &&
-                !$request->filled('part_type')
-            );
+        // Get a few parts with Shopify IDs
+        $parts = PartInstance::where('is_active', true)
+            ->whereNotNull('shopify_id')
+            ->with(['manufacturer'])
+            ->limit(3)
+            ->get();
+
+        $debug = [];
+
+        foreach ($parts as $part) {
+            $debug[] = [
+                'part_id' => $part->id,
+                'part_number' => $part->part_number,
+                'manufacturer' => $part->manufacturer?->name,
+                'shopify_id_in_db' => $part->shopify_id,
+                'stored_online_store_url' => $part->onlineStoreUrl ?? $part->online_store_url ?? 'NOT STORED',
+            ];
+        }
+
+        // Test Shopify API call
+        $shopifyData = [];
+        if ($parts->count() > 0) {
+            $firstPart = $parts->first();
+            if ($firstPart->manufacturer && $firstPart->part_number) {
+                try {
+                    $apiResult = $this->shopifyService->getProductImage(
+                        $firstPart->manufacturer->name,
+                        $firstPart->part_number
+                    );
+                    $shopifyData = $apiResult;
+                } catch (\Exception $e) {
+                    $shopifyData = ['error' => $e->getMessage()];
+                }
+            }
+        }
+
+        return response()->json([
+            'message' => 'Shopify Data Debug',
+            'parts_in_db' => $debug,
+            'live_shopify_api_result' => $shopifyData,
+            'explanation' => [
+                'stored_vs_live' => 'If stored_online_store_url shows NOT STORED, you are fetching live data',
+                'live_data_benefits' => 'Always current, never stale, reflects real Shopify state',
+                'performance_note' => 'Slower but more accurate - add caching for best of both worlds'
+            ]
+        ]);
     }
+
+
+
 }

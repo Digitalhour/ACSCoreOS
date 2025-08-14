@@ -11,7 +11,7 @@ class ShopifyService
     private string $shopDomain;
     private string $accessToken;
     private string $storefrontDomain;
-    private int $batchGraphQlQueryLimit = 20; // Max number of products to query in a single GraphQL request using aliases
+    private int $batchGraphQlQueryLimit = 12;
 
     public function __construct()
     {
@@ -26,10 +26,6 @@ class ShopifyService
 
     /**
      * Get product images and storefront URLs for multiple parts in a batch using a single GraphQL query with aliases.
-     *
-     * @param  array  $partsToQuery  An array of parts, each part being an associative array
-     * with 'original_part_id', 'vendor', and 'sku'.
-     * @return array An associative array mapping original_part_id to product data including image URL and storefront URL.
      */
     public function getBatchProductImages(array $partsToQuery): array
     {
@@ -37,33 +33,29 @@ class ShopifyService
             return [];
         }
 
-        $allProductData = []; // Maps original_part_id to product data
+        $allProductData = [];
 
-        // Process in chunks to stay within reasonable GraphQL query complexity
         foreach (array_chunk($partsToQuery, $this->batchGraphQlQueryLimit) as $batch) {
             if (empty($batch)) {
                 continue;
             }
 
             $queryParts = [];
-            $aliasToOriginalIdMap = []; // Maps GraphQL alias to original_part_id
+            $aliasToOriginalIdMap = [];
 
             foreach ($batch as $item) {
                 if (empty($item['vendor']) || empty($item['sku']) || !isset($item['original_part_id'])) {
                     continue;
                 }
 
-                // Sanitize vendor and SKU for the query string
                 $vendorQuery = addslashes(trim($item['vendor']));
                 $skuQuery = addslashes(trim($item['sku']));
 
-                // Create a unique alias for each product query
                 $aliasSuffix = preg_replace('/[^a-zA-Z0-9_]/', '_', (string) $item['original_part_id']);
                 $alias = "product_".$aliasSuffix."_".Str::random(4);
 
                 $aliasToOriginalIdMap[$alias] = $item['original_part_id'];
 
-                // Enhanced GraphQL query to get more product data including handle for storefront URLs
                 $productGraphqlQuery = "vendor:\\\"{$vendorQuery}\\\" AND sku:\\\"{$skuQuery}\\\"";
 
                 $queryParts[] = "
@@ -75,6 +67,7 @@ class ShopifyService
                             vendor
                             productType
                             status
+                            onlineStoreUrl
                             featuredMedia {
                                 ... on MediaImage {
                                     image {
@@ -111,7 +104,6 @@ class ShopifyService
                 continue;
             }
 
-            // Combine all parts into a single GraphQL query
             $fullQuery = "query {\n".implode("\n", $queryParts)."\n}";
 
             try {
@@ -130,7 +122,6 @@ class ShopifyService
                             if ($originalPartId && !empty($productData['nodes'])) {
                                 $product = $productData['nodes'][0];
 
-                                // Extract product information
                                 $productInfo = [
                                     'shopify_id' => $this->extractShopifyId($product['id'] ?? ''),
                                     'handle' => $product['handle'] ?? null,
@@ -144,6 +135,8 @@ class ShopifyService
                                     'admin_url' => $this->buildAdminUrl($this->extractShopifyId($product['id'] ?? '')),
                                     'all_images' => $this->extractAllImages($product['images']['nodes'] ?? []),
                                     'variant_info' => $this->extractVariantInfo($product['variants']['nodes'] ?? []),
+                                    // FIXED: Use actual Shopify onlineStoreUrl with fallback
+                                    'online_store_url' => $product['onlineStoreUrl'] ?? $this->buildStorefrontUrl($product['handle'] ?? null),
                                 ];
 
                                 $allProductData[$originalPartId] = $productInfo;
@@ -172,7 +165,6 @@ class ShopifyService
 
     /**
      * Get product image from Shopify for a single product.
-     * Enhanced to return more product information including storefront URL.
      */
     public function getProductImage(string $vendor, string $sku): ?array
     {
@@ -180,7 +172,6 @@ class ShopifyService
             return null;
         }
 
-        // Sanitize vendor and SKU for the query string
         $vendorQuery = addslashes(trim($vendor));
         $skuQuery = addslashes(trim($sku));
 
@@ -195,6 +186,7 @@ class ShopifyService
                             vendor
                             productType
                             status
+                            onlineStoreUrl
                             featuredMedia {
                                 ... on MediaImage {
                                     image {
@@ -257,6 +249,8 @@ class ShopifyService
                         'admin_url' => $this->buildAdminUrl($this->extractShopifyId($product['id'] ?? '')),
                         'all_images' => $this->extractAllImages($product['images']['nodes'] ?? []),
                         'variant_info' => $this->extractVariantInfo($product['variants']['nodes'] ?? []),
+                        // FIXED: Use actual Shopify onlineStoreUrl with fallback
+                        'online_store_url' => $product['onlineStoreUrl'] ?? $this->buildStorefrontUrl($product['handle'] ?? null),
                     ];
                 }
             } else {
@@ -278,88 +272,6 @@ class ShopifyService
     }
 
     /**
-     * Extract Shopify product ID from GraphQL ID
-     */
-    private function extractShopifyId(string $graphqlId): ?string
-    {
-        // Shopify GraphQL IDs look like: gid://shopify/Product/1234567890
-        if (preg_match('/\/Product\/(\d+)$/', $graphqlId, $matches)) {
-            return $matches[1];
-        }
-        return null;
-    }
-
-    /**
-     * Build storefront URL from product handle
-     */
-    private function buildStorefrontUrl(?string $handle): ?string
-    {
-        if (empty($handle)) {
-            return null;
-        }
-        return "https://{$this->storefrontDomain}/products/{$handle}";
-    }
-
-    /**
-     * Build admin URL from Shopify ID
-     */
-    private function buildAdminUrl(?string $shopifyId): ?string
-    {
-        if (empty($shopifyId)) {
-            return null;
-        }
-        return "https://admin.shopify.com/store/{$this->getShopName()}/products/{$shopifyId}";
-    }
-
-    /**
-     * Extract shop name from shop domain
-     */
-    private function getShopName(): string
-    {
-        // Extract shop name from domain like "your-shop.myshopify.com"
-        return str_replace('.myshopify.com', '', $this->shopDomain);
-    }
-
-    /**
-     * Extract all image information
-     */
-    private function extractAllImages(array $imageNodes): array
-    {
-        return array_map(function ($image) {
-            return [
-                'url' => $image['url'] ?? null,
-                'alt' => $image['altText'] ?? null,
-                'width' => $image['width'] ?? null,
-                'height' => $image['height'] ?? null,
-            ];
-        }, $imageNodes);
-    }
-
-    /**
-     * Extract variant information
-     */
-    private function extractVariantInfo(array $variantNodes): array
-    {
-        return array_map(function ($variant) {
-            return [
-                'sku' => $variant['sku'] ?? null,
-                'price' => $variant['price'] ?? null,
-                'compare_at_price' => $variant['compareAtPrice'] ?? null,
-                'available_for_sale' => $variant['availableForSale'] ?? false,
-                'inventory_quantity' => $variant['inventoryQuantity'] ?? 0,
-            ];
-        }, $variantNodes);
-    }
-
-    /**
-     * Generate product slug from name (for backwards compatibility)
-     */
-    public function generateProductSlug(string $productName): string
-    {
-        return Str::slug($productName);
-    }
-
-    /**
      * Get product by Shopify ID
      */
     public function getProductById(string $shopifyId): ?array
@@ -378,6 +290,7 @@ class ShopifyService
                         vendor
                         productType
                         status
+                        onlineStoreUrl
                         featuredMedia {
                             ... on MediaImage {
                                 image {
@@ -439,7 +352,8 @@ class ShopifyService
                         'admin_url' => $this->buildAdminUrl($shopifyId),
                         'all_images' => $this->extractAllImages($product['images']['nodes'] ?? []),
                         'variant_info' => $this->extractVariantInfo($product['variants']['nodes'] ?? []),
-                        'prices' => $product['prices'] ?? [],
+                        // FIXED: Use actual Shopify onlineStoreUrl with fallback
+                        'online_store_url' => $product['onlineStoreUrl'] ?? $this->buildStorefrontUrl($product['handle'] ?? null),
                     ];
 
                     return $productInfo;
@@ -460,5 +374,85 @@ class ShopifyService
         }
 
         return null;
+    }
+
+    /**
+     * Extract Shopify product ID from GraphQL ID
+     */
+    private function extractShopifyId(string $graphqlId): ?string
+    {
+        if (preg_match('/\/Product\/(\d+)$/', $graphqlId, $matches)) {
+            return $matches[1];
+        }
+        return null;
+    }
+
+    /**
+     * Build storefront URL from product handle
+     */
+    private function buildStorefrontUrl(?string $handle): ?string
+    {
+        if (empty($handle)) {
+            return null;
+        }
+        return "https://{$this->storefrontDomain}/products/{$handle}";
+    }
+
+    /**
+     * Build admin URL from Shopify ID
+     */
+    private function buildAdminUrl(?string $shopifyId): ?string
+    {
+        if (empty($shopifyId)) {
+            return null;
+        }
+        return "https://admin.shopify.com/store/{$this->getShopName()}/products/{$shopifyId}";
+    }
+
+    /**
+     * Extract shop name from shop domain
+     */
+    private function getShopName(): string
+    {
+        return str_replace('.myshopify.com', '', $this->shopDomain);
+    }
+
+    /**
+     * Extract all image information
+     */
+    private function extractAllImages(array $imageNodes): array
+    {
+        return array_map(function ($image) {
+            return [
+                'url' => $image['url'] ?? null,
+                'alt' => $image['altText'] ?? null,
+                'width' => $image['width'] ?? null,
+                'height' => $image['height'] ?? null,
+            ];
+        }, $imageNodes);
+    }
+
+    /**
+     * Extract variant information
+     */
+    private function extractVariantInfo(array $variantNodes): array
+    {
+        return array_map(function ($variant) {
+            return [
+                'sku' => $variant['sku'] ?? null,
+                'price' => $variant['price'] ?? null,
+                'compare_at_price' => $variant['compareAtPrice'] ?? null,
+                'available_for_sale' => $variant['availableForSale'] ?? false,
+                'inventory_quantity' => $variant['inventoryQuantity'] ?? 0,
+            ];
+        }, $variantNodes);
+    }
+
+    /**
+     * Generate product slug from name (for backwards compatibility)
+     */
+    public function generateProductSlug(string $productName): string
+    {
+        return Str::slug($productName);
     }
 }
