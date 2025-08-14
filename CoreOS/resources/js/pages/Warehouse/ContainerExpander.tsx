@@ -1,5 +1,5 @@
 import React, {useCallback, useState} from 'react';
-import {Head, router} from '@inertiajs/react';
+import {Head} from '@inertiajs/react';
 import {Button} from '@/components/ui/button';
 import {Input} from '@/components/ui/input';
 import {Label} from '@/components/ui/label';
@@ -129,7 +129,7 @@ const ContainerExpander: React.FC = () => {
             clearFieldError('startRow');
 
             try {
-                const response = await axios.post<UpdateColumnsResponse>('/warehouse/container-expander/update-columns', {
+                const response = await axios.post<UpdateColumnsResponse>('/api/warehouse/container-expander/update-columns', {
                     tempPath,
                     startRow: newStartRow
                 }, {
@@ -240,7 +240,8 @@ const ContainerExpander: React.FC = () => {
         }
 
         clearFieldError('download');
-        router.get('/warehouse/container-expander/download');
+        // Use direct browser navigation for file downloads
+        window.location.href = '/warehouse/container-expander/download';
     }, [expandedData]);
 
     // Filter and prepare valid columns for select options

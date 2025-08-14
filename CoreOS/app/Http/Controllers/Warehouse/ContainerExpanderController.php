@@ -6,13 +6,12 @@ use App\Http\Controllers\Controller;
 use Exception;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Inertia\Response as InertiaResponse;
 use PhpOffice\PhpSpreadsheet\IOFactory;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
-use PhpOffice\PhpSpreadsheet\Style\NumberFormat;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 
 class ContainerExpanderController extends Controller
 {
@@ -25,7 +24,7 @@ class ContainerExpanderController extends Controller
     {
         try {
             $request->validate([
-                'spreadsheet' => 'required|file|mimes:xlsx,xls|max:10240', // 10MB max
+                'spreadsheet' => 'required|file|mimes:xlsx,xls|max:10240',
                 'startRow' => 'required|integer|min:1',
             ]);
 
@@ -35,14 +34,12 @@ class ContainerExpanderController extends Controller
             $spreadsheetReader = IOFactory::load($file->getRealPath());
             $worksheet = $spreadsheetReader->getActiveSheet();
 
-            // Extract columns from the specified start row
             $rowData = $worksheet->toArray();
-            $headerRow = $rowData[$startRow - 1] ?? []; // Adjust for 0-based index
+            $headerRow = $rowData[$startRow - 1] ?? [];
             $columns = array_values(array_filter($headerRow, function($value) {
                 return !is_null($value) && $value !== '';
             }));
 
-            // Generate sheet preview (first 10 rows)
             $highestRow = $worksheet->getHighestRow();
             $highestColumn = $worksheet->getHighestColumn();
             $sheetPreview = [];
@@ -61,7 +58,6 @@ class ContainerExpanderController extends Controller
                 ];
             }
 
-            // Store file temporarily with unique name
             $tempPath = $file->store('temp', 'local');
 
             return response()->json([
@@ -101,7 +97,6 @@ class ContainerExpanderController extends Controller
             $spreadsheetReader = IOFactory::load($fullPath);
             $worksheet = $spreadsheetReader->getActiveSheet();
 
-            // Re-extract columns from the new start row
             $rowData = $worksheet->toArray();
             $headerRow = $rowData[$startRow - 1] ?? [];
             $columns = array_values(array_filter($headerRow, function($value) {
@@ -148,7 +143,6 @@ class ContainerExpanderController extends Controller
             $worksheet = $spreadsheetReader->getActiveSheet();
             $data = $worksheet->toArray();
 
-            // Extract rows starting from the header row
             $data = array_slice($data, $startRow);
 
             $containerCol = $mappedColumns['container'];
@@ -159,10 +153,9 @@ class ContainerExpanderController extends Controller
 
             foreach ($data as $row) {
                 if (!isset($row[$containerCol], $row[$partCol], $row[$quantityCol])) {
-                    continue; // Skip rows with missing data
+                    continue;
                 }
 
-                // Skip empty rows
                 if (empty($row[$containerCol]) || empty($row[$partCol]) || empty($row[$quantityCol])) {
                     continue;
                 }
@@ -172,13 +165,11 @@ class ContainerExpanderController extends Controller
                 foreach ($containerNumbers as $containerNumber) {
                     $containerNumber = trim($containerNumber);
 
-                    // Stop processing if special stop conditions found
                     if (strtolower($containerNumber) === 'stop' ||
                         strtolower($containerNumber) === 'remaining parts in previous order:') {
                         break 2;
                     }
 
-                    // Handle container number ranges (e.g., "1-5")
                     if (strpos($containerNumber, '-') !== false) {
                         $rangeParts = explode('-', $containerNumber);
                         if (count($rangeParts) === 2) {
@@ -204,7 +195,6 @@ class ContainerExpanderController extends Controller
                 }
             }
 
-            // Store expanded data in session for download
             session(['expanded_data' => $expandedData]);
 
             return response()->json([
@@ -220,7 +210,7 @@ class ContainerExpanderController extends Controller
         }
     }
 
-    public function download(): Response
+    public function download()
     {
         $expandedData = session('expanded_data', []);
 
@@ -228,40 +218,43 @@ class ContainerExpanderController extends Controller
             abort(404, 'No data available to download. Please expand containers first.');
         }
 
-        // Create new spreadsheet using PhpSpreadsheet
         $spreadsheet = new Spreadsheet();
         $sheet = $spreadsheet->getActiveSheet();
+        $sheet->setTitle('Expanded Containers');
 
-        // Set headers
-        $sheet->fromArray([
-            ['Carton #', 'Part #', 'PCS Per Carton']
-        ], null, 'A1');
+        $sheet->setCellValue('A1', 'Carton #');
+        $sheet->setCellValue('B1', 'Part #');
+        $sheet->setCellValue('C1', 'PCS Per Carton');
 
-        // Add expanded data
-        $dataForExport = array_map(function ($row) {
-            return [$row['container'], $row['part'], $row['quantity']];
-        }, $expandedData);
+        $headerStyle = [
+            'font' => ['bold' => true],
+            'fill' => [
+                'fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID,
+                'startColor' => ['rgb' => 'E2E8F0']
+            ]
+        ];
+        $sheet->getStyle('A1:C1')->applyFromArray($headerStyle);
 
-        $sheet->fromArray($dataForExport, null, 'A2');
-
-        // Set text format for all columns
-        $lastColumn = $sheet->getHighestColumn();
-        $lastRow = $sheet->getHighestRow();
-
-        for ($row = 1; $row <= $lastRow; $row++) {
-            for ($col = 'A'; $col <= $lastColumn; $col++) {
-                $sheet->getStyle($col.$row)
-                    ->getNumberFormat()
-                    ->setFormatCode(NumberFormat::FORMAT_TEXT);
-            }
+        $row = 2;
+        foreach ($expandedData as $data) {
+            $sheet->setCellValue('A' . $row, $data['container']);
+            $sheet->setCellValue('B' . $row, $data['part']);
+            $sheet->setCellValue('C' . $row, $data['quantity']);
+            $row++;
         }
 
-        // Generate and download file
-        $filename = 'expanded_containers_'.now()->format('Y-m-d_H-i').'.xlsx';
+        $sheet->getColumnDimension('A')->setAutoSize(true);
+        $sheet->getColumnDimension('B')->setAutoSize(true);
+        $sheet->getColumnDimension('C')->setAutoSize(true);
+
+        $writer = new Xlsx($spreadsheet);
+        $filename = 'expanded_containers_' . now()->format('Y-m-d_H-i') . '.xlsx';
         $tempFile = tempnam(sys_get_temp_dir(), 'export_');
-        $writer = IOFactory::createWriter($spreadsheet, 'Xlsx');
+
         $writer->save($tempFile);
 
-        return response()->download($tempFile, $filename)->deleteFileAfterSend(true);
+        return response()->download($tempFile, $filename, [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        ])->deleteFileAfterSend(true);
     }
 }
