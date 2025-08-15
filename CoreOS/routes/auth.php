@@ -1,6 +1,5 @@
 <?php
 
-
 use App\Http\Middleware\AuthKitAuthenticationRequest;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -10,12 +9,20 @@ use Laravel\WorkOS\Http\Requests\AuthKitLogoutRequest;
 Route::get('login', function (AuthKitLoginRequest $request) {
     // Handle Inertia requests differently
     if ($request->header('X-Inertia')) {
-        // Get the redirect response and extract the URL
-        $redirectResponse = $request->redirect();
-        $redirectUrl = $redirectResponse->getHeaderLine('Location') ?: $redirectResponse->headers->get('Location');
+        // Build the WorkOS URL manually using your config
+        $clientId = config('workos.client_id') ?: env('WORKOS_CLIENT_ID');
+        $redirectUri = config('workos.redirect_url') ?: env('WORKOS_REDIRECT_URL');
+        $state = base64_encode(json_encode(['state' => \Illuminate\Support\Str::random(20)]));
 
-        // Return an Inertia location response for external redirects
-        return Inertia::location($redirectUrl);
+        $workosUrl = "https://api.workos.com/user_management/authorize?" . http_build_query([
+                'client_id' => $clientId,
+                'response_type' => 'code',
+                'redirect_uri' => $redirectUri,
+                'state' => $state,
+                'provider' => 'authkit'
+            ]);
+
+        return Inertia::location($workosUrl);
     }
 
     // For regular requests, redirect normally
@@ -55,7 +62,6 @@ Route::get('logout', function () {
     </html>';
 })->middleware(['auth'])->name('logout.form');
 
-// Your existing POST logout route (keep this)
 Route::post('logout', function (AuthKitLogoutRequest $request) {
     return $request->logout();
 })->middleware(['auth'])->name('logout');
