@@ -29,9 +29,10 @@ Route::get('login', function (AuthKitLoginRequest $request) {
     return $request->redirect();
 })->middleware(['guest'])->name('login');
 
+// Remove guest middleware from authenticate route
 Route::get('authenticate', function (AuthKitAuthenticationRequest $request) {
     return tap(to_route('dashboard'), fn () => $request->authenticate());
-})->middleware(['guest']);
+});
 
 Route::get('logout', function () {
     return '
