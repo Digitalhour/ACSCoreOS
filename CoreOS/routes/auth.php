@@ -3,14 +3,19 @@
 
 use App\Http\Middleware\AuthKitAuthenticationRequest;
 use Illuminate\Support\Facades\Route;
+use Inertia\Inertia;
 use Laravel\WorkOS\Http\Requests\AuthKitLoginRequest;
 use Laravel\WorkOS\Http\Requests\AuthKitLogoutRequest;
 
 Route::get('login', function (AuthKitLoginRequest $request) {
     // Handle Inertia requests differently
     if ($request->header('X-Inertia')) {
+        // Get the redirect response and extract the URL
+        $redirectResponse = $request->redirect();
+        $redirectUrl = $redirectResponse->getHeaderLine('Location') ?: $redirectResponse->headers->get('Location');
+
         // Return an Inertia location response for external redirects
-        return \Inertia\Inertia::location($request->redirect()->getTargetUrl());
+        return Inertia::location($redirectUrl);
     }
 
     // For regular requests, redirect normally
