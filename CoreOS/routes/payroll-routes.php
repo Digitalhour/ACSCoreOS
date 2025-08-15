@@ -7,7 +7,7 @@ use Illuminate\Support\Facades\Route;
 
 Route::middleware('auth')->middleware('verified')->group(function () {
     Route::prefix('time-clock')->group(function () {
-        Route::middleware('permission:Manager-payroll')->group(function () {
+
             // Manager routes (NEW)
             Route::prefix('manager')->group(function () {
                 Route::get('/dashboard', [ManagerTimeClockController::class, 'dashboard'])->name('time-clock.manager.dashboard');
@@ -23,7 +23,7 @@ Route::middleware('auth')->middleware('verified')->group(function () {
                 Route::post('/update-entry/{timeClock}', [ManagerTimeClockController::class, 'updateEntry'])->name('time-clock.manager.update-entry');
                 Route::delete('/delete-entry/{timeClock}', [ManagerTimeClockController::class, 'deleteEntry'])->name('time-clock.manager.delete-entry');
                 Route::get('/day-entries-modal', [ManagerTimeClockController::class, 'getDayEntriesModal'])->name('time-clock.manager.day-entries-modal');
-            });
+   
         });
 
         Route::middleware('permission:Corporate-payroll')->group(function () {
