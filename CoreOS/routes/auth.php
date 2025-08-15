@@ -1,19 +1,12 @@
 <?php
 
+
 use App\Http\Middleware\AuthKitAuthenticationRequest;
 use Illuminate\Support\Facades\Route;
-use Inertia\Inertia;
 use Laravel\WorkOS\Http\Requests\AuthKitLoginRequest;
 use Laravel\WorkOS\Http\Requests\AuthKitLogoutRequest;
 
 Route::get('login', function (AuthKitLoginRequest $request) {
-    // Handle Inertia requests differently
-    if ($request->header('X-Inertia')) {
-        // Return an Inertia response that will trigger a full page redirect
-        return Inertia::location($request->redirect()->getTargetUrl());
-    }
-
-    // For regular requests, redirect normally
     return $request->redirect();
 })->middleware(['guest'])->name('login');
 
@@ -50,6 +43,7 @@ Route::get('logout', function () {
     </html>';
 })->middleware(['auth'])->name('logout.form');
 
+// Your existing POST logout route (keep this)
 Route::post('logout', function (AuthKitLogoutRequest $request) {
     return $request->logout();
 })->middleware(['auth'])->name('logout');
