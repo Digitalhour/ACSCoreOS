@@ -342,7 +342,7 @@ export default function PtoCalendar({ currentYear, currentMonth, availableYears,
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Company PTO Calendar" />
-            <div className="flex h-full max-h-screen flex-1 flex-col gap-4 rounded-xl p-4">
+            <div className="flex  flex-1 flex-col gap-4 rounded-xl p-4">
                 {/* Header with controls */}
                 <div className="flex items-center justify-between">
                     <h1 className="text-2xl font-bold">Company PTO Calendar</h1>
@@ -442,7 +442,7 @@ export default function PtoCalendar({ currentYear, currentMonth, availableYears,
                           </>
                         )}
                     </div>
-                    <Card className="lg:col-span-4">
+                    <Card className="lg:col-span-5">
                         <CardHeader>
                             <div className="flex items-center justify-between">
                                 <CardTitle>
@@ -498,10 +498,10 @@ export default function PtoCalendar({ currentYear, currentMonth, availableYears,
                                                         "relative p-2 border-r border-b border-gray-200 last:border-r-0",
                                                         !isCurrentMonth && "bg-gray-50 text-gray-400",
                                                         isToday && "bg-blue-50",
-                                                        `min-h-[${Math.max(80, (maxRows + 1) * 25)}px]`
+                                                        `min-h-[${Math.max(80, (maxRows + 1) * 75)}px]`
                                                     )}
                                                     style={{
-                                                        minHeight: `${Math.max(80, (maxRows + 1) * 25)}px`
+                                                        minHeight: `${Math.max(80, (maxRows + 1) * 75)}px`
                                                     }}
                                                 >
                                                     <span className={cn(

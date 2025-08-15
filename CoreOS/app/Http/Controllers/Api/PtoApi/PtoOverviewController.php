@@ -391,15 +391,31 @@ class PtoOverviewController extends Controller
         $year = $request->year ?? Carbon::now()->year;
         $month = $request->month ?? Carbon::now()->month;
 
-        // Get available years from PTO requests (SQLite compatible)
-        $availableYears = PtoRequest::selectRaw("DISTINCT strftime('%Y', start_date) as year")
-            ->whereNotNull('start_date')
-            ->orderBy('year', 'desc')
-            ->pluck('year')
-            ->filter() // Remove any null values
-            ->map(function($year) {
-                return (int) $year; // Convert to integer
-            });
+        // Get available years from PTO requests (database agnostic)
+        $databaseDriver = config('database.default');
+        $connection = config("database.connections.{$databaseDriver}.driver");
+
+        if ($connection === 'sqlite') {
+            // SQLite syntax
+            $availableYears = PtoRequest::selectRaw("DISTINCT strftime('%Y', start_date) as year")
+                ->whereNotNull('start_date')
+                ->orderBy('year', 'desc')
+                ->pluck('year')
+                ->filter() // Remove any null values
+                ->map(function($year) {
+                    return (int) $year; // Convert to integer
+                });
+        } else {
+            // MySQL/PostgreSQL syntax
+            $availableYears = PtoRequest::selectRaw('DISTINCT YEAR(start_date) as year')
+                ->whereNotNull('start_date')
+                ->orderBy('year', 'desc')
+                ->pluck('year')
+                ->filter() // Remove any null values
+                ->map(function($year) {
+                    return (int) $year; // Convert to integer
+                });
+        }
 
         // If no years found, add current year
         if ($availableYears->isEmpty()) {
@@ -430,7 +446,7 @@ class PtoOverviewController extends Controller
             $query = PtoRequest::with(['user', 'ptoType'])
                 ->where('status', 'approved');
 
-            // Filter by year (SQLite compatible)
+            // Filter by year and month using date ranges (database agnostic)
             if ($month) {
                 // If month is specified, filter by specific month and year
                 $startOfMonth = Carbon::create($year, $month, 1)->startOfMonth();
