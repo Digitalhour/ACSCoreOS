@@ -391,10 +391,20 @@ class PtoOverviewController extends Controller
         $year = $request->year ?? Carbon::now()->year;
         $month = $request->month ?? Carbon::now()->month;
 
-        // Get available years from PTO requests
-        $availableYears = PtoRequest::selectRaw('DISTINCT YEAR(start_date) as year')
+        // Get available years from PTO requests (SQLite compatible)
+        $availableYears = PtoRequest::selectRaw("DISTINCT strftime('%Y', start_date) as year")
+            ->whereNotNull('start_date')
             ->orderBy('year', 'desc')
-            ->pluck('year');
+            ->pluck('year')
+            ->filter() // Remove any null values
+            ->map(function($year) {
+                return (int) $year; // Convert to integer
+            });
+
+        // If no years found, add current year
+        if ($availableYears->isEmpty()) {
+            $availableYears = collect([Carbon::now()->year]);
+        }
 
         // Get all PTO types for the legend
         $ptoTypes = PtoType::orderBy('name')->get();
@@ -420,27 +430,34 @@ class PtoOverviewController extends Controller
             $query = PtoRequest::with(['user', 'ptoType'])
                 ->where('status', 'approved');
 
-            // Filter by year
-            $query->whereYear('start_date', '<=', $year)
-                ->whereYear('end_date', '>=', $year);
-
-            // If month is specified, filter by month
+            // Filter by year (SQLite compatible)
             if ($month) {
-                $query->where(function ($q) use ($year, $month) {
-                    // Include requests that start in this month
-                    $q->where(function ($subQ) use ($year, $month) {
-                        $subQ->whereYear('start_date', $year)
-                            ->whereMonth('start_date', $month);
-                    })
-                        // Or end in this month
-                        ->orWhere(function ($subQ) use ($year, $month) {
-                            $subQ->whereYear('end_date', $year)
-                                ->whereMonth('end_date', $month);
-                        })
+                // If month is specified, filter by specific month and year
+                $startOfMonth = Carbon::create($year, $month, 1)->startOfMonth();
+                $endOfMonth = Carbon::create($year, $month, 1)->endOfMonth();
+
+                $query->where(function ($q) use ($startOfMonth, $endOfMonth) {
+                    // Include requests that start within this month
+                    $q->whereBetween('start_date', [$startOfMonth, $endOfMonth])
+                        // Or end within this month
+                        ->orWhereBetween('end_date', [$startOfMonth, $endOfMonth])
                         // Or span across this month
-                        ->orWhere(function ($subQ) use ($year, $month) {
-                            $subQ->where('start_date', '<=', Carbon::create($year, $month, 1)->startOfMonth())
-                                ->where('end_date', '>=', Carbon::create($year, $month, 1)->endOfMonth());
+                        ->orWhere(function ($subQ) use ($startOfMonth, $endOfMonth) {
+                            $subQ->where('start_date', '<=', $startOfMonth)
+                                ->where('end_date', '>=', $endOfMonth);
+                        });
+                });
+            } else {
+                // Filter by year only
+                $startOfYear = Carbon::create($year, 1, 1)->startOfYear();
+                $endOfYear = Carbon::create($year, 12, 31)->endOfYear();
+
+                $query->where(function ($q) use ($startOfYear, $endOfYear) {
+                    $q->whereBetween('start_date', [$startOfYear, $endOfYear])
+                        ->orWhereBetween('end_date', [$startOfYear, $endOfYear])
+                        ->orWhere(function ($subQ) use ($startOfYear, $endOfYear) {
+                            $subQ->where('start_date', '<=', $startOfYear)
+                                ->where('end_date', '>=', $endOfYear);
                         });
                 });
             }
