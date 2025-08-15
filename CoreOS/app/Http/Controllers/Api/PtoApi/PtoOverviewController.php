@@ -399,7 +399,7 @@ class PtoOverviewController extends Controller
         // Get all PTO types for the legend
         $ptoTypes = PtoType::orderBy('name')->get();
 
-        return Inertia::render('human-resources/PTO-Calendar.tsx', [
+        return Inertia::render('human-resources/PTO-Calendar', [
             'currentYear' => $year,
             'currentMonth' => $month,
             'availableYears' => $availableYears,
