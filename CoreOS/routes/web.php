@@ -14,9 +14,13 @@ use Laravel\WorkOS\Http\Middleware\ValidateSessionWithWorkOS;
 Route::get('/', function () {
     return Inertia::render('welcome');
 })->name('home');
+
+
 Route::get('/test', function () {
     return 'Homepage test working!';
 });
+
+
 Route::get('/_debug-session', function () {
     $n = session('ping', 0) + 1;
     session(['ping' => $n]);
