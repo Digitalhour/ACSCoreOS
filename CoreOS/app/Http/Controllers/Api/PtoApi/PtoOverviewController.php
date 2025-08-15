@@ -382,4 +382,170 @@ class PtoOverviewController extends Controller
             ], 500);
         }
     }
+
+    /**
+     * Display the PTO Calendar view (Inertia)
+     */
+    public function ptoCalendar(Request $request)
+    {
+        $year = $request->year ?? Carbon::now()->year;
+        $month = $request->month ?? Carbon::now()->month;
+
+        // Get available years from PTO requests
+        $availableYears = PtoRequest::selectRaw('DISTINCT YEAR(start_date) as year')
+            ->orderBy('year', 'desc')
+            ->pluck('year');
+
+        // Get all PTO types for the legend
+        $ptoTypes = PtoType::orderBy('name')->get();
+
+        return Inertia::render('human-resources/PTO-Calendar.tsx', [
+            'currentYear' => $year,
+            'currentMonth' => $month,
+            'availableYears' => $availableYears,
+            'ptoTypes' => $ptoTypes,
+        ]);
+    }
+
+    /**
+     * Get PTO Calendar data for API consumption
+     */
+    public function getCalendarData(Request $request): JsonResponse
+    {
+        try {
+            $year = $request->year ?? Carbon::now()->year;
+            $month = $request->month ?? null;
+
+            // Build the query for approved PTO requests
+            $query = PtoRequest::with(['user', 'ptoType'])
+                ->where('status', 'approved');
+
+            // Filter by year
+            $query->whereYear('start_date', '<=', $year)
+                ->whereYear('end_date', '>=', $year);
+
+            // If month is specified, filter by month
+            if ($month) {
+                $query->where(function ($q) use ($year, $month) {
+                    // Include requests that start in this month
+                    $q->where(function ($subQ) use ($year, $month) {
+                        $subQ->whereYear('start_date', $year)
+                            ->whereMonth('start_date', $month);
+                    })
+                        // Or end in this month
+                        ->orWhere(function ($subQ) use ($year, $month) {
+                            $subQ->whereYear('end_date', $year)
+                                ->whereMonth('end_date', $month);
+                        })
+                        // Or span across this month
+                        ->orWhere(function ($subQ) use ($year, $month) {
+                            $subQ->where('start_date', '<=', Carbon::create($year, $month, 1)->startOfMonth())
+                                ->where('end_date', '>=', Carbon::create($year, $month, 1)->endOfMonth());
+                        });
+                });
+            }
+
+            $ptoRequests = $query->orderBy('start_date')->get();
+
+            // Format the data for calendar display
+            $calendarEvents = [];
+
+            foreach ($ptoRequests as $request) {
+                // Create date range for this request
+                $startDate = Carbon::parse($request->start_date);
+                $endDate = Carbon::parse($request->end_date);
+
+                // Generate events for each day in the range
+                $currentDate = $startDate->copy();
+                while ($currentDate->lte($endDate)) {
+                    // Skip if filtering by month and this date is not in the target month
+                    if ($month && $currentDate->month != $month) {
+                        $currentDate->addDay();
+                        continue;
+                    }
+
+                    // Skip if filtering by year and this date is not in the target year
+                    if ($currentDate->year != $year) {
+                        $currentDate->addDay();
+                        continue;
+                    }
+
+                    $dateString = $currentDate->format('Y-m-d');
+
+                    if (!isset($calendarEvents[$dateString])) {
+                        $calendarEvents[$dateString] = [];
+                    }
+
+                    $calendarEvents[$dateString][] = [
+                        'id' => $request->id,
+                        'request_number' => $request->request_number,
+                        'user_id' => $request->user_id,
+                        'user_name' => $request->user->name,
+                        'user_email' => $request->user->email,
+                        'pto_type_id' => $request->pto_type_id,
+                        'pto_type_name' => $request->ptoType->name,
+                        'pto_type_code' => $request->ptoType->code,
+                        'pto_type_color' => $request->ptoType->color ?? '#3b82f6',
+                        'start_date' => $request->start_date->format('Y-m-d'),
+                        'end_date' => $request->end_date->format('Y-m-d'),
+                        'total_days' => $request->total_days,
+                        'reason' => $request->reason,
+                        'is_start_date' => $currentDate->equalTo($startDate),
+                        'is_end_date' => $currentDate->equalTo($endDate),
+                        'is_single_day' => $startDate->equalTo($endDate),
+                    ];
+
+                    $currentDate->addDay();
+                }
+            }
+
+            // Get summary statistics for the requested period
+            $totalRequests = $ptoRequests->count();
+            $totalDays = $ptoRequests->sum('total_days');
+            $uniqueUsers = $ptoRequests->pluck('user_id')->unique()->count();
+
+            // Get PTO type breakdown
+            $ptoTypeBreakdown = $ptoRequests->groupBy('pto_type_id')->map(function ($requests, $typeId) {
+                $firstRequest = $requests->first();
+                return [
+                    'type_id' => $typeId,
+                    'type_name' => $firstRequest->ptoType->name,
+                    'type_code' => $firstRequest->ptoType->code,
+                    'type_color' => $firstRequest->ptoType->color ?? '#3b82f6',
+                    'request_count' => $requests->count(),
+                    'total_days' => $requests->sum('total_days'),
+                ];
+            })->values();
+
+            return response()->json([
+                'events' => $calendarEvents,
+                'summary' => [
+                    'total_requests' => $totalRequests,
+                    'total_days' => $totalDays,
+                    'unique_users' => $uniqueUsers,
+                ],
+                'pto_type_breakdown' => $ptoTypeBreakdown,
+                'current_year' => $year,
+                'current_month' => $month,
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error("Error fetching PTO Calendar data: " . $e->getMessage());
+            return response()->json([
+                'error' => 'Failed to load calendar data.',
+                'details' => App::environment('local') ? $e->getMessage() : 'An unexpected error occurred.'
+            ], 500);
+        }
+    }
+
+
+
+
+
+
+
+
+
+
+
 }

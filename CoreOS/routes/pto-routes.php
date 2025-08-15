@@ -12,7 +12,8 @@ use Laravel\WorkOS\Http\Middleware\ValidateSessionWithWorkOS;
 Route::middleware('auth')
     ->middleware(ValidateSessionWithWorkOS::class)
     ->group(function () {
-
+        Route::get('/hr/pto-calendar', [PtoOverviewController::class, 'ptoCalendar'])->name('hr.pto-calendar');
+        Route::get('/api/hr/pto-calendar-data', [PtoOverviewController::class, 'getCalendarData'])->name('api.hr.pto-calendar-data');
         // Department manager approval actions (from manager interface)
         Route::middleware('permission:Manager-Department-Pto')->group(function () {
             Route::get('/department-pto',[DepartmentTimeOffController::class, 'dashboard'])->name('departments.manager.pto.dashboard');
