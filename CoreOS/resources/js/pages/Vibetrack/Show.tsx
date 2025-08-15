@@ -27,7 +27,7 @@ import {
     ThermometerIcon,
     WifiIcon
 } from 'lucide-react';
-import {format, isWithinInterval, startOfDay, subDays, subMonths} from 'date-fns';
+import {format, isWithinInterval, subDays, subMonths} from 'date-fns';
 import {Bar, BarChart, CartesianGrid, Line, LineChart, XAxis, YAxis} from 'recharts';
 import {Table, TableBody, TableCell, TableHead, TableHeader, TableRow} from '@/components/ui/table';
 import {route} from "ziggy-js";
@@ -35,8 +35,8 @@ import {route} from "ziggy-js";
 // Interface for a single data point in the runtime history chart
 interface RuntimeHistoryPoint {
     runtime_sec: number | null;
-    start_time: number | null;
-    stop_time: number | null;
+    start_time: number | null; // Milliseconds since epoch
+    stop_time: number | null;  // Milliseconds since epoch
     created_at: string;
 }
 
@@ -60,8 +60,8 @@ interface Vibetrack {
     is_status_data: boolean;
     signal_strength: number | null;
     device_type: 'runtime' | 'status' | 'unknown';
-    start_time: number | null;
-    stop_time: number | null;
+    start_time: number | null; // Milliseconds since epoch
+    stop_time: number | null;  // Milliseconds since epoch
     runtime_seconds: number | null;
     runtime_minutes: number | null;
     battery_voltage: number | null;
@@ -159,20 +159,26 @@ export default function VibetrackShow({ vibetrack, runtimeHistory, statusHistory
         let trueEndTime: Date;
 
         if (runtimeSec <= 60) {
+            // For short runtimes, calculate based on created_at
             trueEndTime = createdAt;
             trueStartTime = new Date(createdAt.getTime() - (runtimeSec * 1000));
         } else {
-            trueStartTime = entry.start_time ? new Date(entry.start_time * 1000) : new Date(createdAt.getTime() - (runtimeSec * 1000));
-            trueEndTime = entry.stop_time ? new Date(entry.stop_time * 1000) : createdAt;
+            // For longer runtimes, use the actual timestamps from JSON
+            // Note: timestamps are already in milliseconds, so no need to multiply by 1000
+            trueStartTime = entry.start_time ? new Date(entry.start_time) : new Date(createdAt.getTime() - (runtimeSec * 1000));
+            trueEndTime = entry.stop_time ? new Date(entry.stop_time) : createdAt;
         }
 
         return { trueStartTime, trueEndTime };
     };
 
     // Helper function to aggregate runtime data by day
+    // Note: Using local dates so data appears on the day it actually occurred in user's timezone
     const aggregateRuntimeByDay = (data: RuntimeHistoryPoint[]) => {
         const grouped = data.reduce((acc, entry) => {
-            const dayKey = format(startOfDay(new Date(entry.created_at)), 'yyyy-MM-dd');
+            // Use local date - this ensures data appears on the day it actually happened
+            const entryDate = new Date(entry.created_at);
+            const dayKey = format(entryDate, 'yyyy-MM-dd');
 
             if (!acc[dayKey]) {
                 acc[dayKey] = {
@@ -194,9 +200,12 @@ export default function VibetrackShow({ vibetrack, runtimeHistory, statusHistory
     };
 
     // Helper function to aggregate status data by day (taking daily averages)
+    // Note: Using local dates so data appears on the day it actually occurred in user's timezone
     const aggregateStatusByDay = (data: StatusHistoryPoint[]) => {
         const grouped = data.reduce((acc, entry) => {
-            const dayKey = format(startOfDay(new Date(entry.created_at)), 'yyyy-MM-dd');
+            // Use local date - this ensures data appears on the day it actually happened
+            const entryDate = new Date(entry.created_at);
+            const dayKey = format(entryDate, 'yyyy-MM-dd');
 
             if (!acc[dayKey]) {
                 acc[dayKey] = {
@@ -327,13 +336,21 @@ export default function VibetrackShow({ vibetrack, runtimeHistory, statusHistory
 
     // Prepare bar chart data for runtime history (daily aggregated)
     const runtimeBarChartData = useMemo(() => {
-        return dailyRuntimeData.map((day) => ({
-            date: format(new Date(day.date), 'MM/dd'),
-            dateLabel: format(new Date(day.date), 'PP'),
-            runtime_minutes: Math.round(day.total_runtime_sec / 60),
-            runtime_sec: day.total_runtime_sec,
-            session_count: day.session_count,
-        }));
+        return dailyRuntimeData.map((day) => {
+            // Fix: Parse date string properly to avoid timezone shifts
+            // day.date is '2025-08-15', but new Date('2025-08-15') interprets as UTC midnight
+            // which shifts to previous day in local timezone
+            const [year, month, dayNum] = day.date.split('-').map(Number);
+            const localDate = new Date(year, month - 1, dayNum); // month is 0-indexed
+
+            return {
+                date: format(localDate, 'MM/dd'),
+                dateLabel: format(localDate, 'PP'),
+                runtime_minutes: Math.round(day.total_runtime_sec / 60),
+                runtime_sec: day.total_runtime_sec,
+                session_count: day.session_count,
+            };
+        });
     }, [dailyRuntimeData]);
 
     // Chart configuration for environmental data
@@ -370,10 +387,17 @@ export default function VibetrackShow({ vibetrack, runtimeHistory, statusHistory
 
     // Use daily aggregated status history for environmental charts
     const environmentalData = useMemo(() => {
-        return dailyStatusData.map(item => ({
-            ...item,
-            date: item.date,
-        }));
+        return dailyStatusData.map(item => {
+            // Fix: Parse date string properly to avoid timezone shifts
+            const [year, month, dayNum] = item.date.split('-').map(Number);
+            const localDate = new Date(year, month - 1, dayNum); // month is 0-indexed
+
+            return {
+                ...item,
+                date: item.date, // Keep original string for data grouping
+                displayDate: localDate, // Add proper date object for chart formatting
+            };
+        });
     }, [dailyStatusData]);
 
     const formatUTCToLocal = (utcDateString: string) => {
@@ -643,7 +667,11 @@ export default function VibetrackShow({ vibetrack, runtimeHistory, statusHistory
                                                     content={<ChartTooltipContent
                                                         labelFormatter={(value, payload) => {
                                                             if (payload && payload[0] && payload[0].payload) {
-                                                                return format(new Date(payload[0].payload.date), 'PP');
+                                                                // Fix: Parse date string properly to avoid timezone shifts
+                                                                const dateStr = payload[0].payload.date;
+                                                                const [year, month, dayNum] = dateStr.split('-').map(Number);
+                                                                const localDate = new Date(year, month - 1, dayNum);
+                                                                return format(localDate, 'PP');
                                                             }
                                                             return '';
                                                         }}
@@ -683,7 +711,11 @@ export default function VibetrackShow({ vibetrack, runtimeHistory, statusHistory
                                                     content={<ChartTooltipContent
                                                         labelFormatter={(value, payload) => {
                                                             if (payload && payload[0] && payload[0].payload) {
-                                                                return format(new Date(payload[0].payload.date), 'PP');
+                                                                // Fix: Parse date string properly to avoid timezone shifts
+                                                                const dateStr = payload[0].payload.date;
+                                                                const [year, month, dayNum] = dateStr.split('-').map(Number);
+                                                                const localDate = new Date(year, month - 1, dayNum);
+                                                                return format(localDate, 'PP');
                                                             }
                                                             return '';
                                                         }}
@@ -723,7 +755,11 @@ export default function VibetrackShow({ vibetrack, runtimeHistory, statusHistory
                                                     content={<ChartTooltipContent
                                                         labelFormatter={(value, payload) => {
                                                             if (payload && payload[0] && payload[0].payload) {
-                                                                return format(new Date(payload[0].payload.date), 'PP');
+                                                                // Fix: Parse date string properly to avoid timezone shifts
+                                                                const dateStr = payload[0].payload.date;
+                                                                const [year, month, dayNum] = dateStr.split('-').map(Number);
+                                                                const localDate = new Date(year, month - 1, dayNum);
+                                                                return format(localDate, 'PP');
                                                             }
                                                             return '';
                                                         }}
@@ -760,8 +796,10 @@ export default function VibetrackShow({ vibetrack, runtimeHistory, statusHistory
                                                     tickMargin={8}
                                                     minTickGap={32}
                                                     tickFormatter={(value) => {
-                                                        const date = new Date(value);
-                                                        return date.toLocaleDateString("en-US", {
+                                                        // Fix: Parse date string properly to avoid timezone shifts
+                                                        const [year, month, dayNum] = value.split('-').map(Number);
+                                                        const localDate = new Date(year, month - 1, dayNum);
+                                                        return localDate.toLocaleDateString("en-US", {
                                                             month: "short",
                                                             day: "numeric",
                                                         });
@@ -779,7 +817,14 @@ export default function VibetrackShow({ vibetrack, runtimeHistory, statusHistory
                                                     orientation="right"
                                                     tickFormatter={(value) => `${value}%`}
                                                 />
-                                                <ChartTooltip cursor={false} content={<ChartTooltipContent />} />
+                                                <ChartTooltip cursor={false} content={<ChartTooltipContent
+                                                    labelFormatter={(value) => {
+                                                        // Fix: Parse date string properly to avoid timezone shifts
+                                                        const [year, month, dayNum] = value.split('-').map(Number);
+                                                        const localDate = new Date(year, month - 1, dayNum);
+                                                        return format(localDate, 'PP');
+                                                    }}
+                                                />} />
                                                 <Line
                                                     yAxisId="temp"
                                                     type="monotone"

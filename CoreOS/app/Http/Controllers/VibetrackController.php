@@ -13,18 +13,25 @@ class VibetrackController extends Controller
 {
     private function mapVibetrackData(Vibetrack $vibetrack, $name = null)
     {
+        $json = $vibetrack->json ?? [];
+
+        // Extract runtime data from JSON if available, otherwise use database columns
+        $startTime = $json['start_time'] ?? $vibetrack->start_time;
+        $stopTime = $json['stop_time'] ?? $vibetrack->stop_time;
+        $runtimeSec = $json['runtime_sec'] ?? $vibetrack->runtime_seconds;
+
         return [
             'id' => $vibetrack->id,
             'device_id' => $vibetrack->device_id,
-            'name' => $name, // Add name here
+            'name' => $name,
             'is_runtime_data' => $vibetrack->is_runtime_data,
             'is_status_data' => $vibetrack->is_status_data,
             'signal_strength' => $vibetrack->signal_strength,
             'device_type' => $vibetrack->device_type,
-            'start_time' => $vibetrack->start_time,
-            'stop_time' => $vibetrack->stop_time,
-            'runtime_seconds' => $vibetrack->runtime_seconds,
-            'runtime_minutes' => $vibetrack->runtime_minutes,
+            'start_time' => $startTime, // This will be in milliseconds from JSON
+            'stop_time' => $stopTime,   // This will be in milliseconds from JSON
+            'runtime_seconds' => $runtimeSec,
+            'runtime_minutes' => $runtimeSec ? round($runtimeSec / 60, 2) : null,
             'battery_voltage' => $vibetrack->battery_voltage,
             'battery_soc' => $vibetrack->battery_soc,
             'temperature' => $vibetrack->temperature,
@@ -129,9 +136,9 @@ class VibetrackController extends Controller
         $runtimeHistory = $history
             ->filter(fn ($item) => $item->is_runtime_data)
             ->map(fn ($item) => [
-                'runtime_sec' => $item->runtime_seconds,
-                'start_time' => $item->start_time,
-                'stop_time' => $item->stop_time,
+                'runtime_sec' => $item->json['runtime_sec'] ?? $item->runtime_seconds,
+                'start_time' => $item->json['start_time'] ?? $item->start_time,
+                'stop_time' => $item->json['stop_time'] ?? $item->stop_time,
                 'created_at' => $item->created_at->toIso8601String(),
             ])->values();
 
@@ -191,13 +198,13 @@ class VibetrackController extends Controller
         // Get the latest status data
         $latestStatus = $statusData->first() ?: $allData->first();
 
-        // Build runtime history
+        // Build runtime history - use JSON values consistently
         $runtimeHistory = $runtimeData->map(function ($item) {
             $json = $item->json;
             return [
                 'runtime_sec' => $json['runtime_sec'] ?? null,
-                'start_time' => $json['start_time'] ?? null,
-                'stop_time' => $json['stop_time'] ?? null,
+                'start_time' => $json['start_time'] ?? null, // Already in milliseconds
+                'stop_time' => $json['stop_time'] ?? null,   // Already in milliseconds
                 'created_at' => $item->created_at->toIso8601String(),
             ];
         })->values();
@@ -222,5 +229,4 @@ class VibetrackController extends Controller
             'statusHistory' => $statusHistory,
         ]);
     }
-
 }
