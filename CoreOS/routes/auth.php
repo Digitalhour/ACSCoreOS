@@ -7,6 +7,13 @@ use Laravel\WorkOS\Http\Requests\AuthKitLoginRequest;
 use Laravel\WorkOS\Http\Requests\AuthKitLogoutRequest;
 
 Route::get('login', function (AuthKitLoginRequest $request) {
+    // Handle Inertia requests differently
+    if ($request->header('X-Inertia')) {
+        // Return an Inertia location response for external redirects
+        return \Inertia\Inertia::location($request->redirect()->getTargetUrl());
+    }
+
+    // For regular requests, redirect normally
     return $request->redirect();
 })->middleware(['guest'])->name('login');
 
