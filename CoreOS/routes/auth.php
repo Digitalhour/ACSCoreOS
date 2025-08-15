@@ -8,11 +8,11 @@ use Laravel\WorkOS\Http\Requests\AuthKitLogoutRequest;
 
 Route::get('login', function (AuthKitLoginRequest $request) {
     return $request->redirect();
-})->name('login');
+})->middleware(['guest'])->name('login');
 
 Route::get('authenticate', function (AuthKitAuthenticationRequest $request) {
     return tap(to_route('dashboard'), fn () => $request->authenticate());
-});
+})->middleware(['guest']);
 
 Route::get('logout', function () {
     return '
