@@ -17,7 +17,19 @@ Route::get('/', function () {
 Route::get('/test', function () {
     return 'Homepage test working!';
 });
-
+Route::get('/_debug-session', function () {
+    $n = session('ping', 0) + 1;
+    session(['ping' => $n]);
+    return [
+        'session_id'  => session()->getId(),
+        'ping'        => $n,
+        'csrf_token'  => csrf_token(),
+        'driver'      => config('session.driver'),
+        'domain'      => config('session.domain'),
+        'secure'      => config('session.secure'),
+        'same_site'   => config('session.same_site'),
+    ];
+});
 
 Route::middleware('auth')->middleware(ValidateSessionWithWorkOS::class)->group(function () {
 
