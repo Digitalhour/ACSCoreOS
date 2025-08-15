@@ -15,11 +15,19 @@ import {
 import {Area, AreaChart, CartesianGrid, Line, LineChart, XAxis, YAxis} from "recharts";
 import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue,} from "@/components/ui/select";
 
+import {usePermission} from "@/hooks/usePermission";
+import DashboardTimeClock from "@/components/DashboardTimeClock";
+import {TimeclockPermissionsEnum} from "@/types/permissions";
+
 interface User {
     id: number;
     name: string;
     email: string;
     avatar: string;
+    first_name: string;
+    last_name: string;
+    phone: string;
+    is_active: boolean;
 }
 
 interface Article {
@@ -51,8 +59,46 @@ interface YearlySalesData {
     repeatSales: number;
 }
 
+// Add TimeClock-related interfaces
+interface TimeClock {
+    id: number;
+    user_id: number;
+    punch_type: 'work' | 'break';
+    break_type_id?: number;
+    clock_in_at: string;
+    clock_out_at: string | null;
+    regular_hours: number;
+    overtime_hours: number;
+    notes: string | null;
+    status: 'active' | 'completed' | 'pending_approval';
+    location_data?: any;
+    breakType?: BreakType;
+}
+
+interface BreakType {
+    id: number;
+    name: string;
+    label: string;
+    description: string;
+    is_paid: boolean;
+    max_duration_minutes: number | null;
+    is_active: boolean;
+}
+
+interface CurrentStatus {
+    is_clocked_in: boolean;
+    is_on_break: boolean;
+    current_work_punch: TimeClock | null;
+    current_break_punch: TimeClock | null;
+    last_punch: TimeClock | null;
+}
+
 interface Props {
     articles: Article[];
+    // Add these new props for TimeClock (make them optional initially)
+    currentStatus?: CurrentStatus;
+    breakTypes?: BreakType[];
+    User?: User; // Update User interface to include required fields
 }
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -89,7 +135,12 @@ const chartConfig = {
     },
 } satisfies ChartConfig;
 
-export default function Dashboard({ articles }: Props) {
+export default function Dashboard({
+                                      articles,
+                                      currentStatus,
+                                      breakTypes = [],
+                                      User
+                                  }: Props) {
     const [monthlySalesData, setMonthlySalesData] = useState<SalesData[]>([]);
     const [totalNetSales, setTotalNetSales] = useState<number>(0);
     const [totalGrossSales, setTotalGrossSales] = useState<number>(0);
@@ -171,15 +222,35 @@ export default function Dashboard({ articles }: Props) {
             default: return "This month";
         }
     };
-
+    const { hasPermission, hasRole, hasAnyRole } = usePermission();
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Dashboard" />
-            <div className="flex h-full max-h-screen flex-col gap-4 rounded-xl p-2 sm:p-4">
-                {/* Stats Cards Grid */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3 sm:gap-4">
-                    {/* Interactive Area Chart - Total Sales */}
-                    <div className="col-span-1 sm:col-span-1 lg:col-span-3 xl:col-span-3">
+            <div className="flex flex-col gap-4 rounded-xl p-2 sm:p-4">
+                {/* Stats Cards Grid - Updated to include TimeClock */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-8 gap-3 sm:gap-4">
+                    {hasPermission(TimeclockPermissionsEnum.Show) && (
+                        <>
+
+                            <div className="col-start-3 col-span-2 sm:col-span-2 lg:col-span-2 xl:col-span-2">
+                                {User ? (
+                                    <DashboardTimeClock
+                                        currentStatus={currentStatus}
+                                        breakTypes={breakTypes}
+                                        User={User}
+                                    />
+                                ) : (
+                                    <div className="border-sidebar-border/70 dark:border-sidebar-border relative overflow-hidden rounded-xl border bg-card p-4">
+                                        <p className="text-sm text-muted-foreground">Loading time clock...</p>
+                                    </div>
+                                )}
+                            </div>
+                        </>
+                    )}
+                    {!hasPermission(TimeclockPermissionsEnum.Show) && (
+                        <>
+                    {/* Interactive Area Chart - Total Sales - Updated col-span */}
+                    <div className="col-span-1 sm:col-span-1 lg:col-span-4 xl:col-span-4">
                         <div className="border-sidebar-border/70 dark:border-sidebar-border relative overflow-hidden rounded-xl border bg-card">
                             <div className="flex items-center gap-2 space-y-0 border-b p-4 pb-4 sm:flex-row">
                                 <div className="grid flex-1 gap-1">
@@ -329,8 +400,8 @@ export default function Dashboard({ articles }: Props) {
                         </div>
                     </div>
 
-                    {/* Total Sales This Year */}
-                    <div className="col-span-3 sm:col-span-1 lg:col-span-3 xl:col-span-3">
+                    {/* Total Sales This Year - Updated col-span */}
+                    <div className="col-span-1 sm:col-span-1 lg:col-span-4 xl:col-span-4">
                         <div className="border-sidebar-border/70 dark:border-sidebar-border relative overflow-hidden rounded-xl border bg-card">
                             <div className="p-4 pb-2">
                                 <p className="text-xs sm:text-sm text-muted-foreground">Total Sales This Year</p>
@@ -376,7 +447,9 @@ export default function Dashboard({ articles }: Props) {
                             </div>
                         </div>
                     </div>
-                </div>
+                        </>
+                    )}
+                    </div>
 
                 {/* Main Content Grid */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 flex-1 min-h-0">

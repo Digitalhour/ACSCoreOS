@@ -19,3 +19,10 @@ export enum BlogPermissionsEnum {
 
 }
 
+export enum TimeclockPermissionsEnum {
+
+    Show = 'time-clock-show',
+
+
+}
+

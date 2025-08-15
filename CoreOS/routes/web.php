@@ -6,7 +6,6 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\Settings\EmergencyContactsController;
 use App\Http\Controllers\UserManagementController;
 use App\Http\Controllers\WidgetController;
-use App\Models\BlogArticle;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 use Laravel\WorkOS\Http\Middleware\ValidateSessionWithWorkOS;
@@ -37,27 +36,9 @@ Route::get('/_debug-session', function () {
 
 Route::middleware('auth')->middleware(ValidateSessionWithWorkOS::class)->group(function () {
 
-   Route::get('dashboard', function () {
-        $articles = BlogArticle::with(['user:id,name,email,avatar'])
-            ->withCount('approvedComments')
-            ->published()
-            ->latest()
-            ->limit(10)
-            ->get()
-            ->map(function ($article) {
-                $articleArray = $article->toArray();
-                $articleArray['featured_image'] = $article->featured_image
-                    ? Storage::disk('s3')->temporaryUrl($article->featured_image, now()->addHours(24))
-                    : null;
-                return $articleArray;
-            });
-
-        return Inertia::render('dashboard', [
-            'articles' => $articles
-        ]);
-    })->name('dashboard');
 
 
+Route::get('dashboard', [DashboardController::class, 'index'])->name('dashboard');
 // sales numbers on the dashboard
    Route::get('/dashboard/monthly-sales-data', [DashboardController::class, 'monthlySalesData']);
    Route::get('/dashboard/yearly-sales-data', [DashboardController::class, 'yearlySalesData']);

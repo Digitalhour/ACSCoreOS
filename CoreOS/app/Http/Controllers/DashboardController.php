@@ -2,9 +2,15 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\BlogArticle;
+use App\Models\BreakType;
+use App\Models\TimeClock;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
+use Inertia\Inertia;
 
 class DashboardController extends Controller
 {
@@ -209,4 +215,37 @@ class DashboardController extends Controller
 
         return response()->json($result);
     }
+
+    public function index()
+    {
+        $user = Auth::user();
+
+        // Get your existing articles data
+        $articles = BlogArticle::with(['user:id,name,email,avatar'])
+            ->withCount('approvedComments')
+            ->published()
+            ->latest()
+            ->limit(10)
+            ->get()
+            ->map(function ($article) {
+                $articleArray = $article->toArray();
+                $articleArray['featured_image'] = $article->featured_image
+                    ? Storage::disk('s3')->temporaryUrl($article->featured_image, now()->addHours(24))
+                    : null;
+                return $articleArray;
+            });
+        // Add TimeClock data for the dashboard component
+        $currentStatus = TimeClock::getUserCurrentStatus($user->id);
+        $breakTypes = BreakType::active()->ordered()->get();
+
+        return Inertia::render('dashboard', [
+            'articles' => $articles,
+            // Add these new props
+            'currentStatus' => $currentStatus,
+            'breakTypes' => $breakTypes,
+            'User' => $user, // Make sure to pass the full user object
+        ]);
+    }
+
+
 }
