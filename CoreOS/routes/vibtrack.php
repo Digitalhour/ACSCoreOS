@@ -17,11 +17,18 @@ Route::group([
     Route::get('/{vibetrack}', [VibetrackController::class, 'show'])->name('show');
 
     // Admin (Device Aliases)
-    Route::prefix('admin')->name('admin.')->controller(DeviceAliasController::class)->group(function () {
-        Route::get('/', 'index')->name('index');
-        Route::post('/', 'store')->name('store');
-        Route::put('{alias}', 'update')->name('update');
-        Route::delete('{alias}', 'destroy')->name('destroy');
-        Route::patch('{alias}/restore', 'restore')->name('restore');
-    });
+
+});
+Route::group([
+    'middleware' => ['auth', 'verified', 'route.permission'],
+    'prefix' => 'vibetrack',
+    'as' => 'vibetrack.',
+], function () {
+Route::prefix('admin')->name('admin.')->controller(DeviceAliasController::class)->group(function () {
+    Route::get('/', 'index')->name('index');
+    Route::post('/', 'store')->name('store');
+    Route::put('{alias}', 'update')->name('update');
+    Route::delete('{alias}', 'destroy')->name('destroy');
+    Route::patch('{alias}/restore', 'restore')->name('restore');
+});
 });
