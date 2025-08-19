@@ -23,7 +23,7 @@ Route::middleware('auth')->middleware('verified')->group(function () {
                 Route::post('/update-entry/{timeClock}', [ManagerTimeClockController::class, 'updateEntry'])->name('time-clock.manager.update-entry');
                 Route::delete('/delete-entry/{timeClock}', [ManagerTimeClockController::class, 'deleteEntry'])->name('time-clock.manager.delete-entry');
                 Route::get('/day-entries-modal', [ManagerTimeClockController::class, 'getDayEntriesModal'])->name('time-clock.manager.day-entries-modal');
-   
+
         });
 
         Route::middleware('permission:Corporate-payroll')->group(function () {
@@ -51,7 +51,7 @@ Route::middleware('auth')->middleware('verified')->group(function () {
 
 
 
-        // Employee routes (existing)
+        // Employees routes (existing)
         Route::get('/employee', [TimeClockController::class, 'employee'])->name('time-clock.employee');
         Route::post('/clock-in', [TimeClockController::class, 'clockIn'])->name('time-clock.clock-in');
         Route::post('/clock-out', [TimeClockController::class, 'clockOut'])->name('time-clock.clock-out');

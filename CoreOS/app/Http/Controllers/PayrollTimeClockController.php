@@ -237,7 +237,7 @@ class PayrollTimeClockController extends Controller
             'payroll_id' => Auth::id()
         ]);
 
-        return back()->with('success', 'Employee clocked out successfully.');
+        return back()->with('success', 'Employees clocked out successfully.');
     }
 
     /**
@@ -676,7 +676,7 @@ class PayrollTimeClockController extends Controller
 
         try {
             if ($timesheet->reject(Auth::id(), $request->rejection_reason, $request->rejection_notes)) {
-                return back()->with('success', 'Timesheet rejected successfully. Employee will be notified.');
+                return back()->with('success', 'Timesheet rejected successfully. Employees will be notified.');
             }
         } catch (\Exception $e) {
             return back()->withErrors(['message' => 'Failed to reject timesheet: ' . $e->getMessage()]);
@@ -906,7 +906,7 @@ class PayrollTimeClockController extends Controller
 
             // CSV Headers
             fputcsv($file, [
-                'Employee Name',
+                'Employees Name',
                 'Email',
                 'Department',
                 'Position',
@@ -999,7 +999,7 @@ class PayrollTimeClockController extends Controller
             }
 
             $data[] = [
-                'Employee' => $punch->user->name,
+                'Employees' => $punch->user->name,
                 'Department' => $punch->user->departments->pluck('name')->implode(', ') ?: 'N/A',
                 'Type' => $punch->punch_type === 'work' ? 'Work' : 'Break',
                 'Break Type' => $punch->breakType?->label ?? '',
@@ -1018,7 +1018,7 @@ class PayrollTimeClockController extends Controller
 
         $data[] = []; // Empty row
         $data[] = [
-            'Employee' => 'TOTALS',
+            'Employees' => 'TOTALS',
             'Department' => '',
             'Type' => '',
             'Break Type' => '',
@@ -1030,7 +1030,7 @@ class PayrollTimeClockController extends Controller
             'Notes' => '',
         ];
         $data[] = [
-            'Employee' => 'Regular Hours',
+            'Employees' => 'Regular Hours',
             'Department' => '',
             'Type' => '',
             'Break Type' => '',
@@ -1042,7 +1042,7 @@ class PayrollTimeClockController extends Controller
             'Notes' => '',
         ];
         $data[] = [
-            'Employee' => 'Overtime Hours',
+            'Employees' => 'Overtime Hours',
             'Department' => '',
             'Type' => '',
             'Break Type' => '',
@@ -1054,7 +1054,7 @@ class PayrollTimeClockController extends Controller
             'Notes' => '',
         ];
         $data[] = [
-            'Employee' => 'Break Hours',
+            'Employees' => 'Break Hours',
             'Department' => '',
             'Type' => '',
             'Break Type' => '',

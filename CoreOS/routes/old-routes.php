@@ -206,7 +206,7 @@
 //    Route::get('/pto', [EmployeePtoController::class, 'index'])->name('pto.dashboard');
 //        // User PTO Dashboard
 ////        Route::get('/pto', function () {
-////            return Inertia::render('Employee/EmployeePtoDashboard');
+////            return Inertia::render('Employees/EmployeePtoDashboard');
 ////        })->name('pto.dashboard');
 //        // Legacy route redirects (if you have existing bookmarks)
 ////        Route::get('/my-pto', function () {

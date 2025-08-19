@@ -39,7 +39,7 @@ class TimeClockController extends Controller
         $weeklyStats = $this->calculateWeeklyStats($weekEntries);
         $breakTypes = BreakType::active()->ordered()->get();
 
-        return Inertia::render('TimeManagement/Employee/Index', [
+        return Inertia::render('TimeManagement/Employees/Index', [
             'User' => $user,
             'currentStatus' => $status,
             'todayEntries' => $todayEntries,

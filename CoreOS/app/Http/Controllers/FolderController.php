@@ -598,7 +598,7 @@ class FolderController extends Controller
 
 
     /**
-     * Employee-focused index view for browsing accessible documents and folders
+     * Employees-focused index view for browsing accessible documents and folders
      */
     public function employeeIndex(Request $request): Response
     {

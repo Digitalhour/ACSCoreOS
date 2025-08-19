@@ -620,7 +620,7 @@ export default function DepartmentTimeOffDashboard({ requests, department_pto_re
                                         </div>
                                         <p className="text-sm text-amber-700">
                                             This request {selectedRequest.has_blackout_conflicts ? 'conflicts with' : 'has warnings for'} blackout periods.
-                                            {selectedRequest.has_emergency_override ? ' Employee has requested emergency override.' : ''}
+                                            {selectedRequest.has_emergency_override ? ' Employees has requested emergency override.' : ''}
                                         </p>
                                     </div>
                                 )}

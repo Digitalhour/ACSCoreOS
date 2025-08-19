@@ -19,6 +19,20 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(NetSuiteService::class);
         $this->app->singleton(ProductImageService::class);
         $this->app->singleton(RouteDiscoveryService::class);
+
+        $this->app->singleton(\App\Services\PartsDataset\ShopifyService::class);
+        $this->app->singleton(\App\Services\PartsDataset\S3ImageService::class);
+
+        // Bind UploadProcessingService with both dependencies
+        $this->app->singleton(\App\Services\PartsDataset\UploadProcessingService::class, function ($app) {
+            return new \App\Services\PartsDataset\UploadProcessingService(
+                $app->make(\App\Services\PartsDataset\ShopifyService::class),
+                $app->make(\App\Services\PartsDataset\S3ImageService::class)
+            );
+        });
+
+      
+
     }
 
     /**

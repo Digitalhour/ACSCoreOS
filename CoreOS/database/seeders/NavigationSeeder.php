@@ -88,7 +88,7 @@ class NavigationSeeder extends Seeder
                 'icon' => 'Users',
                 'type' => 'footer',
                 'sort_order' => 1,
-                'roles' => ['Human Resources Employee', 'Developer'],
+                'roles' => ['Human Resources Employees', 'Developer'],
                 'is_active' => true,
             ],
             [
@@ -162,7 +162,7 @@ class NavigationSeeder extends Seeder
                     'icon' => 'Users',
                     'type' => 'category',
                     'sort_order' => 3,
-                    'roles' => ['Human Resources Employee', 'Developer'],
+                    'roles' => ['Human Resources Employees', 'Developer'],
                     'is_active' => true,
                 ],
                 'children' => [
@@ -196,7 +196,7 @@ class NavigationSeeder extends Seeder
                     'icon' => 'Package',
                     'type' => 'category',
                     'sort_order' => 4,
-                    'roles' => ['Warehouse Manager', 'Warehouse Employee', 'Developer', 'Engineer'],
+                    'roles' => ['Warehouse Manager', 'Warehouse Employees', 'Developer', 'Engineer'],
                     'is_active' => true,
                 ],
                 'children' => [

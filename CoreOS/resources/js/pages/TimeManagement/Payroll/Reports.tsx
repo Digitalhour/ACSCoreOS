@@ -322,7 +322,7 @@ export default function PayrollReports({
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    {/* Employee Performance */}
+                    {/* Employees Performance */}
                     <Card className="border-slate-200">
                         <CardHeader className="border-b border-slate-200 bg-slate-50">
                             <CardTitle className="text-lg font-semibold text-slate-900 flex items-center gap-2">

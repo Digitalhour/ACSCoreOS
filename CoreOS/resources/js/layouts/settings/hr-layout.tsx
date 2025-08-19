@@ -64,7 +64,7 @@ const sidebarNavItems: NavItem[] = [
         icon: FileText,
     },
     {
-        title: 'Employee Onboarding',
+        title: 'Employees Onboarding',
         href: '/user-management/onboard',
         description: "Onboard new employees.",
         icon: FileText,

@@ -65,7 +65,7 @@ const breadcrumbs: BreadcrumbItem[] = [
         href: '/user-management',
     },
     {
-        title: 'Onboard Employee',
+        title: 'Onboard Employees',
         href: '/user-management/onboard',
     },
 ];
@@ -600,7 +600,7 @@ export default function OnboardEmployee() {
                             </CardTitle>
                             <CardDescription>
                                 {!section2Complete ? 'Complete Section 2 to unlock' :
-                                    section3Complete ? 'Employee onboarding completed successfully!' :
+                                    section3Complete ? 'Employees onboarding completed successfully!' :
                                         'Assign a manager to the employee'}
                             </CardDescription>
                         </CardHeader>

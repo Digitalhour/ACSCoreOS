@@ -74,6 +74,15 @@ return [
 
     ],
 
+    'queue_priorities' => [
+        'file-processing' => 10,    // File analysis
+        'chunk-processing' => 8,    // Individual chunks
+        'aggregation' => 6,         // Final aggregation
+        'shopify-sync' => 4,        // Shopify operations
+        'default' => 1,             // Everything else
+    ],
+
+
     /*
     |--------------------------------------------------------------------------
     | Job Batching

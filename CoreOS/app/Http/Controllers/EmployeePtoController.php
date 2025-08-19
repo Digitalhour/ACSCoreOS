@@ -104,7 +104,7 @@ class EmployeePtoController extends Controller
                 ];
             });
 
-        return Inertia::render('Employee/EmployeePtoDashboard', [
+        return Inertia::render('Employees/EmployeePtoDashboard', [
             'pto_data' => $ptoData,
             'recent_requests' => $recentRequests,
             'pending_requests_count' => $pendingRequestsCount,
@@ -401,7 +401,7 @@ class EmployeePtoController extends Controller
 
             // Always notify the employee for both creation and self-cancellation
             $ptoRequest->user->notify(new $notificationClass($ptoRequest, false));
-            Log::info("Employee notification sent for PTO {$notificationType} - User: {$ptoRequest->user->name} ({$ptoRequest->user->email})");
+            Log::info("Employees notification sent for PTO {$notificationType} - User: {$ptoRequest->user->name} ({$ptoRequest->user->email})");
 
             // Always notify the manager if they exist
             if ($ptoRequest->user->manager) {

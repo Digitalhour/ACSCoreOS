@@ -3,6 +3,8 @@
 use App\Http\Controllers\Api\PtoApi\PtoApprovalRuleController;
 use App\Http\Controllers\Api\UserPtoController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\PartsDataset\PartsAccessController;
+use App\Http\Controllers\PartsDataset\PartsController;
 use App\Http\Controllers\Settings\EmergencyContactsController;
 use App\Http\Controllers\UserManagementController;
 use App\Http\Controllers\WidgetController;
@@ -74,6 +76,59 @@ Route::get('dashboard', [DashboardController::class, 'index'])->name('dashboard'
 
 
 
+// Parts Dataset Routes (using Inertia for web routes)
+    Route::middleware(['auth', 'verified'])->prefix('parts')->name('parts.')->group(function () {
+
+        // Web routes (Inertia)
+        Route::get('/', [PartsController::class, 'index'])->name('index');
+        Route::get('/upload', [PartsController::class, 'create'])->name('create');
+
+    });
+
+    Route::get('/parts-browse', [PartsAccessController::class, 'index'])->name('parts-browse.index');
+    Route::get('/parts-dataset/parts-browse', [PartsAccessController::class, 'index'])->name('parts-dataset.parts-browse.index');
+
+    Route::prefix('parts-dataset')->name('parts-dataset.')->group(function () {
+        // ... existing routes ...
+
+        // Parts Browse Routes
+
+        Route::get('/api/parts-browse/parts', [PartsAccessController::class, 'parts'])->name('parts-browse.parts');
+        Route::get('/api/parts-browse/{partId}', [PartsAccessController::class, 'show'])->name('parts-browse.show');
+    });
+
+// API routes for Parts Dataset
+    // API routes for Parts Dataset
+    Route::middleware(['auth'])->prefix('api/parts')->name('api.parts.')->group(function () {
+
+        // Existing routes...
+        Route::post('/upload', [PartsController::class, 'store'])->name('upload');
+        Route::get('/uploads', [PartsController::class, 'uploads'])->name('uploads.index');
+        Route::get('/uploads/{uploadId}', [PartsController::class, 'showUpload'])->name('uploads.show');
+        Route::delete('/uploads/{uploadId}', [PartsController::class, 'destroyUpload'])->name('uploads.destroy');
+        Route::post('/uploads/{uploadId}/retry', [PartsController::class, 'retryUpload'])->name('uploads.retry');
+        Route::post('/uploads/{uploadId}/cancel', [PartsController::class, 'cancelUpload'])->name('uploads.cancel');
+
+        // Enhanced Progress Tracking Routes
+        Route::get('/uploads/{uploadId}/progress', [PartsController::class, 'uploadProgress'])->name('uploads.progress');
+        Route::post('/uploads/{uploadId}/progress/refresh', [PartsController::class, 'refreshUploadProgress'])->name('uploads.progress.refresh');
+        Route::get('/uploads/{uploadId}/chunks', [PartsController::class, 'uploadChunks'])->name('uploads.chunks');
+        Route::post('/uploads/progress-summary', [PartsController::class, 'uploadsProgressSummary'])->name('uploads.progress-summary');
+
+        // Enhanced Queue Monitoring
+        Route::get('/queue-status', [PartsController::class, 'queueStatus'])->name('queue-status');
+        Route::get('/queue-status-detailed', [PartsController::class, 'queueStatusDetailed'])->name('queue-status-detailed');
+
+        // Existing routes...
+        Route::get('/parts', [PartsController::class, 'parts'])->name('parts.index');
+        Route::put('/parts/{partId}', [PartsController::class, 'updatePart'])->name('parts.update');
+        Route::post('/parts/{partId}/image', [PartsController::class, 'uploadPartImage'])->name('parts.upload-image');
+        Route::delete('/parts/{partId}/image', [PartsController::class, 'deletePartImage'])->name('parts.delete-image');
+        Route::post('/sync-shopify', [PartsController::class, 'syncShopify'])->name('sync-shopify');
+        Route::post('/uploads/{uploadId}/sync-shopify', [PartsController::class, 'syncUploadShopify'])->name('sync-upload-shopify');
+        Route::get('/statistics', [PartsController::class, 'statistics'])->name('statistics');
+    });
+
 
 
 
@@ -87,7 +142,7 @@ require __DIR__.'/settings.php';
 require __DIR__.'/impersonate.php';
 require __DIR__.'/emergency-contacts.php';
 require __DIR__.'/pto-routes.php';
-require __DIR__.'/parts-database.php';
+//require __DIR__.'/parts-database.php';
 //require __DIR__.'/admin-routes.php';.
 require __DIR__.'/departments.php';
 require __DIR__.'/api.php';

@@ -782,7 +782,7 @@ class ManagerTimeClockController extends Controller
             'manager_id' => $manager->id
         ]);
 
-        return back()->with('success', 'Employee clocked out successfully.');
+        return back()->with('success', 'Employees clocked out successfully.');
     }
 
     /**

@@ -635,7 +635,7 @@ export default function Employees({ users }: { users: User[] }) {
                     </div>
                 </div>
 
-                {/* Employee Details Sheet */}
+                {/* Employees Details Sheet */}
                 <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
                     <SheetContent side="right" className="min-w-7/12 p-0 overflow-hidden">
                         {selectedUser && (

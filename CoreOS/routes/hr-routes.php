@@ -30,10 +30,15 @@ use Laravel\WorkOS\Http\Middleware\ValidateSessionWithWorkOS;
 Route::middleware('auth')
     ->middleware(ValidateSessionWithWorkOS::class)
     ->group(function () {
+        Route::prefix('human-resources')->name('hrs.')->group(function () {
+            Route::get('/employees', [HREmployeesController::class, 'index'])->name('employees.index');
+            Route::get('/employees/{user}', [HREmployeesController::class, 'show'])->name('employees.show');
+            Route::delete('/employees/{user}', [HREmployeesController::class, 'destroy'])->name('employees.destroy');
+            Route::post('/employees/{id}/restore', [HREmployeesController::class, 'restore'])->name('employees.restore');
+        });
 
 
 
-        Route::middleware(['role:Human Resources Employee|Developer'])->group(function () {
     Route::resource('holidays', HolidayController::class)->names('holidays');
     Route::get('/team', [Team::class, 'index'])->name('team.index');
 
@@ -72,9 +77,9 @@ Route::middleware('auth')
 //        return Inertia::render('TimeClock/Index');
 //    })->name('timeclock.index');
 //
-//    // Employee Timesheet
+//    // Employees Timesheet
 //    Route::get('/timesheet', function () {
-//        return Inertia::render('Timesheet/Employee');
+//        return Inertia::render('Timesheet/Employees');
 //    })->name('timesheet.employee');
 
     // Manager Views
@@ -137,7 +142,7 @@ Route::middleware('auth')
 //
 
 
-    // Employee document browsing routes
+    // Employees document browsing routes
 //    Route::prefix('employee')->name('employee.')->group(function () {
 //        Route::get('folders', [FolderController::class, 'employeeIndex'])->name('folders.index');
 //        Route::get('documents/{document}', [DocumentController::class, 'employeeView'])->name('documents.view');
@@ -268,7 +273,7 @@ Route::middleware('auth')
 
 
 
-    });
+
 
 
 

@@ -14,12 +14,12 @@ Route::middleware('auth')
     })->name('admin.positions.index');
 
             Route::get('/departments', [DepartmentController::class, 'index'])->name('departments.index');
-    Route::get('/api/departments', [UserManagementController::class, 'getDepartments']);
-        Route::post('/departments', [DepartmentController::class, 'store'])->name('departments.store');
-        Route::put('/departments/{department}', [DepartmentController::class, 'update'])->name('departments.update');
-        Route::delete('/departments/{department}', [DepartmentController::class, 'destroy'])->name('departments.destroy');
-        Route::post('/departments/{department}/assign-users',
-            [DepartmentController::class, 'assignUsers'])->name('departments.assign-users');
+                Route::get('/api/departments', [UserManagementController::class, 'getDepartments']);
+                    Route::post('/departments', [DepartmentController::class, 'store'])->name('departments.store');
+                    Route::put('/departments/{department}', [DepartmentController::class, 'update'])->name('departments.update');
+                    Route::delete('/departments/{department}', [DepartmentController::class, 'destroy'])->name('departments.destroy');
+                    Route::post('/departments/{department}/assign-users',
+                        [DepartmentController::class, 'assignUsers'])->name('departments.assign-users');
 
 
 

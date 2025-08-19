@@ -16,7 +16,7 @@ class EmployeeReportingAssignment extends Model
         return LogOptions::defaults()
             ->logAll()
             ->logOnlyDirty()
-            ->useLogName('Employee Reporting Assignment')
+            ->useLogName('Employees Reporting Assignment')
             ->dontSubmitEmptyLogs();
     }
     protected $table = 'user_reporting_assignments';

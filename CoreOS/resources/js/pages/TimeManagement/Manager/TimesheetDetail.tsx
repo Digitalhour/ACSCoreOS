@@ -723,7 +723,7 @@ export default function TimesheetDetail({ timesheet, timeEntries, currentManager
 
                     {/* Left Column - Timesheet Summary */}
                     <div className="lg:col-span-1 space-y-6">
-                        {/* Employee Info */}
+                        {/* Employees Info */}
                         <Card>
                             <CardHeader>
                                 <CardTitle className="flex items-center gap-2">
@@ -905,7 +905,7 @@ export default function TimesheetDetail({ timesheet, timeEntries, currentManager
                                                                             </Alert>
                                                                         )}
 
-                                                                        {/* Employee notes for submissions */}
+                                                                        {/* Employees notes for submissions */}
                                                                         {action.action === 'submitted' && timesheet.notes && (
                                                                             <Alert>
                                                                                 <AlertTitle className="text-sm">Employee Notes</AlertTitle>

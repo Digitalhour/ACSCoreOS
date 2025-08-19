@@ -714,9 +714,9 @@ export default function TimesheetPunches({
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                    {/* Left Column - Employee Info & Timeline */}
+                    {/* Left Column - Employees Info & Timeline */}
                     <div className="lg:col-span-1 space-y-6">
-                        {/* Employee Info */}
+                        {/* Employees Info */}
                         <Card>
                             <CardHeader>
                                 <CardTitle className="flex items-center gap-2">
@@ -899,7 +899,7 @@ export default function TimesheetPunches({
                                                                             </Alert>
                                                                         )}
 
-                                                                        {/* Employee notes for submissions */}
+                                                                        {/* Employees notes for submissions */}
                                                                         {action.action === 'submitted' && timesheet.notes && (
                                                                             <Alert>
                                                                                 <AlertTitle className="text-sm">Employee Notes</AlertTitle>

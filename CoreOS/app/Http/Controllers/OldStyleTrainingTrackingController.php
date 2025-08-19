@@ -132,7 +132,7 @@ class OldStyleTrainingTrackingController extends Controller
 
         if ($type === 'grade') {
             $employeeName = $item->employee ? $item->employee->name : 'Unknown User';
-            $name = "Employee: {$employeeName}, Assessment: {$item->grade_assessment_type} ID {$item->grade_assessment_id}";
+            $name = "Employees: {$employeeName}, Assessment: {$item->grade_assessment_type} ID {$item->grade_assessment_id}";
         } else {
             $name = $item->getAttribute($this->getNameField($type));
         }
@@ -281,7 +281,7 @@ class OldStyleTrainingTrackingController extends Controller
 
     private function generateCSVData()
     {
-        $csv = "Table,ID,Name,Description,Status,Created,Updated,Module ID,Lesson ID,Employee ID,Assessment ID,Assessment Type,Score\n";
+        $csv = "Table,ID,Name,Description,Status,Created,Updated,Module ID,Lesson ID,Employees ID,Assessment ID,Assessment Type,Score\n";
 
         // Modules
         foreach (OldStyleTrainingModule::all() as $m) {
@@ -357,7 +357,7 @@ class OldStyleTrainingTrackingController extends Controller
         $user = User::find($validated['employeeId']);
         $userName = $user ? $user->name : 'Unknown User';
 
-        return "Employee: {$userName}, Assessment: {$validated['assessmentType']} ID {$validated['assessmentId']}, Score: {$validated['score']}%";
+        return "Employees: {$userName}, Assessment: {$validated['assessmentType']} ID {$validated['assessmentId']}, Score: {$validated['score']}%";
     }
 
     private function logActivity($action, $type, $details, $typeId, $previous = null, $new = null)

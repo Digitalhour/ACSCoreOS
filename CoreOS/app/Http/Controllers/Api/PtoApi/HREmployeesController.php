@@ -233,7 +233,7 @@ class HREmployeesController extends Controller
         // Then soft delete locally
         $user->delete();
 
-        return back()->with('success', 'Employee has been deactivated successfully.');
+        return back()->with('success', 'Employees has been deactivated successfully.');
     }
 
     public function restore($id)
@@ -246,7 +246,7 @@ class HREmployeesController extends Controller
         // Then restore locally
         $user->restore();
 
-        return back()->with('success', 'Employee has been activated successfully.');
+        return back()->with('success', 'Employees has been activated successfully.');
     }
 
     private function deactivateUserInWorkOS(User $user)
@@ -326,4 +326,125 @@ class HREmployeesController extends Controller
 
         return $allBlackouts;
     }
+
+
+
+
+    ///Show shit
+    ///
+
+
+// Add this method to your existing HREmployeesController.php
+
+    public function show(User $user)
+    {
+        $userData = $user->load([
+            'departments',
+            'emergencyContacts',
+            'currentPosition',
+            'addresses',
+            'ptoRequests.ptoType',
+            'ptoRequests.approvedBy',
+            'ptoRequests.deniedBy',
+            'ptoRequests.cancelledBy',
+            'ptoBalances.ptoType',
+            'roles.permissions'
+        ]);
+
+        $ptoRequests = $userData->ptoRequests;
+        $ptoStats = [
+            'total' => $ptoRequests->count(),
+            'pending' => $ptoRequests->where('status', 'pending')->count(),
+            'approved' => $ptoRequests->where('status', 'approved')->count(),
+            'denied' => $ptoRequests->where('status', 'denied')->count(),
+            'cancelled' => $ptoRequests->where('status', 'cancelled')->count(),
+        ];
+
+        $formattedUser = [
+            'id' => $userData->id,
+            'name' => $userData->name,
+            'email' => $userData->email,
+            'avatar' => $userData->avatar,
+            'deleted_at' => $userData->deleted_at?->toISOString(),
+            'departments' => $userData->departments->pluck('name')->join(', ') ?: 'No Department',
+            'position' => $userData->currentPosition?->name ?? 'No Position',
+            'roles' => $userData->roles->map(function ($role) {
+                return [
+                    'id' => $role->id,
+                    'name' => $role->name,
+                    'permissions' => $role->permissions->pluck('name')->toArray(),
+                ];
+            }),
+            'all_permissions' => $userData->getAllPermissions()->pluck('name')->toArray(),
+            'pto_stats' => $ptoStats,
+            'emergency_contacts' => $userData->emergencyContacts->map(function ($contact) {
+                return [
+                    'id' => $contact->id,
+                    'name' => $contact->name,
+                    'relationship' => $contact->relationship,
+                    'phone' => $contact->phone,
+                    'email' => $contact->email,
+                    'address' => $contact->address,
+                    'is_primary' => $contact->is_primary,
+                ];
+            }),
+            'addresses' => $userData->addresses->map(function ($address) {
+                return [
+                    'id' => $address->id,
+                    'type' => $address->type,
+                    'label' => $address->label,
+                    'address_line_1' => $address->address_line_1,
+                    'address_line_2' => $address->address_line_2,
+                    'city' => $address->city,
+                    'state' => $address->state,
+                    'postal_code' => $address->postal_code,
+                    'country' => $address->country,
+                    'is_primary' => $address->is_primary,
+                    'is_active' => $address->is_active,
+                    'notes' => $address->notes,
+                    'full_address' => $address->full_address,
+                    'single_line_address' => $address->single_line_address,
+                ];
+            }),
+            'pto_balances' => $userData->ptoBalances->map(function ($balance) {
+                return [
+                    'id' => $balance->id,
+                    'type' => $balance->ptoType->name ?? 'Unknown Type',
+                    'balance' => (float) $balance->balance,
+                    'used_balance' => (float) $balance->used_balance,
+                    'pending_balance' => (float) $balance->pending_balance,
+                    'year' => $balance->year,
+                ];
+            }),
+            'pto_requests' => $userData->ptoRequests->map(function ($request) {
+                return [
+                    'id' => $request->id,
+                    'request_number' => $request->request_number,
+                    'pto_type' => $request->ptoType->name ?? 'Unknown Type',
+                    'start_date' => $request->start_date->format('Y-m-d'),
+                    'end_date' => $request->end_date->format('Y-m-d'),
+                    'total_days' => (float) $request->total_days,
+                    'status' => $request->status,
+                    'reason' => $request->reason,
+                    'created_at' => $request->created_at->format('Y-m-d H:i:s'),
+                    'updated_at' => $request->updated_at->format('Y-m-d H:i:s'),
+                ];
+            }),
+        ];
+
+        return Inertia::render('HumanResources/Employees/Show', [
+            'user' => $formattedUser
+        ]);
+    }
+
+
+
+
+
+
+
+
+
+
+
 }

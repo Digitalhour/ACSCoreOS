@@ -303,8 +303,8 @@ class PayrollController extends Controller
 
         // Header
         $csvData[] = [
-            'Employee Name',
-            'Employee Email',
+            'Employees Name',
+            'Employees Email',
             'Department',
             'Week Start',
             'Week End',

@@ -115,7 +115,7 @@ class User extends Authenticatable
     }
 
     /**
-     * Get all historical reporting assignments for this user (where they are the Employee).
+     * Get all historical reporting assignments for this user (where they are the Employees).
      */
     public function reportingAssignments(): HasMany
     {

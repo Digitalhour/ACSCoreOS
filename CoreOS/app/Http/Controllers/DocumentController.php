@@ -514,7 +514,7 @@ class DocumentController extends Controller
     }
 
     /**
-     * Employee view for documents - uses the same view method for generating S3 URLs
+     * Employees view for documents - uses the same view method for generating S3 URLs
      */
     public function employeeView(Document $document): Response
     {

@@ -60,7 +60,7 @@ export default function AddUserPage({ positions, potentialManagers, spatieRoles,
 
     const breadcrumbs: BreadcrumbItem[] = [
         {
-            title: 'Add a new Employee',
+            title: 'Add a new Employees',
             href: '/users/add',
         },
     ];

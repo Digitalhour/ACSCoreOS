@@ -100,7 +100,7 @@ const adminLinks: LinkCategory[] = [
     //             href: '/admin/pto-balances',
     //             label: 'PTO Balances',
     //             icon: Wallet,
-    //             description: 'Manage Employee PTO balances.',
+    //             description: 'Manage Employees PTO balances.',
     //         },
     //         {
     //             routeName: 'admin.pto.Blackouts',
@@ -127,7 +127,7 @@ const adminLinks: LinkCategory[] = [
                 href: '/admin/user-hierarchy',
                 label: 'User Hierarchy',
                 icon: Users,
-                description: 'Set or modify Employee structures.',
+                description: 'Set or modify Employees structures.',
             },
             {
                 routeName: 'acs-origination',

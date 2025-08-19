@@ -238,9 +238,9 @@ export default function PtoOverviewComponent({
 
                     {selectedUser && (
                         <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-                            {/* Left Column: Employee Info and Balances */}
+                            {/* Left Column: Employees Info and Balances */}
                             <div className="space-y-6">
-                                {/* Employee Information */}
+                                {/* Employees Information */}
                                 <div className="space-y-4">
                                     <h3 className="font-medium text-gray-900">Employee Information</h3>
                                     <div className="rounded-lg border border-gray-200 p-4">
