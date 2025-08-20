@@ -7,6 +7,7 @@ namespace App\Jobs\PartsDataset;
 use App\Models\PartsDataset\Part;
 use App\Models\PartsDataset\PartAdditionalField;
 use App\Models\PartsDataset\UploadChunk;
+use App\Services\PartsDataset\ManufacturerNormalizer;
 use App\Services\PartsDataset\StreamingExcelService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -104,19 +105,21 @@ class OptimizedChunkProcessingJob implements ShouldQueue
         $partNumbers = [];
         $manufacturers = [];
 
-        // First pass: validate and collect data
+        // First pass: validate and collect data with normalization
         foreach ($data as $rowIndex => $row) {
             if (empty(array_filter($row))) continue;
 
             $partNumber = $this->getValueFromRow($row, $fieldIndices['part_number']);
-            $manufacturer = $this->getValueFromRow($row, $fieldIndices['manufacturer']);
+            $rawManufacturer = $this->getValueFromRow($row, $fieldIndices['manufacturer']);
+            $normalizedManufacturer = ManufacturerNormalizer::normalize($rawManufacturer);
 
             if (empty($partNumber)) continue;
 
             $rowData = [
                 'part_number' => $partNumber,
                 'description' => $this->getValueFromRow($row, $fieldIndices['description']),
-                'manufacturer' => $manufacturer,
+                'manufacturer' => $normalizedManufacturer,
+                'original_manufacturer' => $rawManufacturer,
                 'upload_id' => $upload->id,
                 'batch_id' => $upload->batch_id,
                 'raw_row' => $row,
@@ -125,8 +128,8 @@ class OptimizedChunkProcessingJob implements ShouldQueue
 
             $validRows[] = $rowData;
             $partNumbers[] = $partNumber;
-            if ($manufacturer) {
-                $manufacturers[] = $manufacturer;
+            if ($normalizedManufacturer) {
+                $manufacturers[] = $normalizedManufacturer;
             }
         }
 
@@ -225,25 +228,24 @@ class OptimizedChunkProcessingJob implements ShouldQueue
                 $partId = $info['part_id'];
                 $rowData = $info['row_data'];
 
-                // If it was a new part, get the actual ID from the bulk insert
                 if (!$info['is_existing']) {
                     if (isset($newPartIds[$newPartIndex])) {
                         $partId = $newPartIds[$newPartIndex];
                         $newPartIndex++;
                     } else {
-                        Log::error("[OptimizedChunkProcessingJob] Missing part ID for new part at index {$newPartIndex}");
-                        continue; // Skip this row if we don't have a part ID
+                        continue;
                     }
                 }
 
                 if ($partId) {
-                    // Prepare additional fields for this part
                     $additionalFields = $this->prepareAdditionalFields(
                         $rowData['raw_row'],
                         $headers,
                         $coreFields,
                         $excelContext,
-                        $imageColumnIndex
+                        $imageColumnIndex,
+                        $rowData['original_manufacturer'],
+                        $rowData['manufacturer']
                     );
 
                     foreach ($additionalFields as $fieldData) {
@@ -260,7 +262,6 @@ class OptimizedChunkProcessingJob implements ShouldQueue
 
             // Bulk insert additional fields
             if (!empty($allAdditionalFields)) {
-                Log::info("[OptimizedChunkProcessingJob] Bulk inserting " . count($allAdditionalFields) . " additional fields");
                 $this->bulkInsertAdditionalFields($allAdditionalFields);
             }
 
@@ -393,8 +394,15 @@ class OptimizedChunkProcessingJob implements ShouldQueue
         Log::info("[OptimizedChunkProcessingJob] Bulk inserted " . count($additionalFields) . " additional fields successfully");
     }
 
-    private function prepareAdditionalFields(array $row, array $headers, array $coreFields, string $excelContext, ?int $imageColumnIndex): array
-    {
+    private function prepareAdditionalFields(
+        array $row,
+        array $headers,
+        array $coreFields,
+        string $excelContext,
+        ?int $imageColumnIndex,
+        ?string $originalManufacturer = null,
+        ?string $normalizedManufacturer = null
+    ): array {
         $fields = [];
 
         // Add Excel context
@@ -402,6 +410,14 @@ class OptimizedChunkProcessingJob implements ShouldQueue
             'field_name' => '_excel_context',
             'field_value' => $excelContext
         ];
+
+        // Store original manufacturer if it was normalized
+        if ($originalManufacturer && $normalizedManufacturer && $originalManufacturer !== $normalizedManufacturer) {
+            $fields[] = [
+                'field_name' => '_original_manufacturer',
+                'field_value' => $originalManufacturer
+            ];
+        }
 
         // Add image filename if present
         if ($imageColumnIndex !== null) {
@@ -414,11 +430,10 @@ class OptimizedChunkProcessingJob implements ShouldQueue
             }
         }
 
-        // Add other fields
+        // Add other fields (existing logic)
         foreach ($headers as $index => $header) {
             $header = trim($header);
 
-            // Skip core fields and empty headers
             $isCore = false;
             foreach ($coreFields as $coreField) {
                 if ($this->findHeaderIndex($headers, $coreField) === $index) {

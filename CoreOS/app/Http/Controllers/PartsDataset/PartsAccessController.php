@@ -17,6 +17,8 @@ class PartsAccessController extends Controller
     /**
      * Display the parts browse page
      */
+
+
     public function index(Request $request): Response
     {
         $validator = Validator::make($request->all(), [
@@ -47,7 +49,7 @@ class PartsAccessController extends Controller
         }
 
         $perPage = $request->input('per_page', 25);
-        $parts = $query->paginate($perPage)->withPath(url('/parts-dataset/parts-browse'));
+        $parts = $query->paginate($perPage)->withPath(url('/parts-browse/'));
 
         // Transform parts data to match expected format
         $transformedParts = $parts->getCollection()->map(function ($part) {
@@ -73,11 +75,9 @@ class PartsAccessController extends Controller
             ];
         });
 
-        $parts->setCollection($transformedParts);
-
         // Transform pagination to match expected format
         $paginationData = [
-            'data' => $parts->items(),
+            'data' => $transformedParts->toArray(),
             'links' => [
                 'first' => $parts->url(1),
                 'last' => $parts->url($parts->lastPage()),
@@ -132,7 +132,7 @@ class PartsAccessController extends Controller
         }
 
         $perPage = $request->input('per_page', 25);
-        $parts = $query->paginate($perPage)->withPath(url('/parts-dataset/parts-browse'));
+        $parts = $query->paginate($perPage)->withPath(url('/parts-browse'));
 
         // Transform parts data
         $transformedParts = $parts->getCollection()->map(function ($part) {

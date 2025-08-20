@@ -86,7 +86,7 @@ Route::get('dashboard', [DashboardController::class, 'index'])->name('dashboard'
     });
 
     Route::get('/parts-browse', [PartsAccessController::class, 'index'])->name('parts-browse.index');
-    Route::get('/parts-dataset/parts-browse', [PartsAccessController::class, 'index'])->name('parts-dataset.parts-browse.index');
+    Route::get('/parts-browse', [PartsAccessController::class, 'index'])->name('parts-dataset.parts-browse.index');
 
     Route::prefix('parts-dataset')->name('parts-dataset.')->group(function () {
         // ... existing routes ...
@@ -99,6 +99,7 @@ Route::get('dashboard', [DashboardController::class, 'index'])->name('dashboard'
 
 // API routes for Parts Dataset
     // API routes for Parts Dataset
+    Route::get('/parts', [PartsController::class, 'index'])->name('parts.index');
     Route::middleware(['auth'])->prefix('api/parts')->name('api.parts.')->group(function () {
 
         // Existing routes...

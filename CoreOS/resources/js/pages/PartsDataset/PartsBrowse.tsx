@@ -2,7 +2,6 @@ import AppLayout from '@/layouts/app-layout';
 import {type BreadcrumbItem} from '@/types';
 import {Head, router} from '@inertiajs/react';
 import React, {useCallback, useEffect, useRef, useState} from 'react';
-
 // Shadcn/ui Components
 import {Badge} from '@/components/ui/badge';
 import {Button} from '@/components/ui/button';
@@ -92,7 +91,7 @@ export default function PartsBrowse({ initialParts, filters: initialFiltersFromU
                 setIsLoading(true);
                 setError(null);
 
-                router.get('/parts-dataset/parts-browse', queryParams, {
+                router.get('/parts-browse', queryParams, {
                     preserveState: true,
                     preserveScroll: true,
                     replace: false,
@@ -169,7 +168,7 @@ export default function PartsBrowse({ initialParts, filters: initialFiltersFromU
         setIsLoading(true);
 
         router.get(
-            '/parts-dataset/parts-browse',
+            '/parts-browse',
             {}, // Empty query params to reset to clean URL
             {
                 preserveState: true,
@@ -199,12 +198,12 @@ export default function PartsBrowse({ initialParts, filters: initialFiltersFromU
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Parts Browse" />
 
-            <div className="flex h-full max-h-screen flex-1 flex-col space-y-6 p-3">
+            <div className="flex flex-1 flex-col space-y-6 p-3">
                 {/* Header */}
                 <div className="flex flex-col space-y-4">
                     <div className="flex flex-col space-y-4 sm:flex-row sm:items-center sm:justify-between sm:space-y-0">
                         <div className="relative w-full max-w-sm">
-                            <Search className="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
+                            <Search className="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2"/>
                             <Input
                                 placeholder="Search parts, numbers, descriptions..."
                                 value={searchTerm}
@@ -228,7 +227,7 @@ export default function PartsBrowse({ initialParts, filters: initialFiltersFromU
                                     onClick={() => setViewMode('table')}
                                     className="h-8 px-3"
                                 >
-                                    <List className="h-4 w-4" />
+                                    <List className="h-4 w-4"/>
                                 </Button>
                                 <Button
                                     variant={viewMode === 'grid' ? 'default' : 'ghost'}
@@ -236,73 +235,68 @@ export default function PartsBrowse({ initialParts, filters: initialFiltersFromU
                                     onClick={() => setViewMode('grid')}
                                     className="h-8 px-3"
                                 >
-                                    <Grid3X3 className="h-4 w-4" />
+                                    <Grid3X3 className="h-4 w-4"/>
                                 </Button>
                             </div>
                         </div>
                     </div>
-
-                    {/* Pagination */}
-                    {partsData.meta && partsData.meta.total > partsData.meta.per_page && (
-                        <div className="flex items-center justify-between">
-                            <div className="ml-4">
-                                <p className="text-muted-foreground text-sm">
-                                    Showing {partsData.meta?.from || 0} to {partsData.meta?.to || 0} of {partsData.meta?.total || 0} parts
-                                </p>
-                            </div>
-                            <div className="mr-4">
-                                <Pagination>
-                                    <PaginationContent>
-                                        <PaginationItem>
-                                            <PaginationPrevious
-                                                href={undefined}
-                                                onClick={(e) => {
-                                                    e.preventDefault();
-                                                    if (partsData.links?.prev) handlePageChange(partsData.links.prev);
-                                                }}
-                                                className={!partsData.links?.prev ? 'pointer-events-none opacity-50' : ''}
-                                            />
-                                        </PaginationItem>
-                                        {(partsData.meta?.links || []).map((link, index) => {
-                                            if (link.label.includes('Previous') || link.label.includes('Next')) return null;
-                                            if (!link.url && link.label === '...')
-                                                return (
-                                                    <PaginationItem key={`ellipsis-${index}`}>
-                                                        <PaginationEllipsis />
-                                                    </PaginationItem>
-                                                );
-                                            return (
-                                                <PaginationItem key={link.label + '-' + index}>
-                                                    <PaginationLink
-                                                        href={undefined}
-                                                        isActive={link.active}
-                                                        onClick={(e) => {
-                                                            e.preventDefault();
-                                                            if (link.url) handlePageChange(link.url);
-                                                        }}
-                                                    >
-                                                        <span dangerouslySetInnerHTML={{ __html: link.label }} />
-                                                    </PaginationLink>
-                                                </PaginationItem>
-                                            );
-                                        })}
-                                        <PaginationItem>
-                                            <PaginationNext
-                                                href={undefined}
-                                                onClick={(e) => {
-                                                    e.preventDefault();
-                                                    if (partsData.links?.next) handlePageChange(partsData.links.next);
-                                                }}
-                                                className={!partsData.links?.next ? 'pointer-events-none opacity-50' : ''}
-                                            />
-                                        </PaginationItem>
-                                    </PaginationContent>
-                                </Pagination>
-                            </div>
-                        </div>
-                    )}
                 </div>
 
+                {/* Pagination */}
+                {partsData.meta && partsData.meta.total > partsData.meta.per_page && (
+                    <div className="flex justify-center border-t py-2">
+                        <Pagination>
+                            <PaginationContent>
+                                <PaginationItem>
+                                    <PaginationPrevious
+                                        onClick={(e) => {
+                                            e.preventDefault();
+                                            if (partsData.links?.prev) handlePageChange(partsData.links.prev);
+                                        }}
+                                        className={!partsData.links?.prev ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+                                    />
+                                </PaginationItem>
+
+                                {(partsData.meta?.links || []).map((link, index) => {
+                                    if (link.label.includes('Previous') || link.label.includes('Next')) return null;
+
+                                    if (!link.url && link.label === '...') {
+                                        return (
+                                            <PaginationItem key={`ellipsis-${index}`}>
+                                                <PaginationEllipsis />
+                                            </PaginationItem>
+                                        );
+                                    }
+
+                                    return (
+                                        <PaginationItem key={`page-${link.label}-${index}`}>
+                                            <PaginationLink
+                                                onClick={(e) => {
+                                                    e.preventDefault();
+                                                    if (link.url) handlePageChange(link.url);
+                                                }}
+                                                isActive={link.active}
+                                                className="cursor-pointer"
+                                            >
+                                                {link.label}
+                                            </PaginationLink>
+                                        </PaginationItem>
+                                    );
+                                })}
+
+                                <PaginationItem>
+                                    <PaginationNext
+                                        onClick={(e) => {
+                                            e.preventDefault();
+                                            if (partsData.links?.next) handlePageChange(partsData.links.next);
+                                        }}
+                                        className={!partsData.links?.next ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+                                    />
+                                </PaginationItem>
+                            </PaginationContent>
+                        </Pagination>
+                    </div>
+                )}
                 {/* Content */}
                 <div className="bg-card flex-1 rounded-lg border">
                     {error && (
@@ -415,61 +409,57 @@ export default function PartsBrowse({ initialParts, filters: initialFiltersFromU
 
                     {/* Bottom Pagination */}
                     {partsData.meta && partsData.meta.total > partsData.meta.per_page && (
-                        <div className="flex items-center justify-between border-t p-4">
-                            <div>
-                                <p className="text-muted-foreground text-sm">
-                                    Showing {partsData.meta?.from || 0} to {partsData.meta?.to || 0} of {partsData.meta?.total || 0} parts
-                                </p>
-                            </div>
-                            <div>
-                                <Pagination>
-                                    <PaginationContent>
-                                        <PaginationItem>
-                                            <PaginationPrevious
-                                                href={undefined}
-                                                onClick={(e) => {
-                                                    e.preventDefault();
-                                                    if (partsData.links?.prev) handlePageChange(partsData.links.prev);
-                                                }}
-                                                className={!partsData.links?.prev ? 'pointer-events-none opacity-50' : ''}
-                                            />
-                                        </PaginationItem>
-                                        {(partsData.meta?.links || []).map((link, index) => {
-                                            if (link.label.includes('Previous') || link.label.includes('Next')) return null;
-                                            if (!link.url && link.label === '...')
-                                                return (
-                                                    <PaginationItem key={`ellipsis-${index}`}>
-                                                        <PaginationEllipsis />
-                                                    </PaginationItem>
-                                                );
+                        <div className="flex justify-center border-t py-4">
+                            <Pagination>
+                                <PaginationContent>
+                                    <PaginationItem>
+                                        <PaginationPrevious
+                                            onClick={(e) => {
+                                                e.preventDefault();
+                                                if (partsData.links?.prev) handlePageChange(partsData.links.prev);
+                                            }}
+                                            className={!partsData.links?.prev ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+                                        />
+                                    </PaginationItem>
+
+                                    {(partsData.meta?.links || []).map((link, index) => {
+                                        if (link.label.includes('Previous') || link.label.includes('Next')) return null;
+
+                                        if (!link.url && link.label === '...') {
                                             return (
-                                                <PaginationItem key={link.label + '-' + index}>
-                                                    <PaginationLink
-                                                        href={undefined}
-                                                        isActive={link.active}
-                                                        onClick={(e) => {
-                                                            e.preventDefault();
-                                                            if (link.url) handlePageChange(link.url);
-                                                        }}
-                                                    >
-                                                        <span dangerouslySetInnerHTML={{ __html: link.label }} />
-                                                    </PaginationLink>
+                                                <PaginationItem key={`ellipsis-${index}`}>
+                                                    <PaginationEllipsis />
                                                 </PaginationItem>
                                             );
-                                        })}
-                                        <PaginationItem>
-                                            <PaginationNext
-                                                href={undefined}
-                                                onClick={(e) => {
-                                                    e.preventDefault();
-                                                    if (partsData.links?.next) handlePageChange(partsData.links.next);
-                                                }}
-                                                className={!partsData.links?.next ? 'pointer-events-none opacity-50' : ''}
-                                            />
-                                        </PaginationItem>
-                                    </PaginationContent>
-                                </Pagination>
-                            </div>
+                                        }
+
+                                        return (
+                                            <PaginationItem key={`page-${link.label}-${index}`}>
+                                                <PaginationLink
+                                                    onClick={(e) => {
+                                                        e.preventDefault();
+                                                        if (link.url) handlePageChange(link.url);
+                                                    }}
+                                                    isActive={link.active}
+                                                    className="cursor-pointer"
+                                                >
+                                                    {link.label}
+                                                </PaginationLink>
+                                            </PaginationItem>
+                                        );
+                                    })}
+
+                                    <PaginationItem>
+                                        <PaginationNext
+                                            onClick={(e) => {
+                                                e.preventDefault();
+                                                if (partsData.links?.next) handlePageChange(partsData.links.next);
+                                            }}
+                                            className={!partsData.links?.next ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+                                        />
+                                    </PaginationItem>
+                                </PaginationContent>
+                            </Pagination>
                         </div>
                     )}
                 </div>

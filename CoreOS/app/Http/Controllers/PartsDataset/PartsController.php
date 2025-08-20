@@ -39,9 +39,24 @@ class PartsController extends Controller
     /**
      * Display the parts upload page
      */
-    public function index(): Response
+    public function index(Request $request): Response
     {
-        return Inertia::render('PartsDataset/PartsIndex');
+        return Inertia::render('PartsDataset/PartsIndex', [
+            'uploads' => $this->uploads($request)->getData(),
+            'parts' => $request->get('activeTab') === 'parts' ? $this->parts($request)->getData() : null,
+            'statistics' => $this->statistics()->getData(),
+            'queueStatus' => $this->queueStatusDetailed()->getData(),
+            'filters' => [
+                'uploadsPage' => $request->get('uploadsPage', 1),
+                'partsPage' => $request->get('partsPage', 1),
+                'uploadsSearch' => $request->get('uploadsSearch', ''),
+                'partsSearch' => $request->get('partsSearch', ''),
+                'statusFilter' => $request->get('statusFilter', 'all'),
+                'shopifyFilter' => $request->get('shopifyFilter', 'all'),
+                'selectedUploadId' => $request->get('selectedUploadId', 'all'),
+                'activeTab' => $request->get('activeTab', 'uploads'),
+            ]
+        ]);
     }
 
     /**
@@ -114,6 +129,7 @@ class PartsController extends Controller
         }
 
         $query = PartsUpload::with(['parts'])
+            ->whereNull('parent_upload_id')
             ->orderBy('uploaded_at', 'desc');
 
         // Apply filters
@@ -134,19 +150,46 @@ class PartsController extends Controller
         $uploads = $query->paginate($perPage);
 
         // Add summary statistics to each upload
+        // Transform to include children
         $uploads->getCollection()->transform(function ($upload) {
-            $shopifyCount = $upload->parts()->whereHas('shopifyData', function ($q) {
-                $q->whereNotNull('shopify_id');
-            })->count();
+            // Get children for this parent
+            $children = PartsUpload::with(['parts'])
+                ->where('parent_upload_id', $upload->id)
+                ->get();
 
-            $upload->shopify_synced_count = $shopifyCount;
-            $upload->shopify_sync_percentage = $upload->total_parts > 0
-                ? round(($shopifyCount / $upload->total_parts) * 100, 1)
-                : 0;
+            // Calculate stats for children
+            $children->each(function ($child) {
+                $shopifyCount = $child->parts()->whereHas('shopifyData', function ($q) {
+                    $q->whereNotNull('shopify_id');
+                })->count();
 
-            // Check if stuck in processing
-            $upload->is_stuck = $upload->status === 'processing' &&
-                $upload->updated_at < now()->subHours(2);
+                $child->shopify_synced_count = $shopifyCount;
+                $child->shopify_sync_percentage = $child->total_parts > 0
+                    ? round(($shopifyCount / $child->total_parts) * 100, 1)
+                    : 0;
+            });
+
+            // If ZIP file, aggregate children stats
+            if ($upload->upload_type === 'zip' && $children->isNotEmpty()) {
+                $upload->total_parts = $children->sum('total_parts');
+                $upload->processed_parts = $children->sum('processed_parts');
+                $upload->shopify_synced_count = $children->sum('shopify_synced_count');
+                $upload->shopify_sync_percentage = $upload->total_parts > 0
+                    ? round(($upload->shopify_synced_count / $upload->total_parts) * 100, 1)
+                    : 0;
+            } else {
+                // Regular file stats
+                $shopifyCount = $upload->parts()->whereHas('shopifyData', function ($q) {
+                    $q->whereNotNull('shopify_id');
+                })->count();
+                $upload->shopify_synced_count = $shopifyCount;
+                $upload->shopify_sync_percentage = $upload->total_parts > 0
+                    ? round(($shopifyCount / $upload->total_parts) * 100, 1)
+                    : 0;
+            }
+
+            // Attach children to upload
+            $upload->children = $children;
 
             return $upload;
         });
@@ -233,50 +276,158 @@ class PartsController extends Controller
     /**
      * Enhanced queue status monitoring
      */
-    public function queueStatus(): JsonResponse
+    public function queueStatusDetailed(): JsonResponse
     {
         try {
             // Get queue sizes
             $fileProcessingQueue = \Illuminate\Support\Facades\Queue::size('file-processing');
+            $chunkProcessingQueue = \Illuminate\Support\Facades\Queue::size('chunk-processing');
+            $aggregationQueue = \Illuminate\Support\Facades\Queue::size('aggregation');
             $shopifySyncQueue = \Illuminate\Support\Facades\Queue::size('shopify-sync');
             $defaultQueue = \Illuminate\Support\Facades\Queue::size('default');
 
-            // Get stuck uploads (processing for more than 2 hours)
+            // Get upload status breakdown
+            $uploadStats = [
+                'pending' => PartsUpload::where('status', PartsUpload::STATUS_PENDING)->count(),
+                'analyzing' => PartsUpload::where('status', PartsUpload::STATUS_ANALYZING)->count(),
+                'chunked' => PartsUpload::where('status', PartsUpload::STATUS_CHUNKED)->count(),
+                'processing' => PartsUpload::where('status', PartsUpload::STATUS_PROCESSING)->count(),
+                'completed' => PartsUpload::where('status', PartsUpload::STATUS_COMPLETED)->count(),
+                'completed_with_errors' => PartsUpload::where('status', PartsUpload::STATUS_COMPLETED_WITH_ERRORS)->count(),
+                'failed' => PartsUpload::where('status', PartsUpload::STATUS_FAILED)->count(),
+            ];
+
+            // Get hierarchical processing uploads (ZIP files with their children)
+            $processingUploads = $this->getHierarchicalProcessingUploads();
+
+            // Get stuck uploads
             $stuckUploads = PartsUpload::where('status', 'processing')
                 ->where('updated_at', '<', now()->subHours(2))
                 ->count();
 
-            // Get pending uploads
-            $pendingUploads = PartsUpload::where('status', 'pending')->count();
-
-            // Get recent failed uploads
+            // Recent failures
             $recentFailures = PartsUpload::where('status', 'failed')
                 ->where('updated_at', '>=', now()->subHours(24))
                 ->count();
 
+            // Get Shopify sync progress
+            $shopifyProgress = $this->getShopifySyncProgress();
+
             return response()->json([
                 'queues' => [
                     'file_processing' => $fileProcessingQueue,
+                    'chunk_processing' => $chunkProcessingQueue,
+                    'aggregation' => $aggregationQueue,
                     'shopify_sync' => $shopifySyncQueue,
                     'default' => $defaultQueue,
-                    'total' => $fileProcessingQueue + $shopifySyncQueue + $defaultQueue,
+                    'total' => $fileProcessingQueue + $chunkProcessingQueue + $aggregationQueue + $shopifySyncQueue + $defaultQueue,
                 ],
-                'uploads' => [
-                    'pending' => $pendingUploads,
+                'uploads' => $uploadStats,
+                'processing_uploads' => $processingUploads,
+                'shopify_progress' => $shopifyProgress,
+                'issues' => [
                     'stuck_processing' => $stuckUploads,
                     'recent_failures' => $recentFailures,
                 ],
-                'status' => $fileProcessingQueue + $shopifySyncQueue + $defaultQueue > 0 ? 'busy' : 'idle',
-                'message' => $this->getQueueStatusMessage($fileProcessingQueue, $shopifySyncQueue, $stuckUploads),
+                'status' => $this->getOverallSystemStatus($uploadStats, $stuckUploads),
+                'last_updated' => now()->toISOString(),
             ]);
 
         } catch (\Exception $e) {
             return response()->json([
-                'error' => 'Failed to get queue status: ' . $e->getMessage(),
+                'error' => 'Failed to get detailed queue status: ' . $e->getMessage(),
             ], 500);
         }
     }
+    /**
+     * Get hierarchical processing uploads (ZIP files with children)
+     */
+    private function getHierarchicalProcessingUploads(): array
+    {
+        $parentUploads = PartsUpload::with(['chunks'])
+            ->whereIn('status', [PartsUpload::STATUS_ANALYZING, PartsUpload::STATUS_CHUNKED, PartsUpload::STATUS_PROCESSING])
+            ->whereNull('parent_upload_id')
+            ->get();
 
+        $hierarchicalUploads = [];
+        foreach ($parentUploads as $parent) {
+            $parentData = $this->formatUploadForQueue($parent);
+
+            $children = PartsUpload::with(['chunks'])
+                ->where('parent_upload_id', $parent->id)
+                ->get();
+
+            $parentData['children'] = $children->map(function ($child) {
+                return $this->formatUploadForQueue($child);
+            })->toArray();
+
+            $hierarchicalUploads[] = $parentData;
+        }
+
+        return $hierarchicalUploads;
+    }
+    /**
+     * Format upload data for queue display
+     */
+    private function formatUploadForQueue($upload): array
+    {
+        $chunks = $upload->chunks;
+        if ($chunks->isNotEmpty()) {
+            $completed = $chunks->where('status', UploadChunk::STATUS_COMPLETED)->count();
+            $total = $chunks->count();
+            $progress = $total > 0 ? round(($completed / $total) * 100, 1) : 0;
+        } else {
+            $progress = $upload->progress_percentage ?? 0;
+        }
+
+        return [
+            'id' => $upload->id,
+            'filename' => $upload->original_filename,
+            'upload_type' => $upload->upload_type,
+            'status' => $upload->status,
+            'progress_percentage' => $progress,
+            'chunks_total' => $chunks->count(),
+            'chunks_completed' => $chunks->where('status', UploadChunk::STATUS_COMPLETED)->count(),
+            'chunks_failed' => $chunks->where('status', UploadChunk::STATUS_FAILED)->count(),
+            'started_at' => $upload->uploaded_at,
+            'is_stuck' => $upload->status === 'processing' && $upload->updated_at < now()->subHours(2),
+            'is_parent' => $upload->upload_type === 'zip',
+            'parent_id' => $upload->parent_upload_id,
+        ];
+    }
+    /**
+     * Get Shopify sync progress for recent uploads
+     */
+    private function getShopifySyncProgress(): array
+    {
+        $recentUploads = PartsUpload::whereIn('status', ['completed', 'completed_with_errors'])
+            ->where('completed_at', '>=', now()->subHours(24))
+            ->withCount(['parts', 'parts as synced_parts_count' => function ($query) {
+                $query->whereHas('shopifyData', function ($q) {
+                    $q->whereNotNull('shopify_id');
+                });
+            }])
+            ->get();
+
+        $syncProgress = [];
+        foreach ($recentUploads as $upload) {
+            if ($upload->parts_count > 0) {
+                $syncPercentage = round(($upload->synced_parts_count / $upload->parts_count) * 100, 1);
+
+                $syncProgress[] = [
+                    'upload_id' => $upload->id,
+                    'filename' => $upload->original_filename,
+                    'total_parts' => $upload->parts_count,
+                    'synced_parts' => $upload->synced_parts_count,
+                    'sync_percentage' => $syncPercentage,
+                    'completed_at' => $upload->completed_at,
+                    'is_sync_complete' => $syncPercentage >= 95,
+                ];
+            }
+        }
+
+        return $syncProgress;
+    }
     /**
      * Reset upload status and retry processing
      */
@@ -468,18 +619,17 @@ class PartsController extends Controller
     /**
      * Delete an upload and all its parts
      */
-    public function destroyUpload(int $uploadId): JsonResponse
+    public function destroyUpload(int $uploadId)
     {
         try {
             $upload = PartsUpload::findOrFail($uploadId);
             $partsCount = $upload->parts()->count();
 
             $upload->delete(); // Cascade will delete related parts
-
-            return response()->json([
-                'success' => true,
-                'message' => "Upload and {$partsCount} parts deleted successfully",
-            ]);
+//            return redirect()->route('your-resource.index')->with('message', 'Record deleted successfully');
+            return redirect()->route('parts.index')->with(
+                'message', "Upload and {$partsCount} parts deleted successfully",
+            );
 
         } catch (\Exception $e) {
             return response()->json([
@@ -669,96 +819,6 @@ class PartsController extends Controller
         }
     }
 
-    /**
-     * Enhanced queue status with detailed progress
-     */
-    public function queueStatusDetailed(): JsonResponse
-    {
-        try {
-            // Get queue sizes
-            $fileProcessingQueue = \Illuminate\Support\Facades\Queue::size('file-processing');
-            $chunkProcessingQueue = \Illuminate\Support\Facades\Queue::size('chunk-processing');
-            $aggregationQueue = \Illuminate\Support\Facades\Queue::size('aggregation');
-            $shopifySyncQueue = \Illuminate\Support\Facades\Queue::size('shopify-sync');
-            $defaultQueue = \Illuminate\Support\Facades\Queue::size('default');
-
-            // Get upload status breakdown
-            $uploadStats = [
-                'pending' => PartsUpload::where('status', PartsUpload::STATUS_PENDING)->count(),
-                'analyzing' => PartsUpload::where('status', PartsUpload::STATUS_ANALYZING)->count(),
-                'chunked' => PartsUpload::where('status', PartsUpload::STATUS_CHUNKED)->count(),
-                'processing' => PartsUpload::where('status', PartsUpload::STATUS_PROCESSING)->count(),
-                'completed' => PartsUpload::where('status', PartsUpload::STATUS_COMPLETED)->count(),
-                'completed_with_errors' => PartsUpload::where('status', PartsUpload::STATUS_COMPLETED_WITH_ERRORS)->count(),
-                'failed' => PartsUpload::where('status', PartsUpload::STATUS_FAILED)->count(),
-            ];
-
-            // Get currently processing uploads with details
-            $processingUploads = PartsUpload::with('chunks')
-                ->whereIn('status', [
-                    PartsUpload::STATUS_ANALYZING,
-                    PartsUpload::STATUS_CHUNKED,
-                    PartsUpload::STATUS_PROCESSING
-                ])
-                ->get()
-                ->map(function ($upload) {
-                    $chunks = $upload->chunks;
-                    if ($chunks->isNotEmpty()) {
-                        $completed = $chunks->where('status', UploadChunk::STATUS_COMPLETED)->count();
-                        $total = $chunks->count();
-                        $progress = $total > 0 ? round(($completed / $total) * 100, 1) : 0;
-                    } else {
-                        $progress = $upload->progress_percentage;
-                    }
-
-                    return [
-                        'id' => $upload->id,
-                        'filename' => $upload->original_filename,
-                        'status' => $upload->status,
-                        'progress_percentage' => $progress,
-                        'chunks_total' => $chunks->count(),
-                        'chunks_completed' => $chunks->where('status', UploadChunk::STATUS_COMPLETED)->count(),
-                        'chunks_failed' => $chunks->where('status', UploadChunk::STATUS_FAILED)->count(),
-                        'started_at' => $upload->uploaded_at,
-                        'is_stuck' => $upload->status === 'processing' && $upload->updated_at < now()->subHours(2),
-                    ];
-                });
-
-            // Get stuck uploads
-            $stuckUploads = PartsUpload::where('status', 'processing')
-                ->where('updated_at', '<', now()->subHours(2))
-                ->count();
-
-            // Recent failures
-            $recentFailures = PartsUpload::where('status', 'failed')
-                ->where('updated_at', '>=', now()->subHours(24))
-                ->count();
-
-            return response()->json([
-                'queues' => [
-                    'file_processing' => $fileProcessingQueue,
-                    'chunk_processing' => $chunkProcessingQueue,
-                    'aggregation' => $aggregationQueue,
-                    'shopify_sync' => $shopifySyncQueue,
-                    'default' => $defaultQueue,
-                    'total' => $fileProcessingQueue + $chunkProcessingQueue + $aggregationQueue + $shopifySyncQueue + $defaultQueue,
-                ],
-                'uploads' => $uploadStats,
-                'processing_uploads' => $processingUploads,
-                'issues' => [
-                    'stuck_processing' => $stuckUploads,
-                    'recent_failures' => $recentFailures,
-                ],
-                'status' => $this->getOverallSystemStatus($uploadStats, $stuckUploads),
-                'last_updated' => now()->toISOString(),
-            ]);
-
-        } catch (\Exception $e) {
-            return response()->json([
-                'error' => 'Failed to get detailed queue status: ' . $e->getMessage(),
-            ], 500);
-        }
-    }
 
     /**
      * Get overall system status

@@ -111,19 +111,23 @@ class ChunkProcessingJob implements ShouldQueue
             foreach ($data as $row) {
                 if (empty(array_filter($row))) continue;
 
+                // Get and normalize manufacturer name
+                $rawManufacturer = $this->getValueFromRow($row, $fieldIndices['manufacturer']);
+                $normalizedManufacturer = ManufacturerNormalizer::normalize($rawManufacturer);
+
                 $partData = [
                     'upload_id' => $upload->id,
                     'batch_id' => $upload->batch_id,
                     'part_number' => $this->getValueFromRow($row, $fieldIndices['part_number']),
                     'description' => $this->getValueFromRow($row, $fieldIndices['description']),
-                    'manufacturer' => $this->getValueFromRow($row, $fieldIndices['manufacturer']),
+                    'manufacturer' => $normalizedManufacturer, // Use normalized name
                 ];
 
                 if (empty($partData['part_number'])) continue;
 
-                // Check for existing part in same Excel context
+                // Check for existing part in same Excel context using normalized manufacturer
                 $existingPart = Part::where('part_number', $partData['part_number'])
-                    ->where('manufacturer', $partData['manufacturer'])
+                    ->where('manufacturer', $normalizedManufacturer)
                     ->whereHas('additionalFields', function($q) use ($excelContext) {
                         $q->where('field_name', '_excel_context')
                             ->where('field_value', $excelContext);
@@ -152,6 +156,15 @@ class ChunkProcessingJob implements ShouldQueue
                     'field_name' => '_excel_context',
                     'field_value' => $excelContext,
                 ]);
+
+                // Store original manufacturer name if it was changed
+                if ($rawManufacturer && $rawManufacturer !== $normalizedManufacturer) {
+                    PartAdditionalField::create([
+                        'part_id' => $part->id,
+                        'field_name' => '_original_manufacturer',
+                        'field_value' => $rawManufacturer,
+                    ]);
+                }
 
                 // Store additional fields
                 $this->storeAdditionalFields($part, $row, $headers, $coreFields);
