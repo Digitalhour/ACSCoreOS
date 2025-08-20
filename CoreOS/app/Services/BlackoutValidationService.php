@@ -8,6 +8,7 @@ use App\Models\Position;
 use App\Models\PtoModels\PtoBlackout;
 use App\Models\PtoModels\PtoRequest;
 use App\Models\User;
+use Carbon\Carbon;
 use Illuminate\Support\Collection;
 
 class BlackoutValidationService
@@ -42,23 +43,24 @@ class BlackoutValidationService
      */
     public function processBlackoutAcknowledgment(PtoRequest $ptoRequest, User $user): bool
     {
-        if (!$ptoRequest->hasBlackoutWarnings()) {
+        if (! $ptoRequest->hasBlackoutWarnings()) {
             return true; // No warnings to acknowledge
         }
 
         $ptoRequest->acknowledgeBlackoutWarnings($user);
+
         return true;
     }
 
     /**
      * Process emergency override approval
      */
-    public function processEmergencyOverrideApproval(PtoRequest $ptoRequest, User $approver, bool $approved, string $reason = null): array
+    public function processEmergencyOverrideApproval(PtoRequest $ptoRequest, User $approver, bool $approved, ?string $reason = null): array
     {
-        if (!$ptoRequest->hasEmergencyOverride()) {
+        if (! $ptoRequest->hasEmergencyOverride()) {
             return [
                 'success' => false,
-                'message' => 'No emergency override requested for this PTO request.'
+                'message' => 'No emergency override requested for this PTO request.',
             ];
         }
 
@@ -76,7 +78,7 @@ class BlackoutValidationService
 
             return [
                 'success' => true,
-                'message' => 'Emergency override approved. PTO request can now proceed through normal approval process.'
+                'message' => 'Emergency override approved. PTO request can now proceed through normal approval process.',
             ];
         } else {
             $ptoRequest->update([
@@ -89,7 +91,7 @@ class BlackoutValidationService
 
             return [
                 'success' => true,
-                'message' => 'Emergency override denied. PTO request has been rejected.'
+                'message' => 'Emergency override denied. PTO request has been rejected.',
             ];
         }
     }
@@ -121,12 +123,12 @@ class BlackoutValidationService
 
         foreach ($allBlackouts as $blackout) {
             // Check if blackout applies to this user
-            if (!$this->blackoutAppliesToUser($blackout, $user)) {
+            if (! $this->blackoutAppliesToUser($blackout, $user)) {
                 continue;
             }
 
             // Check if PTO type is restricted by this blackout
-            if (!$this->ptoTypeIsRestricted($blackout, $ptoTypeId)) {
+            if (! $this->ptoTypeIsRestricted($blackout, $ptoTypeId)) {
                 continue;
             }
 
@@ -151,24 +153,23 @@ class BlackoutValidationService
         }
 
         return [
-            'has_conflicts' => !empty($conflicts),
-            'has_warnings' => !empty($warnings),
+            'has_conflicts' => ! empty($conflicts),
+            'has_warnings' => ! empty($warnings),
             'conflicts' => $conflicts,
             'warnings' => $warnings,
             'can_submit' => empty($conflicts),
-            'requires_acknowledgment' => !empty($warnings),
-            'requires_override' => !empty($conflicts) && $isEmergency,
+            'requires_acknowledgment' => ! empty($warnings),
+            'requires_override' => ! empty($conflicts) && $isEmergency,
         ];
     }
-    
 
     /**
      * Process recurring blackout restrictions
      */
     private function processRecurringBlackout(PtoBlackout $blackout, User $user, string $startDate, string $endDate, int $ptoTypeId, bool $isEmergency): array
     {
-        $start = \Carbon\Carbon::parse($startDate);
-        $end = \Carbon\Carbon::parse($endDate);
+        $start = Carbon::parse($startDate);
+        $end = Carbon::parse($endDate);
         $conflictingDays = [];
 
         // Find which specific days in the range conflict with the recurring blackout
@@ -240,12 +241,13 @@ class BlackoutValidationService
                 return $this->processFullBlock($blackout, $isEmergency);
         }
     }
+
     /**
      * Check if a request was denied specifically for blackout reasons
      */
     private function wasDeniedForBlackout(PtoRequest $ptoRequest): bool
     {
-        if (!$ptoRequest->isDenied() || empty($ptoRequest->denial_reason)) {
+        if (! $ptoRequest->isDenied() || empty($ptoRequest->denial_reason)) {
             return false;
         }
 
@@ -276,12 +278,12 @@ class BlackoutValidationService
     private function canRequestProceed(PtoRequest $ptoRequest): bool
     {
         // No blackout issues
-        if (!$ptoRequest->hasBlackoutConflicts() && !$ptoRequest->hasBlackoutWarnings()) {
+        if (! $ptoRequest->hasBlackoutConflicts() && ! $ptoRequest->hasBlackoutWarnings()) {
             return true;
         }
 
         // Has warnings but they are acknowledged
-        if ($ptoRequest->hasBlackoutWarnings() && !$ptoRequest->hasBlackoutConflicts()) {
+        if ($ptoRequest->hasBlackoutWarnings() && ! $ptoRequest->hasBlackoutConflicts()) {
             return $ptoRequest->areBlackoutWarningsAcknowledged();
         }
 
@@ -293,6 +295,7 @@ class BlackoutValidationService
         // Has conflicts but no approved override
         return false;
     }
+
     /**
      * Get detailed blackout information for admin review interface
      */
@@ -315,7 +318,7 @@ class BlackoutValidationService
                 'departments' => $user->departments?->pluck('name')->toArray() ?? [],
             ],
             'request_details' => [
-                'dates' => $ptoRequest->start_date->format('M d, Y') . ' - ' . $ptoRequest->end_date->format('M d, Y'),
+                'dates' => $ptoRequest->start_date->format('M d, Y').' - '.$ptoRequest->end_date->format('M d, Y'),
                 'total_days' => $ptoRequest->total_days,
                 'pto_type' => $ptoRequest->ptoType->name,
                 'reason' => $ptoRequest->reason,
@@ -376,17 +379,17 @@ class BlackoutValidationService
 
         if ($blackout->position_id) {
             $position = Position::find($blackout->position_id);
-            $scope[] = 'Position: ' . ($position?->name ?? 'Unknown');
+            $scope[] = 'Position: '.($position?->name ?? 'Unknown');
         }
 
         if ($blackout->department_ids) {
             $departments = Department::whereIn('id', $blackout->department_ids)->pluck('name')->toArray();
-            $scope[] = 'Departments: ' . implode(', ', $departments);
+            $scope[] = 'Departments: '.implode(', ', $departments);
         }
 
         if ($blackout->user_ids) {
             $users = User::whereIn('id', $blackout->user_ids)->pluck('name')->toArray();
-            $scope[] = 'Specific Users: ' . implode(', ', $users);
+            $scope[] = 'Specific Users: '.implode(', ', $users);
         }
 
         return [
@@ -419,11 +422,11 @@ class BlackoutValidationService
                 if ($conflict['is_strict']) {
                     $recommendation['action'] = 'likely_deny';
                     $recommendation['priority'] = 'urgent';
-                    $recommendation['reasoning'][] = 'Conflicts with strict blackout: ' . $conflict['blackout_name'];
+                    $recommendation['reasoning'][] = 'Conflicts with strict blackout: '.$conflict['blackout_name'];
                 }
 
-                if (!$conflict['can_override']) {
-                    $recommendation['considerations'][] = 'No override permitted for: ' . $conflict['blackout_name'];
+                if (! $conflict['can_override']) {
+                    $recommendation['considerations'][] = 'No override permitted for: '.$conflict['blackout_name'];
                 }
             }
         }
@@ -432,17 +435,18 @@ class BlackoutValidationService
         if ($adminDetails['blackout_analysis']['has_warnings']) {
             foreach ($adminDetails['blackout_analysis']['warnings'] as $warning) {
                 if (isset($warning['additional_info']['will_consume_slot'])) {
-                    $recommendation['considerations'][] = 'Will consume limited slot for: ' . $warning['blackout_name'];
+                    $recommendation['considerations'][] = 'Will consume limited slot for: '.$warning['blackout_name'];
                 }
 
                 if (isset($warning['additional_info']['requires_justification'])) {
-                    $recommendation['considerations'][] = 'Business justification required for: ' . $warning['blackout_name'];
+                    $recommendation['considerations'][] = 'Business justification required for: '.$warning['blackout_name'];
                 }
             }
         }
 
         return $recommendation;
     }
+
     /**
      * Auto-reject a PTO request due to blackout conflicts
      */
@@ -458,7 +462,7 @@ class BlackoutValidationService
 
         if ($validation['has_conflicts']) {
             $conflictMessages = collect($validation['conflicts'])->pluck('message')->toArray();
-            $denialReason = "Automatically rejected due to blackout period conflicts:\n" . implode("\n", $conflictMessages);
+            $denialReason = "Automatically rejected due to blackout period conflicts:\n".implode("\n", $conflictMessages);
 
             $ptoRequest->update([
                 'status' => 'denied',
@@ -478,6 +482,7 @@ class BlackoutValidationService
             }
         }
     }
+
     // Keep all existing methods...
     private function blackoutAppliesToUser(PtoBlackout $blackout, User $user): bool
     {
@@ -515,7 +520,8 @@ class BlackoutValidationService
     private function requestOverlapsWithHolidays(string $startDate, string $endDate): bool
     {
         $holidays = Holiday::getHolidaysInRange($startDate, $endDate);
-        return !empty($holidays);
+
+        return ! empty($holidays);
     }
 
     private function processBlackoutRestriction(PtoBlackout $blackout, User $user, string $startDate, string $endDate, int $ptoTypeId, bool $isEmergency): array
@@ -576,8 +582,8 @@ class BlackoutValidationService
             ->when($blackout->pto_type_ids, function ($query) use ($blackout) {
                 return $query->whereIn('pto_type_id', $blackout->pto_type_ids);
             })
-            ->when(!$blackout->is_company_wide, function ($query) use ($blackout, $user) {
-                return $query->where(function ($q) use ($blackout, $user) {
+            ->when(! $blackout->is_company_wide, function ($query) use ($blackout) {
+                return $query->where(function ($q) use ($blackout) {
                     if ($blackout->user_ids) {
                         $q->orWhereIn('user_id', $blackout->user_ids);
                     }
@@ -696,8 +702,8 @@ class BlackoutValidationService
             ->where(function ($query) use ($blackout) {
                 // This is a simplified check - you'd need to implement proper day-of-week checking
                 // You might want to add a more sophisticated query here
-                $query->whereRaw('DAYOFWEEK(start_date) IN (' . implode(',', array_map(fn($d) => $d + 1, $blackout->recurring_days)) . ')')
-                    ->orWhereRaw('DAYOFWEEK(end_date) IN (' . implode(',', array_map(fn($d) => $d + 1, $blackout->recurring_days)) . ')');
+                $query->whereRaw('DAYOFWEEK(start_date) IN ('.implode(',', array_map(fn ($d) => $d + 1, $blackout->recurring_days)).')')
+                    ->orWhereRaw('DAYOFWEEK(end_date) IN ('.implode(',', array_map(fn ($d) => $d + 1, $blackout->recurring_days)).')');
             })
             ->count();
 

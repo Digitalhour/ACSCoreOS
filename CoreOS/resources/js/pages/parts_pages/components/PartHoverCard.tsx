@@ -138,7 +138,7 @@ const PartHoverCard: React.FC<PartHoverCardProps> = ({ part, children }) => {
                                             <Button
                                                 variant="outline"
                                                 size="sm"
-                                                onClick={() => window.open(onlineStoreUrl, '_blank')}
+                                                onClick={() => window.open(onlineStoreUrl ?? undefined, '_blank')}
                                                 className="flex items-center space-x-1"
                                             >
                                                 <Store className="h-3 w-3" />
@@ -153,7 +153,7 @@ const PartHoverCard: React.FC<PartHoverCardProps> = ({ part, children }) => {
                                             <Button
                                                 variant="outline"
                                                 size="sm"
-                                                onClick={() => window.open(part.shopify_data.admin_url, '_blank')}
+                                                onClick={() => window.open(part.shopify_data.admin_url ?? undefined, '_blank')}
                                                 className="flex items-center space-x-1"
                                             >
                                                 <Wrench className="h-3 w-3" />

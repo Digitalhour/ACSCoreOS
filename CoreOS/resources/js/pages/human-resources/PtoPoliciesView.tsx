@@ -264,6 +264,18 @@ export default function PtoPoliciesView({ ptoPolicies: initialPolicies, users: i
         });
     }, [policyToDelete]);
 
+    // Reload policies from server
+    const reloadPolicies = useCallback(() => {
+        router.reload({
+            only: ['ptoPolicies'],
+            onSuccess: (page) => {
+                if (page.props.ptoPolicies) {
+                    setPtoPolicies(page.props.ptoPolicies as PtoPolicy[]);
+                }
+            }
+        });
+    }, []);
+
     // Submit form
     const handleSubmit = useCallback(
         (e: React.FormEvent) => {
@@ -284,17 +296,19 @@ export default function PtoPoliciesView({ ptoPolicies: initialPolicies, users: i
 
             if (isEditing && currentPolicy) {
                 router.put(`/api/pto-policies/${currentPolicy.id}`, submitData, {
-                    onSuccess: (page: any) => {
-                        const updatedPolicy = page.props.data;
-                        setPtoPolicies((prev) =>
-                            prev.map((policy) => (policy.id === currentPolicy.id ? updatedPolicy : policy))
-                        );
-                        toast.success(`PTO policy "${updatedPolicy.name}" updated successfully.`);
+                    onSuccess: () => {
+                        toast.success('PTO policy updated successfully.');
                         resetForm();
+                        reloadPolicies();
                     },
                     onError: (errors) => {
                         console.error('Error updating policy:', errors);
-                        toast.error('Failed to update PTO policy.');
+                        if (typeof errors === 'object' && errors !== null) {
+                            const errorMessages = Object.values(errors).flat();
+                            toast.error(errorMessages[0] || 'Failed to update PTO policy.');
+                        } else {
+                            toast.error('Failed to update PTO policy.');
+                        }
                     },
                     onFinish: () => {
                         setSubmitting(false);
@@ -303,15 +317,19 @@ export default function PtoPoliciesView({ ptoPolicies: initialPolicies, users: i
                 });
             } else {
                 router.post('/api/pto-policies', submitData, {
-                    onSuccess: (page: any) => {
-                        const newPolicy = page.props.data;
-                        setPtoPolicies((prev) => [...prev, newPolicy]);
-                        toast.success(`PTO policy "${newPolicy.name}" created successfully.`);
+                    onSuccess: () => {
+                        toast.success('PTO policy created successfully.');
                         resetForm();
+                        reloadPolicies();
                     },
                     onError: (errors) => {
                         console.error('Error creating policy:', errors);
-                        toast.error('Failed to create PTO policy.');
+                        if (typeof errors === 'object' && errors !== null) {
+                            const errorMessages = Object.values(errors).flat();
+                            toast.error(errorMessages[0] || 'Failed to create PTO policy.');
+                        } else {
+                            toast.error('Failed to create PTO policy.');
+                        }
                     },
                     onFinish: () => {
                         setSubmitting(false);
@@ -320,7 +338,7 @@ export default function PtoPoliciesView({ ptoPolicies: initialPolicies, users: i
                 });
             }
         },
-        [formData, isEditing, currentPolicy, resetForm],
+        [formData, isEditing, currentPolicy, resetForm, reloadPolicies],
     );
 
     // Format date

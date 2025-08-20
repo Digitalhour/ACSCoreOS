@@ -151,8 +151,8 @@ const PartsUploadModal: React.FC<PartsUploadModalProps> = ({
                         toast.success('File uploaded and queued for processing!');
                     } else {
                         // Legacy immediate processing response
-                        addLog(`Upload completed successfully! Processed ${response.data.total_parts || 0} parts.`, 'success');
-                        toast.success(`Successfully processed ${response.data.total_parts || 0} parts`);
+                        addLog(`Upload completed successfully! Processing.`, 'success');
+                        toast.success(`Successfully processing parts`);
                     }
 
                     // Call success callback and refresh parent
@@ -270,8 +270,8 @@ const PartsUploadModal: React.FC<PartsUploadModalProps> = ({
                     </DialogTitle>
                     <DialogDescription>
                         Upload ZIP files containing parts data. ZIP files can include images..
-                        <p>Zip file must contain an Excel (.xlsx, .xls) and Images if available.</p>
-                        <p>Zip file must only contain one Excel or a CSV. it must not contain both</p>
+                        <>Zip file must contain an Excel (.xlsx, .xls) and Images if available.</>
+                        <>Zip file must only contain one Excel or a CSV. it must not contain both</>
                     </DialogDescription>
                 </DialogHeader>
 

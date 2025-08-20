@@ -17,7 +17,6 @@ use Inertia\Inertia;
 
 class PtoPolicyController extends Controller
 {
-
     /**
      * Display the PTO policies admin page.
      */
@@ -30,6 +29,7 @@ class PtoPolicyController extends Controller
             'ptoTypes' => PtoType::where('is_active', true)->get(),
         ]);
     }
+
     public function index(Request $request): JsonResponse
     {
         try {
@@ -53,19 +53,20 @@ class PtoPolicyController extends Controller
                 'data' => $policies,
                 'meta' => [
                     'total' => $policies->count(),
-                    'active_count' => $policies->filter(fn($p) => $p->isCurrentlyActive())->count(),
-                ]
+                    'active_count' => $policies->filter(fn ($p) => $p->isCurrentlyActive())->count(),
+                ],
             ]);
         } catch (\Exception $e) {
-            Log::error("Error fetching PTO Policies: ".$e->getMessage());
+            Log::error('Error fetching PTO Policies: '.$e->getMessage());
+
             return response()->json([
                 'error' => 'Failed to fetch PTO Policies.',
-                'details' => App::environment('local') ? $e->getMessage() : 'An unexpected error occurred.'
+                'details' => App::environment('local') ? $e->getMessage() : 'An unexpected error occurred.',
             ], 500);
         }
     }
 
-    public function store(Request $request): JsonResponse
+    public function store(Request $request)
     {
         $validator = Validator::make($request->all(), [
             'name' => 'nullable|string|max:255',
@@ -87,10 +88,14 @@ class PtoPolicyController extends Controller
         ]);
 
         if ($validator->fails()) {
-            return response()->json([
-                'error' => 'Validation failed.',
-                'errors' => $validator->errors()
-            ], 422);
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'error' => 'Validation failed.',
+                    'errors' => $validator->errors(),
+                ], 422);
+            }
+
+            return back()->withErrors($validator->errors());
         }
 
         try {
@@ -105,7 +110,7 @@ class PtoPolicyController extends Controller
             $data['prorate_first_year'] = $data['prorate_first_year'] ?? true;
 
             // Generate name if not provided
-            if (!$data['name']) {
+            if (! $data['name']) {
                 $user = User::findOrFail($data['user_id']);
                 $ptoType = PtoType::findOrFail($data['pto_type_id']);
                 $data['name'] = "{$user->name} - {$ptoType->name} Policy";
@@ -121,17 +126,28 @@ class PtoPolicyController extends Controller
 
             Log::info("PTO Policy created: ID {$ptoPolicy->id}");
 
-            return response()->json([
-                'data' => $ptoPolicy,
-                'message' => "PTO Policy created successfully."
-            ], 201);
+            // Handle both API and Inertia requests
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'success' => true,
+                    'message' => 'PTO Policy created successfully.',
+                    'data' => $ptoPolicy,
+                ]);
+            }
+
+            return back()->with('success', 'PTO Policy created successfully.');
         } catch (\Exception $e) {
             DB::rollBack();
-            Log::error("Error creating PTO Policy: ".$e->getMessage());
-            return response()->json([
-                'error' => 'Failed to create PTO Policy.',
-                'details' => App::environment('local') ? $e->getMessage() : 'An unexpected error occurred.'
-            ], 500);
+            Log::error('Error creating PTO Policy: '.$e->getMessage());
+
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'error' => 'Failed to create PTO Policy.',
+                    'details' => App::environment('local') ? $e->getMessage() : 'An unexpected error occurred.',
+                ], 500);
+            }
+
+            return back()->withErrors(['error' => 'Failed to create PTO Policy: '.$e->getMessage()]);
         }
     }
 
@@ -139,17 +155,19 @@ class PtoPolicyController extends Controller
     {
         try {
             $ptoPolicy->load(['ptoType', 'user']);
+
             return response()->json(['data' => $ptoPolicy]);
         } catch (\Exception $e) {
             Log::error("Error fetching PTO Policy ID {$ptoPolicy->id}: ".$e->getMessage());
+
             return response()->json([
                 'error' => 'Failed to fetch PTO Policy.',
-                'details' => App::environment('local') ? $e->getMessage() : 'An unexpected error occurred.'
+                'details' => App::environment('local') ? $e->getMessage() : 'An unexpected error occurred.',
             ], 500);
         }
     }
 
-    public function update(Request $request, PtoPolicy $ptoPolicy): JsonResponse
+    public function update(Request $request, PtoPolicy $ptoPolicy)
     {
         $validator = Validator::make($request->all(), [
             'name' => 'nullable|string|max:255',
@@ -171,10 +189,14 @@ class PtoPolicyController extends Controller
         ]);
 
         if ($validator->fails()) {
-            return response()->json([
-                'error' => 'Validation failed.',
-                'errors' => $validator->errors()
-            ], 422);
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'error' => 'Validation failed.',
+                    'errors' => $validator->errors(),
+                ], 422);
+            }
+
+            return back()->withErrors($validator->errors());
         }
 
         try {
@@ -196,21 +218,32 @@ class PtoPolicyController extends Controller
 
             DB::commit();
 
-            return response()->json([
-                'data' => $ptoPolicy,
-                'message' => "PTO Policy updated successfully."
-            ]);
+            // Handle both API and Inertia requests
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'success' => true,
+                    'message' => 'PTO Policy updated successfully.',
+                    'data' => $ptoPolicy,
+                ]);
+            }
+
+            return back()->with('success', 'PTO Policy updated successfully.');
         } catch (\Exception $e) {
             DB::rollBack();
             Log::error("Error updating PTO Policy ID {$ptoPolicy->id}: ".$e->getMessage());
-            return response()->json([
-                'error' => 'Failed to update PTO Policy.',
-                'details' => App::environment('local') ? $e->getMessage() : 'An unexpected error occurred.'
-            ], 500);
+
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'error' => 'Failed to update PTO Policy.',
+                    'details' => App::environment('local') ? $e->getMessage() : 'An unexpected error occurred.',
+                ], 500);
+            }
+
+            return back()->withErrors(['error' => 'Failed to update PTO Policy: '.$e->getMessage()]);
         }
     }
 
-    public function destroy(PtoPolicy $ptoPolicy): JsonResponse
+    public function destroy(PtoPolicy $ptoPolicy)
     {
         try {
             DB::beginTransaction();
@@ -232,15 +265,14 @@ class PtoPolicyController extends Controller
 
             Log::info("PTO Policy deleted: ID {$ptoPolicyId}");
 
-            return response()->json([
-                'message' => "PTO Policy deleted successfully."
-            ], 200);
+            return back()->with('message', 'PTO Policy deleted successfully.');
         } catch (\Exception $e) {
             DB::rollBack();
             Log::error("Error deleting PTO Policy ID {$ptoPolicy->id}: ".$e->getMessage());
+
             return response()->json([
                 'error' => 'Failed to delete PTO Policy.',
-                'details' => App::environment('local') ? $e->getMessage() : 'An unexpected error occurred.'
+                'details' => App::environment('local') ? $e->getMessage() : 'An unexpected error occurred.',
             ], 500);
         }
     }
@@ -261,14 +293,15 @@ class PtoPolicyController extends Controller
                 'meta' => [
                     'user' => $user->only(['id', 'name', 'email']),
                     'total' => $policies->count(),
-                    'active_count' => $policies->filter(fn($p) => $p->isCurrentlyActive())->count(),
-                ]
+                    'active_count' => $policies->filter(fn ($p) => $p->isCurrentlyActive())->count(),
+                ],
             ]);
         } catch (\Exception $e) {
             Log::error("Error fetching policies for user {$user->id}: ".$e->getMessage());
+
             return response()->json([
                 'error' => 'Failed to fetch user policies.',
-                'details' => App::environment('local') ? $e->getMessage() : 'An unexpected error occurred.'
+                'details' => App::environment('local') ? $e->getMessage() : 'An unexpected error occurred.',
             ], 500);
         }
     }
@@ -276,7 +309,7 @@ class PtoPolicyController extends Controller
     /**
      * Create or update PTO balance based on policy.
      */
-    private function createOrUpdateBalance(PtoPolicy $policy): void
+    private function createOrUpdateBalance(PtoPolicy $policy)
     {
         $existingBalance = PtoBalance::where('user_id', $policy->user_id)
             ->where('pto_type_id', $policy->pto_type_id)

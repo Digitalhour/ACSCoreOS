@@ -16,6 +16,8 @@ use App\Services\PartsDataset\ShopifyService;
 use App\Services\PartsDataset\UploadProcessingService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Validator;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -23,7 +25,9 @@ use Inertia\Response;
 class PartsController extends Controller
 {
     private UploadProcessingService $uploadService;
+
     private ShopifyService $shopifyService;
+
     private S3ImageService $imageService;
 
     public function __construct(
@@ -41,11 +45,10 @@ class PartsController extends Controller
      */
     public function index(Request $request): Response
     {
-        return Inertia::render('PartsDataset/PartsIndex', [
-            'uploads' => $this->uploads($request)->getData(),
-            'parts' => $request->get('activeTab') === 'parts' ? $this->parts($request)->getData() : null,
-            'statistics' => $this->statistics()->getData(),
-            'queueStatus' => $this->queueStatusDetailed()->getData(),
+        // Only load data for the active tab to improve initial load time
+        $activeTab = $request->get('activeTab', 'uploads');
+
+        $data = [
             'filters' => [
                 'uploadsPage' => $request->get('uploadsPage', 1),
                 'partsPage' => $request->get('partsPage', 1),
@@ -54,9 +57,29 @@ class PartsController extends Controller
                 'statusFilter' => $request->get('statusFilter', 'all'),
                 'shopifyFilter' => $request->get('shopifyFilter', 'all'),
                 'selectedUploadId' => $request->get('selectedUploadId', 'all'),
-                'activeTab' => $request->get('activeTab', 'uploads'),
-            ]
-        ]);
+                'activeTab' => $activeTab,
+            ],
+        ];
+
+        // Always load uploads and basic statistics (lightweight)
+        $data['uploads'] = $this->uploadsOptimized($request)->getData();
+        $data['statistics'] = $this->statisticsCached()->getData();
+
+        // Only load heavy data when specifically requested
+        if ($activeTab === 'parts') {
+            $data['parts'] = $this->parts($request)->getData();
+        } else {
+            $data['parts'] = null;
+        }
+
+        // Load queue status only if there are active uploads
+        $hasActiveUploads = collect($data['uploads']->data ?? [])->contains(function ($upload) {
+            return in_array($upload->status ?? '', ['analyzing', 'chunked', 'processing']);
+        });
+
+        $data['queueStatus'] = $hasActiveUploads ? $this->queueStatusDetailed()->getData() : null;
+
+        return Inertia::render('PartsDataset/PartsIndex', $data);
     }
 
     /**
@@ -94,7 +117,7 @@ class PartsController extends Controller
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'error' => 'Upload failed: ' . $e->getMessage(),
+                'error' => 'Upload failed: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -113,9 +136,9 @@ class PartsController extends Controller
     }
 
     /**
-     * Get list of uploads with pagination
+     * Get list of uploads with pagination - OPTIMIZED VERSION
      */
-    public function uploads(Request $request): JsonResponse
+    public function uploadsOptimized(Request $request): JsonResponse
     {
         $validator = Validator::make($request->all(), [
             'per_page' => 'nullable|integer|min:5|max:100',
@@ -128,7 +151,15 @@ class PartsController extends Controller
             return response()->json(['errors' => $validator->errors()], 422);
         }
 
-        $query = PartsUpload::with(['parts'])
+        // Use withCount to avoid N+1 queries
+        $query = PartsUpload::withCount([
+            'parts',
+            'parts as shopify_synced_count' => function ($query) {
+                $query->whereHas('shopifyData', function ($q) {
+                    $q->whereNotNull('shopify_id');
+                });
+            },
+        ])
             ->whereNull('parent_upload_id')
             ->orderBy('uploaded_at', 'desc');
 
@@ -149,47 +180,49 @@ class PartsController extends Controller
         $perPage = $request->input('per_page', 15);
         $uploads = $query->paginate($perPage);
 
-        // Add summary statistics to each upload
-        // Transform to include children
-        $uploads->getCollection()->transform(function ($upload) {
-            // Get children for this parent
-            $children = PartsUpload::with(['parts'])
-                ->where('parent_upload_id', $upload->id)
-                ->get();
-
-            // Calculate stats for children
-            $children->each(function ($child) {
-                $shopifyCount = $child->parts()->whereHas('shopifyData', function ($q) {
+        // Get all children in one query to avoid N+1
+        $uploadIds = $uploads->pluck('id')->toArray();
+        $childrenByParent = PartsUpload::withCount([
+            'parts',
+            'parts as shopify_synced_count' => function ($query) {
+                $query->whereHas('shopifyData', function ($q) {
                     $q->whereNotNull('shopify_id');
-                })->count();
+                });
+            },
+        ])
+            ->whereIn('parent_upload_id', $uploadIds)
+            ->get()
+            ->groupBy('parent_upload_id');
 
-                $child->shopify_synced_count = $shopifyCount;
-                $child->shopify_sync_percentage = $child->total_parts > 0
-                    ? round(($shopifyCount / $child->total_parts) * 100, 1)
+        // Transform uploads with optimized data
+        $uploads->getCollection()->transform(function ($upload) use ($childrenByParent) {
+            $children = $childrenByParent->get($upload->id, collect());
+
+            // Calculate Shopify sync percentage for children
+            $children->each(function ($child) {
+                $child->shopify_sync_percentage = $child->parts_count > 0
+                    ? round(($child->shopify_synced_count / $child->parts_count) * 100, 1)
                     : 0;
             });
 
             // If ZIP file, aggregate children stats
             if ($upload->upload_type === 'zip' && $children->isNotEmpty()) {
-                $upload->total_parts = $children->sum('total_parts');
+                $upload->total_parts = $children->sum('parts_count');
                 $upload->processed_parts = $children->sum('processed_parts');
                 $upload->shopify_synced_count = $children->sum('shopify_synced_count');
                 $upload->shopify_sync_percentage = $upload->total_parts > 0
                     ? round(($upload->shopify_synced_count / $upload->total_parts) * 100, 1)
                     : 0;
             } else {
-                // Regular file stats
-                $shopifyCount = $upload->parts()->whereHas('shopifyData', function ($q) {
-                    $q->whereNotNull('shopify_id');
-                })->count();
-                $upload->shopify_synced_count = $shopifyCount;
-                $upload->shopify_sync_percentage = $upload->total_parts > 0
-                    ? round(($shopifyCount / $upload->total_parts) * 100, 1)
+                // Use the pre-calculated counts
+                $upload->total_parts = $upload->parts_count;
+                $upload->shopify_sync_percentage = $upload->parts_count > 0
+                    ? round(($upload->shopify_synced_count / $upload->parts_count) * 100, 1)
                     : 0;
             }
 
             // Attach children to upload
-            $upload->children = $children;
+            $upload->children = $children->toArray();
 
             return $upload;
         });
@@ -198,7 +231,15 @@ class PartsController extends Controller
     }
 
     /**
-     * Get parts list with pagination and filters
+     * Get list of uploads with pagination - LEGACY VERSION (kept for compatibility)
+     */
+    public function uploads(Request $request): JsonResponse
+    {
+        return $this->uploadsOptimized($request);
+    }
+
+    /**
+     * Get parts list with pagination and filters - OPTIMIZED VERSION
      */
     public function parts(Request $request): JsonResponse
     {
@@ -214,7 +255,15 @@ class PartsController extends Controller
             return response()->json(['errors' => $validator->errors()], 422);
         }
 
-        $query = Part::with(['upload', 'shopifyData', 'additionalFields'])
+        // Use select to limit columns and improve performance
+        $query = Part::select([
+            'id', 'part_number', 'description', 'manufacturer',
+            'upload_id', 'is_active', 'created_at', 'image_url',
+        ])
+            ->with([
+                'upload:id,filename,original_filename',  // Only load necessary upload fields
+                'shopifyData:part_id,shopify_id,storefront_url',  // Only load necessary Shopify fields
+            ])
             ->where('is_active', true)
             ->orderBy('created_at', 'desc');
 
@@ -280,11 +329,11 @@ class PartsController extends Controller
     {
         try {
             // Get queue sizes
-            $fileProcessingQueue = \Illuminate\Support\Facades\Queue::size('file-processing');
-            $chunkProcessingQueue = \Illuminate\Support\Facades\Queue::size('chunk-processing');
-            $aggregationQueue = \Illuminate\Support\Facades\Queue::size('aggregation');
-            $shopifySyncQueue = \Illuminate\Support\Facades\Queue::size('shopify-sync');
-            $defaultQueue = \Illuminate\Support\Facades\Queue::size('default');
+            $fileProcessingQueue = Queue::size('file-processing');
+            $chunkProcessingQueue = Queue::size('chunk-processing');
+            $aggregationQueue = Queue::size('aggregation');
+            $shopifySyncQueue = Queue::size('shopify-sync');
+            $defaultQueue = Queue::size('default');
 
             // Get upload status breakdown
             $uploadStats = [
@@ -335,10 +384,11 @@ class PartsController extends Controller
 
         } catch (\Exception $e) {
             return response()->json([
-                'error' => 'Failed to get detailed queue status: ' . $e->getMessage(),
+                'error' => 'Failed to get detailed queue status: '.$e->getMessage(),
             ], 500);
         }
     }
+
     /**
      * Get hierarchical processing uploads (ZIP files with children)
      */
@@ -366,6 +416,7 @@ class PartsController extends Controller
 
         return $hierarchicalUploads;
     }
+
     /**
      * Format upload data for queue display
      */
@@ -395,6 +446,7 @@ class PartsController extends Controller
             'parent_id' => $upload->parent_upload_id,
         ];
     }
+
     /**
      * Get Shopify sync progress for recent uploads
      */
@@ -428,6 +480,7 @@ class PartsController extends Controller
 
         return $syncProgress;
     }
+
     /**
      * Reset upload status and retry processing
      */
@@ -437,7 +490,7 @@ class PartsController extends Controller
             $upload = PartsUpload::findOrFail($uploadId);
 
             // Only allow retry for failed or stuck uploads
-            if (!in_array($upload->status, ['failed', 'processing'])) {
+            if (! in_array($upload->status, ['failed', 'processing'])) {
                 return response()->json([
                     'success' => false,
                     'error' => 'Can only retry failed or stuck uploads',
@@ -446,7 +499,7 @@ class PartsController extends Controller
 
             // Reset status and add log
             $logs = $upload->processing_logs ?? [];
-            $logs[] = "Upload retry initiated by user at " . now()->toDateTimeString();
+            $logs[] = 'Upload retry initiated by user at '.now()->toDateTimeString();
 
             $upload->update([
                 'status' => 'pending',
@@ -454,7 +507,7 @@ class PartsController extends Controller
             ]);
 
             // Check if file still exists, if not, require re-upload
-            $storedFilePath = 'uploads/parts/' . $upload->batch_id . '_' . $upload->original_filename;
+            $storedFilePath = 'uploads/parts/'.$upload->batch_id.'_'.$upload->original_filename;
 
             if (\Illuminate\Support\Facades\Storage::disk('local')->exists($storedFilePath)) {
                 // Dispatch new job
@@ -474,7 +527,7 @@ class PartsController extends Controller
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'error' => 'Failed to retry upload: ' . $e->getMessage(),
+                'error' => 'Failed to retry upload: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -495,7 +548,7 @@ class PartsController extends Controller
             }
 
             $logs = $upload->processing_logs ?? [];
-            $logs[] = "Upload cancelled by user at " . now()->toDateTimeString();
+            $logs[] = 'Upload cancelled by user at '.now()->toDateTimeString();
 
             $upload->update([
                 'status' => 'failed',
@@ -510,7 +563,7 @@ class PartsController extends Controller
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'error' => 'Failed to cancel upload: ' . $e->getMessage(),
+                'error' => 'Failed to cancel upload: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -554,10 +607,10 @@ class PartsController extends Controller
         $existingParts = Part::whereIn('id', $partIds)->pluck('id')->toArray();
         $missingParts = array_diff($partIds, $existingParts);
 
-        if (!empty($missingParts)) {
+        if (! empty($missingParts)) {
             return response()->json([
                 'success' => false,
-                'error' => 'Some parts not found: ' . implode(', ', $missingParts),
+                'error' => 'Some parts not found: '.implode(', ', $missingParts),
             ], 422);
         }
 
@@ -567,14 +620,14 @@ class PartsController extends Controller
 
             return response()->json([
                 'success' => true,
-                'message' => 'Shopify sync job dispatched for ' . count($partIds) . ' parts. Check queue status for progress.',
+                'message' => 'Shopify sync job dispatched for '.count($partIds).' parts. Check queue status for progress.',
                 'dispatched_parts' => count($partIds),
             ]);
 
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'error' => 'Failed to dispatch Shopify sync job: ' . $e->getMessage(),
+                'error' => 'Failed to dispatch Shopify sync job: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -611,7 +664,7 @@ class PartsController extends Controller
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'error' => 'Failed to update part: ' . $e->getMessage(),
+                'error' => 'Failed to update part: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -626,7 +679,8 @@ class PartsController extends Controller
             $partsCount = $upload->parts()->count();
 
             $upload->delete(); // Cascade will delete related parts
-//            return redirect()->route('your-resource.index')->with('message', 'Record deleted successfully');
+
+            //            return redirect()->route('your-resource.index')->with('message', 'Record deleted successfully');
             return redirect()->route('parts.index')->with(
                 'message', "Upload and {$partsCount} parts deleted successfully",
             );
@@ -634,7 +688,7 @@ class PartsController extends Controller
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'error' => 'Failed to delete upload: ' . $e->getMessage(),
+                'error' => 'Failed to delete upload: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -666,7 +720,7 @@ class PartsController extends Controller
 
             return response()->json([
                 'success' => true,
-                'message' => "Shopify sync job dispatched for {$upload->original_filename} ({" . count($partIds) . "} parts)",
+                'message' => "Shopify sync job dispatched for {$upload->original_filename} ({".count($partIds).'} parts)',
                 'upload_id' => $uploadId,
                 'dispatched_parts' => count($partIds),
             ]);
@@ -674,32 +728,65 @@ class PartsController extends Controller
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'error' => 'Failed to dispatch upload Shopify sync: ' . $e->getMessage(),
+                'error' => 'Failed to dispatch upload Shopify sync: '.$e->getMessage(),
             ], 500);
         }
     }
 
-    public function statistics(): JsonResponse
+    /**
+     * Get statistics with caching for better performance
+     */
+    public function statisticsCached(): JsonResponse
     {
         try {
-            $stats = [
-                'total_uploads' => PartsUpload::count(),
-                'completed_uploads' => PartsUpload::where('status', 'completed')->count(),
-                'total_parts' => Part::where('is_active', true)->count(),
-                'parts_with_shopify' => Part::whereHas('shopifyData', function ($q) {
-                    $q->whereNotNull('shopify_id');
-                })->count(),
-                'unique_manufacturers' => Part::where('is_active', true)->whereNotNull('manufacturer')->distinct('manufacturer')->count(),
-                'recent_uploads' => PartsUpload::orderBy('uploaded_at', 'desc')->limit(5)->get(),
-            ];
+            // Cache statistics for 5 minutes to reduce database load
+            $stats = Cache::remember('parts_statistics', 300, function () {
+                // Use Eloquent models with proper database connections
+                $totalUploads = PartsUpload::count();
+                $completedUploads = PartsUpload::where('status', 'completed')->count();
+                $totalParts = Part::where('is_active', true)->count();
+                $partsWithShopify = Part::whereHas('shopifyData', function ($query) {
+                    $query->whereNotNull('shopify_id');
+                })->where('is_active', true)->count();
+                $uniqueManufacturers = Part::where('is_active', true)
+                    ->whereNotNull('manufacturer')
+                    ->distinct('manufacturer')
+                    ->count();
+
+                return [
+                    'total_uploads' => $totalUploads,
+                    'completed_uploads' => $completedUploads,
+                    'total_parts' => $totalParts,
+                    'parts_with_shopify' => $partsWithShopify,
+                    'unique_manufacturers' => $uniqueManufacturers,
+                ];
+            });
+
+            // Get recent uploads separately (this changes more frequently)
+            $recentUploads = Cache::remember('recent_uploads', 60, function () {
+                return PartsUpload::orderBy('uploaded_at', 'desc')
+                    ->limit(5)
+                    ->select(['id', 'original_filename', 'status', 'uploaded_at', 'total_parts'])
+                    ->get();
+            });
+
+            $stats['recent_uploads'] = $recentUploads;
 
             return response()->json($stats);
 
         } catch (\Exception $e) {
             return response()->json([
-                'error' => 'Failed to get statistics: ' . $e->getMessage(),
+                'error' => 'Failed to get statistics: '.$e->getMessage(),
             ], 500);
         }
+    }
+
+    /**
+     * Get statistics - LEGACY VERSION (kept for compatibility)
+     */
+    public function statistics(): JsonResponse
+    {
+        return $this->statisticsCached();
     }
 
     /**
@@ -745,7 +832,7 @@ class PartsController extends Controller
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'error' => 'Upload failed: ' . $e->getMessage(),
+                'error' => 'Upload failed: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -771,10 +858,11 @@ class PartsController extends Controller
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'error' => 'Delete failed: ' . $e->getMessage(),
+                'error' => 'Delete failed: '.$e->getMessage(),
             ], 500);
         }
     }
+
     /**
      * Get detailed progress for a specific upload
      */
@@ -787,7 +875,7 @@ class PartsController extends Controller
             return response()->json($progress);
         } catch (\Exception $e) {
             return response()->json([
-                'error' => 'Failed to get upload progress: ' . $e->getMessage(),
+                'error' => 'Failed to get upload progress: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -814,11 +902,10 @@ class PartsController extends Controller
             return response()->json($progress);
         } catch (\Exception $e) {
             return response()->json([
-                'error' => 'Failed to get uploads progress: ' . $e->getMessage(),
+                'error' => 'Failed to get uploads progress: '.$e->getMessage(),
             ], 500);
         }
     }
-
 
     /**
      * Get overall system status
@@ -856,7 +943,7 @@ class PartsController extends Controller
             ]);
         } catch (\Exception $e) {
             return response()->json([
-                'error' => 'Failed to refresh progress: ' . $e->getMessage(),
+                'error' => 'Failed to refresh progress: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -870,7 +957,7 @@ class PartsController extends Controller
             $upload = PartsUpload::with([
                 'chunks' => function ($query) {
                     $query->orderBy('chunk_number');
-                }
+                },
             ])->findOrFail($uploadId);
 
             $chunks = $upload->chunks->map(function ($chunk) {
@@ -907,7 +994,7 @@ class PartsController extends Controller
             ]);
         } catch (\Exception $e) {
             return response()->json([
-                'error' => 'Failed to get chunk details: ' . $e->getMessage(),
+                'error' => 'Failed to get chunk details: '.$e->getMessage(),
             ], 500);
         }
     }

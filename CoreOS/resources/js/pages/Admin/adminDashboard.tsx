@@ -5,11 +5,9 @@ import {type BreadcrumbItem} from '@/types';
 import {Head, Link as InertiaLink} from '@inertiajs/react'; // Renamed Link to InertiaLink to avoid conflict
 import {
     Activity,
-    BookOpen,
     Briefcase,
     DatabaseZap,
     FileText,
-    ImagePlay,
     LayoutDashboardIcon,
     ListChecks,
     MessageSquare,
@@ -164,28 +162,13 @@ const adminLinks: LinkCategory[] = [
         icon: DatabaseZap,
         links: [
             {
-                routeName: 'csv.uploader',
-                href: '/csv-uploader',
-                label: 'CSV Uploader',
+                routeName: 'parts.index',
+                href: '/parts',
+                label: 'Dataset uploader',
                 icon: UploadCloud,
-                description: 'Import data from CSV files.',
+                description: 'upload parts.index.',
             },
-            {
-                routeName: 'data.management',
-                href: '/data-management',
-                label: 'Data Management',
-                icon: DatabaseZap,
-                description: 'Oversee imported datasets.',
-            },
-            {
-                routeName: 'Parts-Database',
-                href: '/Parts-Database',
-                label: 'Parts Database',
-                icon: BookOpen,
-                description: 'Access the parts information.',
-            },
-            { routeName: 'productpicturemanager', href: '/ppm', label: 'Product Pictures', icon: ImagePlay, description: 'Manage product imagery.' },
-            { routeName: 'parts.catalog', href: '/parts-catalog', label: 'Parts Catalog', icon: BookOpen, description: 'Browse the parts catalog.' },
+
         ],
     },
     {

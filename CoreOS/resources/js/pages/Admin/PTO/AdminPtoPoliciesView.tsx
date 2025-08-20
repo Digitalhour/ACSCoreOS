@@ -27,8 +27,7 @@ import {Table, TableBody, TableCell, TableHead, TableHeader, TableRow} from '@/c
 import {Textarea} from '@/components/ui/textarea';
 import AppLayout from '@/layouts/app-layout';
 import {type BreadcrumbItem} from '@/types';
-import {Head} from '@inertiajs/react';
-import axios from 'axios';
+import {Head, router} from '@inertiajs/react';
 import {Edit, Loader2, Plus, Save, Search, Trash2, User, X} from 'lucide-react';
 import {useCallback, useEffect, useState} from 'react';
 import {toast} from 'sonner';
@@ -124,11 +123,14 @@ const initialFormData: FormData = {
     user_id: '',
 };
 
-export default function AdminPtoPoliciesView() {
-    const [ptoPolicies, setPtoPolicies] = useState<PtoPolicy[]>([]);
-    const [users, setUsers] = useState<User[]>([]);
-    const [ptoTypes, setPtoTypes] = useState<PtoType[]>([]);
-    const [loading, setLoading] = useState(true);
+interface Props {
+    ptoPolicies?: PtoPolicy[];
+    users?: User[];
+    ptoTypes?: PtoType[];
+}
+
+export default function AdminPtoPoliciesView({ ptoPolicies = [], users = [], ptoTypes = [] }: Props) {
+    const [loading, setLoading] = useState(false);
     const [submitting, setSubmitting] = useState(false);
 
     // Form state
@@ -148,35 +150,6 @@ export default function AdminPtoPoliciesView() {
     const [selectedUser, setSelectedUser] = useState<string>('');
     const [showActiveOnly, setShowActiveOnly] = useState(false);
 
-    // Fetch data
-    const fetchData = useCallback(async () => {
-        try {
-            setLoading(true);
-
-            const [policiesResponse, usersResponse, typesResponse] = await Promise.all([
-                axios.get('/api/pto-policies'),
-                axios.get('/api/users'),
-                axios.get('/api/pto-types?active_only=true'),
-            ]);
-
-            const policiesData = policiesResponse.data.data || policiesResponse.data;
-            const usersData = usersResponse.data.data || usersResponse.data;
-            const typesData = typesResponse.data.data || typesResponse.data;
-
-            setPtoPolicies(Array.isArray(policiesData) ? policiesData : []);
-            setUsers(Array.isArray(usersData) ? usersData : []);
-            setPtoTypes(Array.isArray(typesData) ? typesData : []);
-        } catch (error) {
-            console.error('Error fetching data:', error);
-            toast.error('Failed to load data. Please try again.');
-        } finally {
-            setLoading(false);
-        }
-    }, []);
-
-    useEffect(() => {
-        fetchData();
-    }, [fetchData]);
 
     // Filter policies
     useEffect(() => {
@@ -268,26 +241,28 @@ export default function AdminPtoPoliciesView() {
     }, []);
 
     // Confirm delete
-    const confirmDelete = useCallback(async () => {
+    const confirmDelete = useCallback(() => {
         if (!policyToDelete) return;
 
-        try {
-            await axios.delete(`/api/pto-policies/${policyToDelete.id}`);
-            setPtoPolicies((prev) => prev.filter((policy) => policy.id !== policyToDelete.id));
-            toast.success(`PTO policy "${policyToDelete.name}" deleted successfully.`);
-        } catch (error: any) {
-            console.error('Error deleting policy:', error);
-            const errorMessage = error.response?.data?.error || 'Failed to delete PTO policy.';
-            toast.error(errorMessage);
-        } finally {
-            setShowDeleteAlert(false);
-            setPolicyToDelete(null);
-        }
+        router.delete(`/api/pto-policies/${policyToDelete.id}`, {
+            onSuccess: () => {
+                // Success - the redirect will refresh the page with updated data
+                setShowDeleteAlert(false);
+                setPolicyToDelete(null);
+            },
+            onError: (errors: any) => {
+                console.error('Error deleting policy:', errors);
+                const errorMessage = errors?.error || 'Failed to delete PTO policy.';
+                toast.error(errorMessage);
+                setShowDeleteAlert(false);
+                setPolicyToDelete(null);
+            }
+        });
     }, [policyToDelete]);
 
     // Submit form
     const handleSubmit = useCallback(
-        async (e: React.FormEvent) => {
+        (e: React.FormEvent) => {
             e.preventDefault();
 
             if (!formData.pto_type_id || !formData.user_id) {
@@ -295,37 +270,44 @@ export default function AdminPtoPoliciesView() {
                 return;
             }
 
-            try {
-                setSubmitting(true);
+            setSubmitting(true);
 
-                const submitData = {
-                    ...formData,
-                    max_rollover_days: formData.max_rollover_days === '' ? null : formData.max_rollover_days,
-                    end_date: formData.end_date === '' ? null : formData.end_date,
-                };
+            const submitData = {
+                ...formData,
+                max_rollover_days: formData.max_rollover_days === '' ? null : formData.max_rollover_days,
+                end_date: formData.end_date === '' ? null : formData.end_date,
+            };
 
-                if (isEditing && currentPolicy) {
-                    const response = await axios.put(`/api/pto-policies/${currentPolicy.id}`, submitData);
-                    const updatedPolicy = response.data.data;
-
-                    setPtoPolicies((prev) => prev.map((policy) => (policy.id === currentPolicy.id ? updatedPolicy : policy)));
-
-                    toast.success(`PTO policy "${updatedPolicy.name}" updated successfully.`);
-                } else {
-                    const response = await axios.post('/api/pto-policies', submitData);
-                    const newPolicy = response.data.data;
-
-                    setPtoPolicies((prev) => [...prev, newPolicy]);
-                    toast.success(`PTO policy "${newPolicy.name}" created successfully.`);
-                }
-
-                resetForm();
-            } catch (error: any) {
-                console.error('Error saving policy:', error);
-                const errorMessage = error.response?.data?.error || 'Failed to save PTO policy.';
-                toast.error(errorMessage);
-            } finally {
-                setSubmitting(false);
+            if (isEditing && currentPolicy) {
+                router.put(`/api/pto-policies/${currentPolicy.id}`, submitData, {
+                    onSuccess: () => {
+                        // Success - the redirect will refresh the page with updated data
+                        resetForm();
+                    },
+                    onError: (errors: any) => {
+                        console.error('Error updating policy:', errors);
+                        const errorMessage = errors?.error || 'Failed to update PTO policy.';
+                        toast.error(errorMessage);
+                    },
+                    onFinish: () => {
+                        setSubmitting(false);
+                    }
+                });
+            } else {
+                router.post('/api/pto-policies', submitData, {
+                    onSuccess: () => {
+                        // Success - the redirect will refresh the page with new data
+                        resetForm();
+                    },
+                    onError: (errors: any) => {
+                        console.error('Error creating policy:', errors);
+                        const errorMessage = errors?.error || 'Failed to create PTO policy.';
+                        toast.error(errorMessage);
+                    },
+                    onFinish: () => {
+                        setSubmitting(false);
+                    }
+                });
             }
         },
         [formData, isEditing, currentPolicy, resetForm],

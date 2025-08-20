@@ -185,6 +185,9 @@
       <excludeFolder url="file://$MODULE_DIR$/CoreOS/vendor/markbaker/matrix" />
       <excludeFolder url="file://$MODULE_DIR$/CoreOS/vendor/phpoffice/phpspreadsheet" />
       <excludeFolder url="file://$MODULE_DIR$/CoreOS/vendor/league/csv" />
+      <excludeFolder url="file://$MODULE_DIR$/CoreOS/vendor/laravel/boost" />
+      <excludeFolder url="file://$MODULE_DIR$/CoreOS/vendor/laravel/mcp" />
+      <excludeFolder url="file://$MODULE_DIR$/CoreOS/vendor/laravel/roster" />
       <excludeFolder url="file://$MODULE_DIR$/CoreOS/vendor/laravel/scout" />
     </content>
     <content url="file://$MODULE_DIR$/CoreOS/node_modules" />

@@ -1,53 +1,95 @@
 <?php
 
-use App\Http\Controllers\Admin\AdminShopifyController;
-use App\Http\Controllers\PartsCatalogController;
+use App\Http\Controllers\PartsDataset\PartsAccessController;
+use App\Http\Controllers\PartsDataset\PartsController;
 use Illuminate\Support\Facades\Route;
-use Inertia\Inertia;
-use Laravel\WorkOS\Http\Middleware\ValidateSessionWithWorkOS;
 
+/*
+|--------------------------------------------------------------------------
+| Parts Database Routes
+|--------------------------------------------------------------------------
+| All routes for parts management, including uploads, browsing, and API access.
+| Routes are protected by authentication, verification, and role permissions.
+|--------------------------------------------------------------------------
+*/
+/*
+|--------------------------------------------------------------------------
+| Parts Management Web Routes
+|--------------------------------------------------------------------------
+*/
+Route::group([
+    'middleware' => ['auth', 'verified', 'route.permission'],
+    'prefix' => 'parts',
+    'as' => 'parts.',
+], function () {
+    Route::get('/', [PartsController::class, 'index'])->name('index');
+    Route::get('/upload', [PartsController::class, 'create'])->name('create');
+});
 
-Route::middleware('auth')
-    ->middleware(ValidateSessionWithWorkOS::class)
-    ->group(function () {
+/*
+|--------------------------------------------------------------------------
+| Parts Browse & Access Routes
+|--------------------------------------------------------------------------
+*/
+Route::group([
+    'middleware' => ['auth', 'verified', 'route.permission'],
+], function () {
+    // Parts Browse Routes (duplicate route names cleaned up)
+    Route::get('/parts-browse', [PartsAccessController::class, 'index'])
+        ->name('parts-browse.index');
 
-        // CSV & Data Management
-        Route::get('/csv-uploader', function () {
-            return Inertia::render('CsvUploaderPage');
-        })->name('csv.uploader');
-
-        Route::get('/data-management', function () {
-            return Inertia::render('DataManagementPage');
-        })->name('data.management');
-
-        Route::get('/data-management/file/{fileName}', function (string $fileName) {
-            return Inertia::render('FileDetailsPage', [
-                'fileName' => $fileName
-            ]);
-        })->name('data.file.details');
-        Route::get('/debug-shopify', [PartsCatalogController::class, 'debugShopifyData']);
-        // Parts Catalog - MAIN ROUTE (removed duplicate)
-        Route::get('/parts-catalog', [PartsCatalogController::class, 'index'])->name('parts.catalog');
-
-        // PDF Route
-        Route::get('pdf/{pdfId}', [PartsCatalogController::class, 'getPdf'])->name('pdf.show');
-
-        /*
-        |--------------------------------------------------------------------------
-        | Shopify Routes
-        |--------------------------------------------------------------------------
-        */
-        Route::prefix('shopify')->name('shopify.')->group(function () {
-            Route::post('/force-update', [AdminShopifyController::class, 'forceUpdateMatches'])
-                ->name('/force-update');
-
-            Route::get('/stats', [AdminShopifyController::class, 'stats'])
-                ->name('/stats');
-
-            Route::get('/batches', [AdminShopifyController::class, 'getBatches'])
-                ->name('/batches');
-
-            Route::post('/clear-matches', [AdminShopifyController::class, 'clearAllMatches'])
-                ->name('clear-matches');
-        });
+    /*
+    |--------------------------------------------------------------------------
+    | Parts Dataset API Routes
+    |--------------------------------------------------------------------------
+    */
+    Route::prefix('parts-dataset')->name('parts-dataset.')->group(function () {
+        Route::get('/api/parts-browse/parts', [PartsAccessController::class, 'parts'])
+            ->name('parts-browse.parts');
+        Route::get('/api/parts-browse/{partId}', [PartsAccessController::class, 'show'])
+            ->name('parts-browse.show');
     });
+
+    /*
+    |--------------------------------------------------------------------------
+    | Parts Management API Routes
+    |--------------------------------------------------------------------------
+    */
+    Route::prefix('api/parts')->name('api.parts.')->group(function () {
+
+        // Upload Management
+        Route::post('/upload', [PartsController::class, 'store'])->name('upload');
+        Route::get('/uploads/{uploadId}', [PartsController::class, 'showUpload'])->name('uploads.show');
+        Route::delete('/uploads/{uploadId}', [PartsController::class, 'destroyUpload'])->name('uploads.destroy');
+        Route::post('/uploads/{uploadId}/retry', [PartsController::class, 'retryUpload'])->name('uploads.retry');
+        Route::post('/uploads/{uploadId}/cancel', [PartsController::class, 'cancelUpload'])->name('uploads.cancel');
+
+        // Progress Tracking
+        Route::get('/uploads/{uploadId}/progress', [PartsController::class, 'uploadProgress'])->name('uploads.progress');
+        Route::post('/uploads/{uploadId}/progress/refresh', [PartsController::class, 'refreshUploadProgress'])->name('uploads.progress.refresh');
+        Route::get('/uploads/{uploadId}/chunks', [PartsController::class, 'uploadChunks'])->name('uploads.chunks');
+        Route::post('/uploads/progress-summary', [PartsController::class, 'uploadsProgressSummary'])->name('uploads.progress-summary');
+
+        // Queue Monitoring
+        Route::get('/queue-status', [PartsController::class, 'queueStatus'])->name('queue-status');
+        Route::get('/queue-status-detailed', [PartsController::class, 'queueStatusDetailed'])->name('queue-status-detailed');
+
+        // Parts Management
+        Route::get('/parts', [PartsController::class, 'parts'])->name('parts.index');
+        Route::put('/parts/{partId}', [PartsController::class, 'updatePart'])->name('parts.update');
+
+        // Image Management
+        Route::post('/parts/{partId}/image', [PartsController::class, 'uploadPartImage'])->name('parts.upload-image');
+        Route::delete('/parts/{partId}/image', [PartsController::class, 'deletePartImage'])->name('parts.delete-image');
+
+        // Shopify Integration
+        Route::post('/sync-shopify', [PartsController::class, 'syncShopify'])->name('sync-shopify');
+        Route::post('/uploads/{uploadId}/sync-shopify', [PartsController::class, 'syncUploadShopify'])->name('sync-upload-shopify');
+
+        // Statistics
+        Route::get('/statistics', [PartsController::class, 'statistics'])->name('statistics');
+    });
+});
+
+// Standalone parts index route (if needed separately)
+Route::get('/parts', [PartsController::class, 'index'])->name('parts.index');

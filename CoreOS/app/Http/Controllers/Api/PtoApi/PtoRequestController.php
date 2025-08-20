@@ -34,7 +34,7 @@ class PtoRequestController extends Controller
             'ptoType:id,name,code,color',
             'approvals.approver:id,name',
             'approvedBy:id,name',
-            'deniedBy:id,name'
+            'deniedBy:id,name',
         ]);
 
         // Apply filters
@@ -152,7 +152,6 @@ class PtoRequestController extends Controller
             return response()->json(['errors' => $validator->errors()], 422);
         }
 
-
         try {
             $user = Auth::user();
             $userId = $user->id;
@@ -160,7 +159,7 @@ class PtoRequestController extends Controller
             $acknowledgeWarnings = $request->boolean('acknowledge_warnings');
 
             // Generate a unique request number
-            $requestNumber = 'PTO-' . $userId . '-' . time();
+            $requestNumber = 'PTO-'.$userId.'-'.time();
 
             // Calculate total days
             $totalDays = $request->total_days ?? $this->calculateTotalDays(
@@ -177,9 +176,9 @@ class PtoRequestController extends Controller
                     ->where('pto_type_id', $request->pto_type_id)
                     ->first();
 
-                if (!$balance) {
+                if (! $balance) {
                     return response()->json([
-                        'error' => 'No PTO balance found for this PTO type.'
+                        'error' => 'No PTO balance found for this PTO type.',
                     ], 422);
                 }
 
@@ -191,18 +190,18 @@ class PtoRequestController extends Controller
 
                 $availableBalance = $balance->balance - $pendingTotal;
 
-                if ($availableBalance < $totalDays && !$ptoType->negative_allowed) {
+                if ($availableBalance < $totalDays && ! $ptoType->negative_allowed) {
                     return response()->json([
                         'error' => 'Insufficient PTO balance.',
                         'available' => (float) $availableBalance,
                         'current_balance' => (float) $balance->balance,
                         'pending_requests' => (float) $pendingTotal,
-                        'requested' => $totalDays
+                        'requested' => $totalDays,
                     ], 422);
                 }
             }
 
-            DB::transaction(function () use ($request, $user, $requestNumber, $totalDays, $ptoType, $balance, $isEmergencyOverride, $acknowledgeWarnings) {
+            $ptoRequest = DB::transaction(function () use ($request, $user, $requestNumber, $totalDays, $ptoType, $balance, $isEmergencyOverride, $acknowledgeWarnings) {
                 // Create the request first
                 $ptoRequest = PtoRequest::create([
                     'user_id' => $user->id,
@@ -230,7 +229,7 @@ class PtoRequestController extends Controller
                 }
 
                 // Only deny for CONFLICTS without emergency override, not warnings
-                if ($blackoutValidation['has_conflicts'] && !$isEmergencyOverride) {
+                if ($blackoutValidation['has_conflicts'] && ! $isEmergencyOverride) {
                     $ptoRequest->update([
                         'status' => 'denied',
                         'denied_at' => now(),
@@ -244,11 +243,11 @@ class PtoRequestController extends Controller
                 if ($ptoRequest->status === 'pending') {
                     try {
                         if (class_exists('\App\Services\ApprovalChainService')) {
-                            $approvalService = new \App\Services\ApprovalChainService();
+                            $approvalService = new \App\Services\ApprovalChainService;
                             $approvalService->createApprovalChain($ptoRequest);
                         }
                     } catch (\Exception $e) {
-                        Log::error("Failed to create approval chain for PTO request {$ptoRequest->id}: " . $e->getMessage());
+                        Log::error("Failed to create approval chain for PTO request {$ptoRequest->id}: ".$e->getMessage());
                         // Don't fail the entire request if approval chain creation fails
                         // But log it for investigation
                     }
@@ -263,13 +262,13 @@ class PtoRequestController extends Controller
                 return $ptoRequest;
             });
 
-            // Get the created request with relationships
-            $ptoRequest = PtoRequest::with(['user', 'ptoType', 'approvals.approver'])->latest()->first();
+            // Re-fetch the request with relationships after transaction
+            $ptoRequest = $ptoRequest->load(['user', 'ptoType', 'approvals.approver']);
 
             // Prepare response
             $responseData = [
                 'data' => $ptoRequest,
-                'message' => 'PTO request submitted successfully.'
+                'message' => 'PTO request submitted successfully.',
             ];
 
             // Get blackout status for response
@@ -290,7 +289,7 @@ class PtoRequestController extends Controller
             return response()->json($responseData, 201);
 
         } catch (\Exception $e) {
-            Log::error("Error creating PTO Request: ".$e->getMessage());
+            Log::error('Error creating PTO Request: '.$e->getMessage());
 
             // Handle blackout conflicts specifically
             if (str_contains($e->getMessage(), 'blackout periods')) {
@@ -302,7 +301,7 @@ class PtoRequestController extends Controller
 
             return response()->json([
                 'error' => 'Failed to create PTO Request.',
-                'details' => App::environment('local') ? $e->getMessage() : 'An unexpected error occurred.'
+                'details' => App::environment('local') ? $e->getMessage() : 'An unexpected error occurred.',
             ], 500);
         }
     }
@@ -351,12 +350,12 @@ class PtoRequestController extends Controller
         if ($result['success']) {
             return response()->json([
                 'message' => $result['message'],
-                'request' => $ptoRequest->fresh()->load(['user', 'ptoType', 'approvals.approver'])
+                'request' => $ptoRequest->fresh()->load(['user', 'ptoType', 'approvals.approver']),
             ]);
         }
 
         return response()->json([
-            'error' => $result['message']
+            'error' => $result['message'],
         ], 422);
     }
 
@@ -382,7 +381,7 @@ class PtoRequestController extends Controller
             ->get();
 
         return response()->json([
-            'data' => $ptoTypes
+            'data' => $ptoTypes,
         ]);
     }
 
@@ -410,10 +409,11 @@ class PtoRequestController extends Controller
             ]);
 
         } catch (\Exception $e) {
-            Log::error("Error getting blackout analysis for PTO Request ID {$ptoRequest->id}: " . $e->getMessage());
+            Log::error("Error getting blackout analysis for PTO Request ID {$ptoRequest->id}: ".$e->getMessage());
+
             return response()->json([
                 'error' => 'Failed to get blackout analysis.',
-                'details' => App::environment('local') ? $e->getMessage() : 'An unexpected error occurred.'
+                'details' => App::environment('local') ? $e->getMessage() : 'An unexpected error occurred.',
             ], 500);
         }
     }
@@ -463,7 +463,7 @@ class PtoRequestController extends Controller
                             'id' => $request->id,
                             'user_name' => $request->user->name,
                             'pto_type' => $request->ptoType->name,
-                            'dates' => $request->start_date->format('M d') . ' - ' . $request->end_date->format('M d, Y'),
+                            'dates' => $request->start_date->format('M d').' - '.$request->end_date->format('M d, Y'),
                             'total_days' => $request->total_days,
                             'status' => $request->status,
                             'submitted_at' => $request->created_at->format('M d, Y'),
@@ -496,13 +496,13 @@ class PtoRequestController extends Controller
         if ($validator->fails()) {
             return response()->json([
                 'error' => 'Validation failed',
-                'messages' => $validator->errors()
+                'messages' => $validator->errors(),
             ], 422);
         }
 
-        if (!$request->boolean('acknowledge_blackout_risks')) {
+        if (! $request->boolean('acknowledge_blackout_risks')) {
             return response()->json([
-                'error' => 'Must acknowledge blackout risks before approval'
+                'error' => 'Must acknowledge blackout risks before approval',
             ], 422);
         }
 
@@ -514,8 +514,8 @@ class PtoRequestController extends Controller
             $approvalNotes = $ptoRequest->approval_notes ? [$ptoRequest->approval_notes] : [];
             $approvalNotes[] = '';
             $approvalNotes[] = '✅ ADMIN APPROVAL WITH BLACKOUT REVIEW';
-            $approvalNotes[] = 'Approved by: ' . Auth::user()->name;
-            $approvalNotes[] = 'Approval date: ' . now()->format('M d, Y H:i:s');
+            $approvalNotes[] = 'Approved by: '.Auth::user()->name;
+            $approvalNotes[] = 'Approval date: '.now()->format('M d, Y H:i:s');
 
             if ($request->filled('override_justification')) {
                 $approvalNotes[] = '';
@@ -549,17 +549,18 @@ class PtoRequestController extends Controller
             // Perform the approval
             $this->performApproval($ptoRequest, implode("\n", $approvalNotes));
 
-            Log::info("PTO Request approved with blackout review: ID {$ptoRequest->id}, Admin: " . Auth::user()->name);
+            Log::info("PTO Request approved with blackout review: ID {$ptoRequest->id}, Admin: ".Auth::user()->name);
 
             return response()->json([
                 'message' => 'Request approved successfully with blackout documentation',
-                'request' => $ptoRequest->fresh()->load(['user', 'ptoType', 'approvals.approver'])
+                'request' => $ptoRequest->fresh()->load(['user', 'ptoType', 'approvals.approver']),
             ]);
 
         } catch (\Exception $e) {
-            Log::error("Error approving PTO Request with blackout review ID {$ptoRequest->id}: " . $e->getMessage());
+            Log::error("Error approving PTO Request with blackout review ID {$ptoRequest->id}: ".$e->getMessage());
+
             return response()->json([
-                'error' => 'Failed to approve request: ' . $e->getMessage()
+                'error' => 'Failed to approve request: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -628,7 +629,7 @@ class PtoRequestController extends Controller
         // Only allow updates if the request is pending
         if ($ptoRequest->status !== 'pending') {
             return response()->json([
-                'error' => 'Cannot update a PTO request that is not pending.'
+                'error' => 'Cannot update a PTO request that is not pending.',
             ], 422);
         }
 
@@ -665,11 +666,11 @@ class PtoRequestController extends Controller
                 // Adjust for the existing pending balance
                 $adjustedBalance = $balance->balance + $ptoRequest->total_days;
 
-                if ($adjustedBalance < $newTotalDays && !$ptoType->negative_allowed) {
+                if ($adjustedBalance < $newTotalDays && ! $ptoType->negative_allowed) {
                     return response()->json([
                         'error' => 'Insufficient PTO balance.',
                         'available' => $adjustedBalance,
-                        'requested' => $newTotalDays
+                        'requested' => $newTotalDays,
                     ], 422);
                 }
             }
@@ -705,12 +706,14 @@ class PtoRequestController extends Controller
             });
 
             Log::info("PTO Request updated: ID {$ptoRequest->id}, User: {$ptoRequest->user->name}, Days: {$newTotalDays}");
+
             return response()->json($ptoRequest->load(['user', 'ptoType', 'approvals.approver']));
         } catch (\Exception $e) {
             Log::error("Error updating PTO Request ID {$ptoRequest->id}: ".$e->getMessage());
+
             return response()->json([
                 'error' => 'Failed to update PTO Request.',
-                'details' => App::environment('local') ? $e->getMessage() : 'An unexpected error occurred.'
+                'details' => App::environment('local') ? $e->getMessage() : 'An unexpected error occurred.',
             ], 500);
         }
     }
@@ -725,7 +728,7 @@ class PtoRequestController extends Controller
         // Only allow cancellation if the request is pending
         if ($ptoRequest->status !== 'pending') {
             return response()->json([
-                'error' => 'Cannot cancel a PTO request that is not pending.'
+                'error' => 'Cannot cancel a PTO request that is not pending.',
             ], 422);
         }
 
@@ -746,12 +749,14 @@ class PtoRequestController extends Controller
             $ptoRequest->save();
 
             Log::info("PTO Request cancelled: ID {$ptoRequest->id}, User: {$ptoRequest->user->name}");
+
             return response()->json(['message' => 'PTO request cancelled successfully.']);
         } catch (\Exception $e) {
             Log::error("Error cancelling PTO Request ID {$ptoRequest->id}: ".$e->getMessage());
+
             return response()->json([
                 'error' => 'Failed to cancel PTO Request.',
-                'details' => App::environment('local') ? $e->getMessage() : 'An unexpected error occurred.'
+                'details' => App::environment('local') ? $e->getMessage() : 'An unexpected error occurred.',
             ], 500);
         }
     }
@@ -766,7 +771,7 @@ class PtoRequestController extends Controller
         // Check if the user owns this request
         if ($ptoRequest->user_id !== $currentUser->id) {
             return response()->json([
-                'error' => 'You can only cancel your own PTO requests.'
+                'error' => 'You can only cancel your own PTO requests.',
             ], 403);
         }
 
@@ -786,12 +791,12 @@ class PtoRequestController extends Controller
                 $reason = 'approved request with 24+ hours notice';
             } else {
                 return response()->json([
-                    'error' => 'You can only cancel approved requests with at least 24 hours notice before the start date.'
+                    'error' => 'You can only cancel approved requests with at least 24 hours notice before the start date.',
                 ], 422);
             }
         } else {
             return response()->json([
-                'error' => 'You can only cancel pending or approved PTO requests.'
+                'error' => 'You can only cancel pending or approved PTO requests.',
             ], 422);
         }
 
@@ -829,7 +834,7 @@ class PtoRequestController extends Controller
             // Update the request status
             $ptoRequest->update([
                 'status' => 'cancelled',
-                'reason' => 'Cancelled by the user ' . Auth::user()->name, // Using cancellation_reason field
+                'reason' => 'Cancelled by the user '.Auth::user()->name, // Using cancellation_reason field
                 'deleted_at' => now(),
             ]);
 
@@ -837,13 +842,14 @@ class PtoRequestController extends Controller
 
             return response()->json([
                 'message' => 'PTO request cancelled successfully.',
-                'data' => $ptoRequest->load(['user', 'ptoType', 'approvals.approver'])
+                'data' => $ptoRequest->load(['user', 'ptoType', 'approvals.approver']),
             ]);
         } catch (\Exception $e) {
             Log::error("Error self-cancelling PTO Request ID {$ptoRequest->id}: ".$e->getMessage());
+
             return response()->json([
                 'error' => 'Failed to cancel PTO request.',
-                'details' => App::environment('local') ? $e->getMessage() : 'An unexpected error occurred.'
+                'details' => App::environment('local') ? $e->getMessage() : 'An unexpected error occurred.',
             ], 500);
         }
     }
@@ -860,7 +866,7 @@ class PtoRequestController extends Controller
         if ($validator->fails()) {
             return response()->json([
                 'error' => 'Validation failed',
-                'messages' => $validator->errors()
+                'messages' => $validator->errors(),
             ], 422);
         }
 
@@ -869,7 +875,7 @@ class PtoRequestController extends Controller
 
             if ($ptoRequest->status !== 'pending') {
                 return response()->json([
-                    'error' => 'This request has already been processed'
+                    'error' => 'This request has already been processed',
                 ], 422);
             }
 
@@ -882,7 +888,7 @@ class PtoRequestController extends Controller
                 ->where('status', 'pending')
                 ->first();
 
-            if (!$approval) {
+            if (! $approval) {
                 // If no approval record exists, create one or update the request directly
                 $approval = PtoApproval::updateOrCreate(
                     ['pto_request_id' => $ptoRequest->id, 'approver_id' => $approver->id],
@@ -926,13 +932,14 @@ class PtoRequestController extends Controller
 
             return response()->json([
                 'message' => 'Request approved successfully',
-                'request' => $ptoRequest->fresh()
+                'request' => $ptoRequest->fresh(),
             ]);
 
         } catch (\Exception $e) {
             Log::error("Error approving PTO Request ID {$id}: ".$e->getMessage());
+
             return response()->json([
-                'error' => 'Failed to approve request: ' . $e->getMessage()
+                'error' => 'Failed to approve request: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -949,7 +956,7 @@ class PtoRequestController extends Controller
         if ($validator->fails()) {
             return response()->json([
                 'error' => 'Validation failed',
-                'messages' => $validator->errors()
+                'messages' => $validator->errors(),
             ], 422);
         }
 
@@ -994,13 +1001,14 @@ class PtoRequestController extends Controller
 
             return response()->json([
                 'message' => 'Request denied successfully',
-                'request' => $ptoRequest->fresh()
+                'request' => $ptoRequest->fresh(),
             ]);
 
         } catch (\Exception $e) {
             Log::error("Error denying PTO Request ID {$id}: ".$e->getMessage());
+
             return response()->json([
-                'error' => 'Failed to deny request: ' . $e->getMessage()
+                'error' => 'Failed to deny request: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -1043,7 +1051,7 @@ class PtoRequestController extends Controller
         // Days in between (all full days)
         $current = $start->copy()->addDay();
         while ($current->lt($end)) {
-            if (!$current->isWeekend()) {
+            if (! $current->isWeekend()) {
                 $totalDays += 1.0;
             }
             $current->addDay();

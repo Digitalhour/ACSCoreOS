@@ -89,8 +89,8 @@ interface QueueStatus {
         completed_with_errors: number;
         failed: number;
     };
-    processing_uploads: any[];
-    shopify_progress: any[];
+    processing_uploads: unknown[];
+    shopify_progress: unknown[];
     issues: {
         stuck_processing: number;
         recent_failures: number;
@@ -110,7 +110,7 @@ interface Props {
         current_page: number;
         last_page: number;
     };
-    statistics: Statistics;
+    statistics?: Statistics;
     queueStatus?: QueueStatus;
     filters: {
         uploadsPage: number;
@@ -158,9 +158,25 @@ const PartsIndex: React.FC<Props> = ({
     }, [uploads]);
 
     const handleFilterChange = useCallback((key: string, value: string) => {
-        const newFilters = { ...filters, [key]: value };
-        if (key.includes('Page')) {
-            newFilters[key] = 1; // Reset to page 1 when changing filters
+        const newFilters: Record<string, string | number> = {
+            uploadsPage: filters.uploadsPage,
+            partsPage: filters.partsPage,
+            uploadsSearch: filters.uploadsSearch,
+            partsSearch: filters.partsSearch,
+            statusFilter: filters.statusFilter,
+            shopifyFilter: filters.shopifyFilter,
+            selectedUploadId: filters.selectedUploadId,
+            activeTab: filters.activeTab,
+        };
+
+        newFilters[key] = value;
+
+        // Reset pagination only when non-page filters change
+        if (key !== 'uploadsPage' && (key === 'uploadsSearch' || key === 'statusFilter')) {
+            newFilters.uploadsPage = 1;
+        }
+        if (key !== 'partsPage' && (key === 'partsSearch' || key === 'shopifyFilter' || key === 'selectedUploadId')) {
+            newFilters.partsPage = 1;
         }
 
         router.get('/parts', newFilters, {
@@ -281,7 +297,7 @@ const PartsIndex: React.FC<Props> = ({
                             </div>
                             <Progress value={upload.shopify_sync_percentage} className="h-2" />
 
-                            {upload.shopify_sync_percentage >= 95 ? (
+                            {upload.shopify_sync_percentage >= 95 || upload.status === 'completed' ? (
                                 <Badge variant="default" className="text-xs">Sync Complete</Badge>
                             ) : upload.shopify_sync_percentage > 0 ? (
                                 <Badge variant="secondary" className="text-xs">Syncing...</Badge>
@@ -343,7 +359,7 @@ const PartsIndex: React.FC<Props> = ({
                             <FileText className="h-8 w-8 text-blue-600" />
                             <div className="ml-4">
                                 <p className="text-sm font-medium text-muted-foreground">Total Uploads</p>
-                                <p className="text-2xl font-bold">{statistics.total_uploads}</p>
+                                <p className="text-2xl font-bold">{statistics?.total_uploads || 0}</p>
                             </div>
                         </CardContent>
                     </Card>
@@ -353,7 +369,7 @@ const PartsIndex: React.FC<Props> = ({
                             <Package className="h-8 w-8 text-green-600" />
                             <div className="ml-4">
                                 <p className="text-sm font-medium text-muted-foreground">Total Parts</p>
-                                <p className="text-2xl font-bold">{statistics.total_parts}</p>
+                                <p className="text-2xl font-bold">{statistics?.total_parts || 0}</p>
                             </div>
                         </CardContent>
                     </Card>
@@ -363,7 +379,7 @@ const PartsIndex: React.FC<Props> = ({
                             <ShoppingCart className="h-8 w-8 text-purple-600" />
                             <div className="ml-4">
                                 <p className="text-sm font-medium text-muted-foreground">Shopify Synced</p>
-                                <p className="text-2xl font-bold">{statistics.parts_with_shopify}</p>
+                                <p className="text-2xl font-bold">{statistics?.parts_with_shopify || 0}</p>
                             </div>
                         </CardContent>
                     </Card>
@@ -373,7 +389,7 @@ const PartsIndex: React.FC<Props> = ({
                             <BarChart3 className="h-8 w-8 text-orange-600" />
                             <div className="ml-4">
                                 <p className="text-sm font-medium text-muted-foreground">Manufacturers</p>
-                                <p className="text-2xl font-bold">{statistics.unique_manufacturers}</p>
+                                <p className="text-2xl font-bold">{statistics?.unique_manufacturers || 0}</p>
                             </div>
                         </CardContent>
                     </Card>
@@ -383,8 +399,8 @@ const PartsIndex: React.FC<Props> = ({
                             <div className="text-center w-full">
                                 <p className="text-sm font-medium text-muted-foreground">Shopify Match Rate</p>
                                 <p className="text-2xl font-bold">
-                                    {statistics.total_parts > 0
-                                        ? Math.round((statistics.parts_with_shopify / statistics.total_parts) * 100)
+                                    {(statistics?.total_parts || 0) > 0
+                                        ? Math.round(((statistics?.parts_with_shopify || 0) / (statistics?.total_parts || 1)) * 100)
                                         : 0}%
                                 </p>
                             </div>
@@ -434,7 +450,7 @@ const PartsIndex: React.FC<Props> = ({
                                         onKeyDown={(e) => e.key === 'Enter' && handleFilterChange('uploadsSearch', uploadsSearch)}
                                         className="max-w-sm"
                                     />
-                                    <Select value={statusFilter} onValueChange={(value) => handleFilterChange('statusFilter', value)}>
+                                    <Select value={statusFilter} onValueChange={(value) => { setStatusFilter(value); handleFilterChange('statusFilter', value); }}>
                                         <SelectTrigger className="w-48">
                                             <SelectValue placeholder="Filter by status" />
                                         </SelectTrigger>
@@ -625,7 +641,7 @@ const PartsIndex: React.FC<Props> = ({
                                                 onKeyDown={(e) => e.key === 'Enter' && handleFilterChange('partsSearch', partsSearch)}
                                                 className="max-w-sm"
                                             />
-                                            <Select value={selectedUploadId} onValueChange={(value) => handleFilterChange('selectedUploadId', value)}>
+                                            <Select value={selectedUploadId} onValueChange={(value) => { setSelectedUploadId(value); handleFilterChange('selectedUploadId', value); }}>
                                                 <SelectTrigger className="w-48">
                                                     <SelectValue placeholder="Filter by upload" />
                                                 </SelectTrigger>
@@ -638,7 +654,7 @@ const PartsIndex: React.FC<Props> = ({
                                                     ))}
                                                 </SelectContent>
                                             </Select>
-                                            <Select value={shopifyFilter} onValueChange={(value) => handleFilterChange('shopifyFilter', value)}>
+                                            <Select value={shopifyFilter} onValueChange={(value) => { setShopifyFilter(value); handleFilterChange('shopifyFilter', value); }}>
                                                 <SelectTrigger className="w-48">
                                                     <SelectValue placeholder="Shopify status" />
                                                 </SelectTrigger>
@@ -823,3 +839,4 @@ const PartsIndex: React.FC<Props> = ({
 };
 
 export default PartsIndex;
+

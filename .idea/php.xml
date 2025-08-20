@@ -198,6 +198,9 @@
       <path value="$PROJECT_DIR$/CoreOS/vendor/phpoffice/phpspreadsheet" />
       <path value="$PROJECT_DIR$/CoreOS/vendor/league/csv" />
       <path value="$PROJECT_DIR$/CoreOS/vendor/laravel/scout" />
+      <path value="$PROJECT_DIR$/CoreOS/vendor/laravel/boost" />
+      <path value="$PROJECT_DIR$/CoreOS/vendor/laravel/mcp" />
+      <path value="$PROJECT_DIR$/CoreOS/vendor/laravel/roster" />
     </include_path>
   </component>
   <component name="PhpProjectSharedConfiguration" php_language_level="8.2" />

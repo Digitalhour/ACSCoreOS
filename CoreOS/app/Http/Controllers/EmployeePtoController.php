@@ -30,7 +30,7 @@ class EmployeePtoController extends Controller
     {
         $request->validate([
             'start_date' => 'nullable|date',
-            'end_date'   => 'nullable|date|after_or_equal:start_date',
+            'end_date' => 'nullable|date|after_or_equal:start_date',
             'pto_type_id' => 'nullable|exists:pto_types,id',
             'user_id' => 'nullable|exists:users,id',
         ]);
@@ -45,9 +45,9 @@ class EmployeePtoController extends Controller
                 ->get()
                 ->map(function ($holiday) {
                     return [
-                        'date'           => $holiday->date->format('Y-m-d'),
-                        'name'           => $holiday->name,
-                        'type'           => $holiday->type,
+                        'date' => $holiday->date->format('Y-m-d'),
+                        'name' => $holiday->name,
+                        'type' => $holiday->type,
                         'formatted_date' => $holiday->date->format('M d, Y'),
                     ];
                 });
@@ -104,7 +104,7 @@ class EmployeePtoController extends Controller
                 ];
             });
 
-        return Inertia::render('Employees/EmployeePtoDashboard', [
+        return Inertia::render('Employee/EmployeePtoDashboard', [
             'pto_data' => $ptoData,
             'recent_requests' => $recentRequests,
             'pending_requests_count' => $pendingRequestsCount,
@@ -172,9 +172,9 @@ class EmployeePtoController extends Controller
             }
         }
 
-        if ($validated['total_days'] > $availableBalance) {
+        if ($ptoType->uses_balance && $validated['total_days'] > $availableBalance) {
             return back()->withErrors([
-                'total_days' => "Insufficient PTO balance. Available: {$availableBalance} days, Required: {$validated['total_days']} days (holidays excluded)."
+                'total_days' => "Insufficient PTO balance. Available: {$availableBalance} days, Required: {$validated['total_days']} days (holidays excluded).",
             ]);
         }
 
@@ -182,7 +182,7 @@ class EmployeePtoController extends Controller
         $this->validateBusinessDays($validated['day_options']);
 
         // Generate request number
-        $requestNumber = 'PTO-U' . $user->id . '-' . time();
+        $requestNumber = 'PTO-U'.$user->id.'-'.time();
 
         DB::beginTransaction();
 
@@ -212,12 +212,13 @@ class EmployeePtoController extends Controller
             }
 
             // If there are unresolved conflicts without emergency override, reject
-            if ($blackoutValidation['has_conflicts'] && !($validated['is_emergency_override'] ?? false)) {
+            if ($blackoutValidation['has_conflicts'] && ! ($validated['is_emergency_override'] ?? false)) {
                 // Check if any conflicts allow override
                 $canOverride = collect($blackoutValidation['conflicts'])->some('can_override');
 
                 if ($canOverride) {
                     DB::rollBack();
+
                     return back()->withErrors([
                         'blackout_conflicts' => $blackoutValidation['conflicts'],
                         'error' => 'Your request conflicts with blackout periods. Please enable emergency override if this is urgent.',
@@ -234,7 +235,7 @@ class EmployeePtoController extends Controller
                     DB::commit();
 
                     return redirect()->route('pto.dashboard')->withErrors([
-                        'error' => 'Request was automatically rejected due to blackout period conflicts.'
+                        'error' => 'Request was automatically rejected due to blackout period conflicts.',
                     ]);
                 }
             }
@@ -280,7 +281,7 @@ class EmployeePtoController extends Controller
             Log::error('Error creating PTO request', [
                 'error' => $e->getMessage(),
                 'user_id' => $user->id,
-                'validated_data' => $validated
+                'validated_data' => $validated,
             ]);
 
             return back()->withErrors(['error' => 'Failed to submit PTO request. Please try again.']);
@@ -300,7 +301,7 @@ class EmployeePtoController extends Controller
         }
 
         // Check if request can be cancelled
-        if (!$this->canCancelRequest($ptoRequest)) {
+        if (! $this->canCancelRequest($ptoRequest)) {
             return back()->withErrors(['error' => 'This request cannot be cancelled.']);
         }
 
@@ -313,7 +314,7 @@ class EmployeePtoController extends Controller
             // Update request status
             $ptoRequest->update([
                 'status' => 'cancelled',
-                'reason' => 'Cancelled by user ' . $user->name . ($user->isImpersonated() ? ' (impersonated)' : '')
+                'reason' => 'Cancelled by user '.$user->name.($user->isImpersonated() ? ' (impersonated)' : ''),
             ]);
 
             // Return days to balance
@@ -356,7 +357,7 @@ class EmployeePtoController extends Controller
                 'user_name' => $user->name,
                 'user_email' => $user->email,
                 'original_status' => $originalStatus,
-                'days_returned' => $ptoRequest->total_days
+                'days_returned' => $ptoRequest->total_days,
             ]);
 
             // Send cancellation notifications after successful cancellation
@@ -367,7 +368,7 @@ class EmployeePtoController extends Controller
                 'request_id' => $ptoRequest->id,
                 'user_id' => $user->id,
                 'original_status' => $originalStatus,
-                'days_returned' => $ptoRequest->total_days
+                'days_returned' => $ptoRequest->total_days,
             ]);
 
             return redirect()->route('pto.dashboard')->with('success', 'PTO request cancelled successfully!');
@@ -378,7 +379,7 @@ class EmployeePtoController extends Controller
             Log::error('Error cancelling PTO request', [
                 'error' => $e->getMessage(),
                 'request_id' => $ptoRequest->id,
-                'user_id' => $user->id
+                'user_id' => $user->id,
             ]);
 
             return back()->withErrors(['error' => 'Failed to cancel PTO request. Please try again.']);
@@ -391,7 +392,7 @@ class EmployeePtoController extends Controller
     private function sendPtoNotifications(PtoRequest $ptoRequest, string $notificationType): void
     {
         try {
-            $notificationClass = match($notificationType) {
+            $notificationClass = match ($notificationType) {
                 'created' => PtoCreated::class,
                 'canceled' => PtoCanceled::class,
                 default => throw new \InvalidArgumentException("Invalid notification type: {$notificationType}")
@@ -413,8 +414,8 @@ class EmployeePtoController extends Controller
 
             Log::info("All PTO {$notificationType} notifications processed successfully for request {$ptoRequest->id}");
         } catch (\Exception $e) {
-            Log::error("Failed to send PTO {$notificationType} notifications for request {$ptoRequest->id}: " . $e->getMessage());
-            Log::error("Notification error stack trace: " . $e->getTraceAsString());
+            Log::error("Failed to send PTO {$notificationType} notifications for request {$ptoRequest->id}: ".$e->getMessage());
+            Log::error('Notification error stack trace: '.$e->getTraceAsString());
             // Don't throw the exception to avoid breaking the main functionality
         }
     }
@@ -449,7 +450,7 @@ class EmployeePtoController extends Controller
      */
     private function createApprovalRecords(PtoRequest $ptoRequest, PtoType $ptoType): void
     {
-        if (!$ptoType->multi_level_approval) {
+        if (! $ptoType->multi_level_approval) {
             // Simple approval - just manager approval
             $manager = $ptoRequest->user->manager;
             if ($manager) {
@@ -465,7 +466,7 @@ class EmployeePtoController extends Controller
             $approvers = [];
 
             // Add manager if not disabled
-            if (!$ptoType->disable_hierarchy_approval) {
+            if (! $ptoType->disable_hierarchy_approval) {
                 $manager = $ptoRequest->user->manager;
                 if ($manager) {
                     $approvers[] = ['user_id' => $manager->id, 'level' => 1];
@@ -477,7 +478,7 @@ class EmployeePtoController extends Controller
                 foreach ($ptoType->specific_approvers as $index => $approverId) {
                     $approvers[] = [
                         'user_id' => $approverId,
-                        'level' => $ptoType->disable_hierarchy_approval ? 1 : 2
+                        'level' => $ptoType->disable_hierarchy_approval ? 1 : 2,
                     ];
                 }
             }
@@ -712,7 +713,7 @@ class EmployeePtoController extends Controller
     {
         $policy = $user->activePtoPolicies()->where('pto_type_id', $ptoTypeId)->first();
 
-        if (!$policy) {
+        if (! $policy) {
             return null;
         }
 
@@ -737,6 +738,7 @@ class EmployeePtoController extends Controller
             $startDateTime = Carbon::parse($request->start_date);
             $now = Carbon::now();
             $hoursUntilStart = $now->diffInHours($startDateTime, false);
+
             return $hoursUntilStart >= 24;
         }
 

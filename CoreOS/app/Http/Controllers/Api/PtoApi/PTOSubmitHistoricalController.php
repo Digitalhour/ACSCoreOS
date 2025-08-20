@@ -1,22 +1,20 @@
 <?php
 
 namespace App\Http\Controllers\Api\PtoApi;
+
 use App\Http\Controllers\Controller;
 use App\Models\PtoModels\PtoBalance;
 use App\Models\PtoModels\PtoRequest;
 use App\Models\PtoModels\PtoType;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Inertia\Inertia;
-
 
 class PTOSubmitHistoricalController extends Controller
-
 {
-
-    public function submitHistoricalPto(Request $request)
+    public function submitHistoricalPto(Request $request): JsonResponse
     {
         $validated = $request->validate([
             'user_id' => 'required|exists:users,id',
@@ -35,15 +33,14 @@ class PTOSubmitHistoricalController extends Controller
 
             $current = $startDate->copy();
             while ($current->lte($endDate)) {
-                if (!$current->isWeekend()) {
+                if (! $current->isWeekend()) {
                     $totalDays++;
                 }
                 $current->addDay();
             }
 
             // Generate historical PTO request number
-            $requestNumber = 'PTO-HISTORICAL-U' . $validated['user_id'] . '-' . time();
-
+            $requestNumber = 'PTO-HISTORICAL-U'.$validated['user_id'].'-'.time();
 
             // Create the PTO request with the historical request number
             $ptoRequest = PtoRequest::create([
@@ -59,7 +56,6 @@ class PTOSubmitHistoricalController extends Controller
                 'approved_at' => now(),
                 'approved_by_id' => auth()->id(),
             ]);
-
 
             // Get the PTO type to check if it uses balance
             $ptoType = PtoType::find($validated['pto_type_id']);
@@ -80,18 +76,15 @@ class PTOSubmitHistoricalController extends Controller
                     ]
                 );
 
-
-
                 // Deduct the balance using the model method
                 $ptoTransaction = $ptoBalance->subtractBalance(
                     $totalDays,
-                    'Historical PTO taken - ' . ($validated['reason'] ?: 'No reason provided'),
+                    'Historical PTO taken - '.($validated['reason'] ?: 'No reason provided'),
                     auth()->user()
                 );
 
                 // Link the transaction to the PTO request
                 $ptoTransaction->update(['pto_request_id' => $ptoRequest->id]);
-
 
             } else {
                 Log::info('PTO type does not use balance, skipping balance deduction');
@@ -99,8 +92,18 @@ class PTOSubmitHistoricalController extends Controller
 
             DB::commit();
 
-
-
+            return response()->json([
+                'success' => true,
+                'message' => 'Historical PTO request submitted successfully.',
+                'data' => [
+                    'pto_request_id' => $ptoRequest->id,
+                    'request_number' => $ptoRequest->request_number,
+                    'total_days' => $totalDays,
+                    'user_id' => $validated['user_id'],
+                    'pto_type' => $ptoType->name,
+                    'date_range' => $validated['start_date'].' to '.$validated['end_date'],
+                ],
+            ], 201);
 
         } catch (\Exception $e) {
             DB::rollBack();
@@ -114,10 +117,8 @@ class PTOSubmitHistoricalController extends Controller
 
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to submit historical PTO request: ' . $e->getMessage()
+                'message' => 'Failed to submit historical PTO request: '.$e->getMessage(),
             ], 500);
         }
     }
-
-
 }

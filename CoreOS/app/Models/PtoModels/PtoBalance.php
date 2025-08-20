@@ -14,8 +14,6 @@ class PtoBalance extends Model
 {
     use HasFactory, LogsActivity;
 
-
-
     /**
      * The activity log options for the model.
      */
@@ -81,7 +79,7 @@ class PtoBalance extends Model
     /**
      * Add to the balance.
      */
-    public function addBalance(float $amount, string $description = null, User $createdBy = null): PtoTransaction
+    public function addBalance(float $amount, ?string $description = null, ?User $createdBy = null): PtoTransaction
     {
         $balanceBefore = $this->balance;
         $this->balance += $amount;
@@ -102,7 +100,7 @@ class PtoBalance extends Model
     /**
      * Subtract from the balance.
      */
-    public function subtractBalance(float $amount, string $description = null, User $createdBy = null): PtoTransaction
+    public function subtractBalance(float $amount, ?string $description = null, ?User $createdBy = null): PtoTransaction
     {
         $balanceBefore = $this->balance;
         $this->balance -= $amount;
@@ -112,7 +110,7 @@ class PtoBalance extends Model
         return PtoTransaction::create([
             'user_id' => $this->user_id,
             'pto_type_id' => $this->pto_type_id,
-            'amount' => -$amount,
+            'amount' => $amount, // Store positive amount, type indicates it's a deduction
             'type' => 'usage',
             'description' => $description ?? 'PTO usage',
             'balance_before' => $balanceBefore,
@@ -124,7 +122,7 @@ class PtoBalance extends Model
     /**
      * Add to the pending balance.
      */
-    public function addPendingBalance(float $amount, PtoRequest $request = null): void
+    public function addPendingBalance(float $amount, ?PtoRequest $request = null): void
     {
         $this->pending_balance += $amount;
         $this->save();
@@ -142,7 +140,7 @@ class PtoBalance extends Model
     /**
      * Reset the balance for a new year.
      */
-    public function resetForNewYear(float $newBalance, User $createdBy = null): PtoTransaction
+    public function resetForNewYear(float $newBalance, ?User $createdBy = null): PtoTransaction
     {
         $balanceBefore = $this->balance;
         $this->balance = $newBalance;
