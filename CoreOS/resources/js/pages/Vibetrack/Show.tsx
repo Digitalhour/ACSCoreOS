@@ -656,7 +656,7 @@ export default function VibetrackShow({ vibetrack, runtimeHistory, statusHistory
                                         >
                                             <LineChart data={dailyStatusData}>
                                                 <Line
-                                                    type="monotone"
+                                                    type="step"
                                                     dataKey="battery_soc"
                                                     stroke="var(--color-battery_soc)"
                                                     strokeWidth={2}
