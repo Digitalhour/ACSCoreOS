@@ -1,6 +1,7 @@
 import {Card, CardContent, CardHeader, CardTitle} from '@/components/ui/card';
 import AppLayout from '@/layouts/app-layout';
 import QueueDashboardPage from '@/pages/quese-status'; // Ensured all icons are imported
+import OnlineUsersComponent from '@/components/OnlineUsersComponent';
 import {type BreadcrumbItem} from '@/types';
 import {Head, Link as InertiaLink} from '@inertiajs/react'; // Renamed Link to InertiaLink to avoid conflict
 import {
@@ -310,9 +311,17 @@ export default function adminDashboard({ userStats }: { userStats: { totalUsers:
                 </div>
                 <div className="mt-8 grid auto-rows-min gap-4 md:grid-cols-3">
                     <div className="flex flex-col gap-4">
-                        <div className="border-sidebar-border/70 dark:border-sidebar-border relative aspect-video overflow-hidden rounded-xl border">
-                            {/*<UserCount totalUsers={userStats.totalUsers} activeUsers={userStats.activeUsers} totalLogins={userStats.totalLogins} />*/}
-                        </div>
+                        <Card className="border-sidebar-border/70 dark:border-sidebar-border relative bg-white dark:bg-gray-800">
+                            <CardHeader>
+                                <CardTitle className="flex items-center space-x-2">
+                                    <Users className="h-5 w-5 text-green-500" />
+                                    <span>Real-time User Activity</span>
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                <OnlineUsersComponent />
+                            </CardContent>
+                        </Card>
                     </div>
                     <div className="border-sidebar-border/70 dark:border-sidebar-border relative col-span-2 rounded-xl border">
                         <QueueDashboardPage />

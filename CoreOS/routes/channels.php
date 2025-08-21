@@ -8,6 +8,11 @@ Broadcast::channel('user.{userId}', function ($user, $userId) {
     return (int) $user->id === (int) $userId;
 });
 
+// Online users channel - public channel for real-time user count
+Broadcast::channel('online-users', function ($user) {
+    return $user !== null;
+});
+
 // PTO request channel - managers can listen to their team's requests
 //Broadcast::channel('pto-requests.manager.{managerId}', function ($user, $managerId) {
 //    return (int) $user->id === (int) $managerId;

@@ -128,4 +128,4 @@ require __DIR__.'/developer-routes.php';
 
 // Parts Database (commented out)
 require __DIR__.'/parts-database.php';
-// require __DIR__.'/admin-routes.php';
+require __DIR__.'/admin-routes.php';
