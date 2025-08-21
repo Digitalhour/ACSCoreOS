@@ -71,10 +71,10 @@ Route::middleware('auth')->middleware(ValidateSessionWithWorkOS::class)->group(f
             Route::post('/update-order', [NavigationController::class, 'updateOrder'])->name('navigation.update-order');
             Route::post('/{navigationItem}/toggle-active', [NavigationController::class, 'toggleActive'])->name('navigation.toggle-active');
         });
-            // API endpoint for getting navigation data (used by sidebar)
-            Route::get('/api/navigation-data', [NavigationController::class, 'getNavigationData'])->name('navigation.data');
+        // API endpoint for getting navigation data (used by sidebar)
+        Route::get('/api/navigation-data', [NavigationController::class, 'getNavigationData'])->name('navigation.data');
 
-            // Activity Log {Will change to Activity Log in the future}
+        // Activity Log {Will change to Activity Log in the future}
         Route::group(['prefix' => '/dev-ops/'], function () {
             Route::get('activity-log', [ActivityLogController::class, 'index'])->name('activity-log.index');
             Route::get('activity-log/{activity}', [ActivityLogController::class, 'show'])->name('activity-log.show');

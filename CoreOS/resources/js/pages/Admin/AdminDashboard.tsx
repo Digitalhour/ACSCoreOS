@@ -12,7 +12,7 @@ const breadcrumbs: BreadcrumbItem[] = [
         title: 'Admin Dashboard',
         // Assuming 'route' helper is available globally, otherwise use literal string '/admin'
         // This should point to the route that renders this AdminDashboardPage component
-        href: typeof route !== 'undefined' ? route('admin.index') : '/admin',
+        href: typeof route !== 'undefined' ? route('dev-ops.index') : '/dev-ops',
     },
 ];
 
