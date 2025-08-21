@@ -3,10 +3,12 @@
 namespace App\Http\Controllers;
 
 use App\Models\Department;
+use App\Models\Permission;
 use App\Models\Position;
 use App\Models\PtoModels\PtoBalance;
 use App\Models\PtoModels\PtoPolicy;
 use App\Models\PtoModels\PtoType;
+use App\Models\Role;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -433,6 +435,105 @@ class UserManagementController extends Controller
         } catch (\Exception $e) {
             Log::error('Error fetching user by email: ' . $e->getMessage());
             return response()->json(['error' => 'Failed to fetch user'], 500);
+        }
+    }
+
+    public function getRoles(): JsonResponse
+    {
+        try {
+            $roles = Role::orderBy('name')
+                ->get(['id', 'name', 'description']);
+
+            return response()->json([
+                'data' => $roles,
+                'meta' => [
+                    'total' => $roles->count()
+                ]
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Error fetching roles: ' . $e->getMessage());
+            return response()->json([
+                'error' => 'Failed to fetch roles.',
+                'details' => 'An unexpected error occurred.'
+            ], 500);
+        }
+    }
+
+    public function getPermissions(): JsonResponse
+    {
+        try {
+            $permissions = Permission::with('categories')
+                ->orderBy('name')
+                ->get(['id', 'name', 'description']);
+
+            return response()->json([
+                'data' => $permissions,
+                'meta' => [
+                    'total' => $permissions->count()
+                ]
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Error fetching permissions: ' . $e->getMessage());
+            return response()->json([
+                'error' => 'Failed to fetch permissions.',
+                'details' => 'An unexpected error occurred.'
+            ], 500);
+        }
+    }
+
+    public function assignRole(User $user, Request $request): JsonResponse
+    {
+        try {
+            $request->validate([
+                'role_id' => 'required|integer|exists:roles,id'
+            ]);
+
+            $role = Role::findOrFail($request->role_id);
+            
+            // Check if user already has this role
+            if (!$user->hasRole($role->name)) {
+                $user->assignRole($role->name);
+            }
+
+            return response()->json([
+                'message' => 'Role assigned successfully',
+                'user_id' => $user->id,
+                'role_id' => $role->id
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Error assigning role: ' . $e->getMessage());
+            return response()->json([
+                'error' => 'Failed to assign role.',
+                'details' => 'An unexpected error occurred.'
+            ], 500);
+        }
+    }
+
+    public function assignPermission(User $user, Request $request): JsonResponse
+    {
+        try {
+            $request->validate([
+                'permission_id' => 'required|integer|exists:permissions,id'
+            ]);
+
+            $permission = Permission::findOrFail($request->permission_id);
+            
+            // Check if user already has this permission
+            if (!$user->hasPermissionTo($permission->name)) {
+                $user->givePermissionTo($permission->name);
+            }
+
+            return response()->json([
+                'message' => 'Permission assigned successfully',
+                'user_id' => $user->id,
+                'permission_id' => $permission->id
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Error assigning permission: ' . $e->getMessage());
+            return response()->json([
+                'error' => 'Failed to assign permission.',
+                'details' => 'An unexpected error occurred.'
+            ], 500);
         }
     }
 }

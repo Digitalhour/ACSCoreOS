@@ -254,6 +254,12 @@ Route::middleware('auth')
         Route::get('/managers', [UserManagementController::class, 'getManagers']);
         Route::get('/user-by-email', [UserManagementController::class, 'getUserByEmail']);
         Route::apiResource('positions', \App\Http\Controllers\Api\PositionController::class);
+        
+        // Roles and Permissions API for onboarding
+        Route::get('/roles', [UserManagementController::class, 'getRoles']);
+        Route::get('/permissions', [UserManagementController::class, 'getPermissions']);
+        Route::post('/users/{user}/assign-role', [UserManagementController::class, 'assignRole']);
+        Route::post('/users/{user}/assign-permission', [UserManagementController::class, 'assignPermission']);
 
 
 

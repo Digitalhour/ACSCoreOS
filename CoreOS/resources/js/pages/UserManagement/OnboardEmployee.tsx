@@ -7,7 +7,7 @@ import {Checkbox} from "@/components/ui/checkbox";
 import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from "@/components/ui/select";
 import {Card, CardContent, CardDescription, CardHeader, CardTitle} from "@/components/ui/card";
 import {Badge} from "@/components/ui/badge";
-import {Building2, CheckCircle, Lock, UserPlus, Users} from 'lucide-react';
+import {Building2, CheckCircle, Lock, Shield, UserPlus, Users} from 'lucide-react';
 import AppLayout from '@/layouts/app-layout';
 import {type BreadcrumbItem} from '@/types';
 import HrLayout from "@/layouts/settings/hr-layout";
@@ -35,6 +35,18 @@ interface Manager {
     id: number;
     name: string;
     email: string;
+}
+
+interface Role {
+    id: number;
+    name: string;
+    description?: string;
+}
+
+interface Permission {
+    id: number;
+    name: string;
+    description?: string;
 }
 
 interface PtoPolicyForm {
@@ -75,6 +87,7 @@ export default function OnboardEmployee() {
     const [section1Complete, setSection1Complete] = useState(false);
     const [section2Complete, setSection2Complete] = useState(false);
     const [section3Complete, setSection3Complete] = useState(false);
+    const [section4Complete, setSection4Complete] = useState(false);
 
     // User data from section 1
     const [createdUserId, setCreatedUserId] = useState<number | null>(null);
@@ -85,12 +98,15 @@ export default function OnboardEmployee() {
     const [isSubmitting1, setIsSubmitting1] = useState(false);
     const [isSubmitting2, setIsSubmitting2] = useState(false);
     const [isSubmitting3, setIsSubmitting3] = useState(false);
+    const [isSubmitting4, setIsSubmitting4] = useState(false);
 
     // Data for dropdowns
     const [ptoTypes, setPtoTypes] = useState<PtoType[]>([]);
     const [departments, setDepartments] = useState<Department[]>([]);
     const [positions, setPositions] = useState<Position[]>([]);
     const [managers, setManagers] = useState<Manager[]>([]);
+    const [roles, setRoles] = useState<Role[]>([]);
+    const [permissions, setPermissions] = useState<Permission[]>([]);
 
     // Form states
     const [inviteForm, setInviteForm] = useState({
@@ -110,6 +126,13 @@ export default function OnboardEmployee() {
     const [managerForm, setManagerForm] = useState({
         assign_manager: false,
         manager_id: 0
+    });
+
+    const [rolePermissionForm, setRolePermissionForm] = useState({
+        assign_roles: false,
+        role_ids: [] as number[],
+        assign_permissions: false,
+        permission_ids: [] as number[]
     });
 
     const [ptoForm, setPtoForm] = useState<PtoPolicyForm>({
@@ -176,12 +199,34 @@ export default function OnboardEmployee() {
         }
     };
 
+    const fetchRoles = async () => {
+        try {
+            const response = await fetch('/api/roles');
+            const data: ApiResponse<Role[]> = await response.json();
+            setRoles(data.data || []);
+        } catch (err) {
+            console.error('Roles fetch error:', err);
+        }
+    };
+
+    const fetchPermissions = async () => {
+        try {
+            const response = await fetch('/api/permissions');
+            const data: ApiResponse<Permission[]> = await response.json();
+            setPermissions(data.data || []);
+        } catch (err) {
+            console.error('Permissions fetch error:', err);
+        }
+    };
+
     // Load data when component mounts
     useEffect(() => {
         fetchPtoTypes();
         fetchDepartments();
         fetchPositions();
         fetchManagers();
+        fetchRoles();
+        fetchPermissions();
     }, []);
 
     // Refresh managers when user is created
@@ -325,16 +370,87 @@ export default function OnboardEmployee() {
             }
 
             setSection3Complete(true);
-            // Redirect to user management after completion
-            setTimeout(() => {
-                router.visit('/user-management');
-            }, 2000);
         } catch (error) {
             console.error('Manager assignment failed:', error);
             alert(`Manager assignment failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
         } finally {
             setIsSubmitting3(false);
         }
+    };
+
+    // Section 4: Roles and Permissions Assignment
+    const handleSection4Submit = async (e: React.FormEvent<HTMLFormElement>) => {
+        e.preventDefault();
+        setIsSubmitting4(true);
+
+        if (!createdUserId) {
+            console.error('No user ID available for role/permission assignment');
+            setIsSubmitting4(false);
+            return;
+        }
+
+        try {
+            // Assign roles
+            if (rolePermissionForm.assign_roles && rolePermissionForm.role_ids.length > 0) {
+                for (const roleId of rolePermissionForm.role_ids) {
+                    await new Promise<void>((resolve, reject) => {
+                        router.post(`/api/users/${createdUserId}/assign-role`, {
+                            role_id: roleId
+                        }, {
+                            preserveState: true,
+                            preserveScroll: true,
+                            onSuccess: () => resolve(),
+                            onError: () => reject(new Error(`Failed to assign role ${roleId}`))
+                        });
+                    });
+                }
+            }
+
+            // Assign permissions
+            if (rolePermissionForm.assign_permissions && rolePermissionForm.permission_ids.length > 0) {
+                for (const permissionId of rolePermissionForm.permission_ids) {
+                    await new Promise<void>((resolve, reject) => {
+                        router.post(`/api/users/${createdUserId}/assign-permission`, {
+                            permission_id: permissionId
+                        }, {
+                            preserveState: true,
+                            preserveScroll: true,
+                            onSuccess: () => resolve(),
+                            onError: () => reject(new Error(`Failed to assign permission ${permissionId}`))
+                        });
+                    });
+                }
+            }
+
+            setSection4Complete(true);
+            // Redirect to user management after completion
+            setTimeout(() => {
+                router.visit('/user-management');
+            }, 2000);
+        } catch (error) {
+            console.error('Role/permission assignment failed:', error);
+            alert(`Role/permission assignment failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        } finally {
+            setIsSubmitting4(false);
+        }
+    };
+
+    const handleRoleToggle = (roleId: number) => {
+        setRolePermissionForm(prev => ({
+            ...prev,
+            role_ids: prev.role_ids.includes(roleId)
+                ? prev.role_ids.filter(id => id !== roleId)
+                : [...prev.role_ids, roleId]
+        }));
+    };
+
+    const handlePermissionToggle = (permissionId: number) => {
+        setRolePermissionForm(prev => ({
+            ...prev,
+            permission_ids: prev.permission_ids.includes(permissionId)
+                ? prev.permission_ids.filter(id => id !== permissionId)
+                : [...prev.permission_ids, permissionId]
+        }));
     };
 
     return (
@@ -599,9 +715,7 @@ export default function OnboardEmployee() {
                                 Section 3: Manager Assignment
                             </CardTitle>
                             <CardDescription>
-                                {!section2Complete ? 'Complete Section 2 to unlock' :
-                                    section3Complete ? 'Employees onboarding completed successfully!' :
-                                        'Assign a manager to the employee'}
+                                {!section2Complete ? 'Complete Section 2 to unlock' : 'Assign a manager to the employee'}
                             </CardDescription>
                         </CardHeader>
 
@@ -642,18 +756,125 @@ export default function OnboardEmployee() {
 
                                     <div className="flex justify-end gap-3">
                                         <Button type="button" variant="ghost" onClick={() => setSection3Complete(true)}>
-                                            Skip & Finish
+                                            Skip
                                         </Button>
                                         <Button type="submit" disabled={isSubmitting3}>
-                                            {isSubmitting3 ? 'Assigning...' : 'Assign & Finish'}
+                                            {isSubmitting3 ? 'Assigning...' : 'Assign & Continue'}
                                             <Users className="ml-2 h-4 w-4" />
                                         </Button>
                                     </div>
                                 </form>
                             </CardContent>
                         )}
+                    </Card>
 
-                        {section3Complete && (
+                    {/* Section 4: Roles and Permissions */}
+                    <Card className={`relative ${!section3Complete ? 'opacity-50' : section4Complete ? 'border-green-200 bg-green-50' : ''}`}>
+                        <CardHeader>
+                            <CardTitle className="flex items-center gap-2">
+                                {!section3Complete ? (
+                                    <Lock className="h-5 w-5 text-gray-400" />
+                                ) : section4Complete ? (
+                                    <CheckCircle className="h-5 w-5 text-green-600" />
+                                ) : (
+                                    <Shield className="h-5 w-5" />
+                                )}
+                                Section 4: Roles & Permissions Assignment
+                            </CardTitle>
+                            <CardDescription>
+                                {!section3Complete ? 'Complete Section 3 to unlock' :
+                                    section4Complete ? 'Employee onboarding completed successfully!' :
+                                        'Assign roles and permissions to the employee'}
+                            </CardDescription>
+                        </CardHeader>
+
+                        {section3Complete && !section4Complete && (
+                            <CardContent>
+                                <form onSubmit={handleSection4Submit} className="space-y-4">
+                                    {/* Roles Section */}
+                                    <div className="flex items-center space-x-2">
+                                        <Checkbox
+                                            id="assignRoles"
+                                            checked={rolePermissionForm.assign_roles}
+                                            onCheckedChange={(checked) => setRolePermissionForm({...rolePermissionForm, assign_roles: checked as boolean})}
+                                        />
+                                        <Label htmlFor="assignRoles" className="font-medium">
+                                            Assign Roles
+                                        </Label>
+                                    </div>
+
+                                    {rolePermissionForm.assign_roles && (
+                                        <div className="space-y-2">
+                                            <Label>Select Roles</Label>
+                                            <div className="grid grid-cols-2 gap-2 max-h-32 overflow-y-auto border rounded p-2">
+                                                {roles.map(role => (
+                                                    <div key={role.id} className="flex items-center space-x-2">
+                                                        <Checkbox
+                                                            id={`role-${role.id}`}
+                                                            checked={rolePermissionForm.role_ids.includes(role.id)}
+                                                            onCheckedChange={() => handleRoleToggle(role.id)}
+                                                        />
+                                                        <Label htmlFor={`role-${role.id}`} className="text-sm">
+                                                            {role.name}
+                                                            {role.description && (
+                                                                <span className="block text-xs text-gray-500">{role.description}</span>
+                                                            )}
+                                                        </Label>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Permissions Section */}
+                                    <div className="flex items-center space-x-2">
+                                        <Checkbox
+                                            id="assignPermissions"
+                                            checked={rolePermissionForm.assign_permissions}
+                                            onCheckedChange={(checked) => setRolePermissionForm({...rolePermissionForm, assign_permissions: checked as boolean})}
+                                        />
+                                        <Label htmlFor="assignPermissions" className="font-medium">
+                                            Assign Individual Permissions
+                                        </Label>
+                                    </div>
+
+                                    {rolePermissionForm.assign_permissions && (
+                                        <div className="space-y-2">
+                                            <Label>Select Permissions</Label>
+                                            <div className="grid grid-cols-2 gap-2 max-h-32 overflow-y-auto border rounded p-2">
+                                                {permissions.map(permission => (
+                                                    <div key={permission.id} className="flex items-center space-x-2">
+                                                        <Checkbox
+                                                            id={`permission-${permission.id}`}
+                                                            checked={rolePermissionForm.permission_ids.includes(permission.id)}
+                                                            onCheckedChange={() => handlePermissionToggle(permission.id)}
+                                                        />
+                                                        <Label htmlFor={`permission-${permission.id}`} className="text-sm">
+                                                            {permission.name}
+                                                            {permission.description && (
+                                                                <span className="block text-xs text-gray-500">{permission.description}</span>
+                                                            )}
+                                                        </Label>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    <div className="flex justify-end gap-3">
+                                        <Button type="button" variant="ghost" onClick={() => setSection4Complete(true)}>
+                                            Skip & Finish
+                                        </Button>
+                                        <Button type="submit" disabled={isSubmitting4}>
+                                            {isSubmitting4 ? 'Assigning...' : 'Assign & Finish'}
+                                            <Shield className="ml-2 h-4 w-4" />
+                                        </Button>
+                                    </div>
+                                </form>
+                            </CardContent>
+                        )}
+
+                        {section4Complete && (
                             <CardContent>
                                 <div className="text-center text-green-600">
                                     <CheckCircle className="h-12 w-12 mx-auto mb-4" />

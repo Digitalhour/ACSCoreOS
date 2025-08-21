@@ -633,6 +633,7 @@ class PartsController extends Controller
     }
 
     /**
+     *
      * Update a part
      */
     public function updatePart(Request $request, int $partId): JsonResponse
