@@ -20,13 +20,17 @@ import {
     CalendarMinus2,
     ChevronDown,
     ChevronUp,
+    Edit3,
     Eye,
     Filter,
     Home,
     Mail,
     MapPin,
+    Plus,
+    Save,
     Search,
     Shield,
+    Trash2,
     User,
     UserRoundCheck,
     Users,
@@ -165,6 +169,7 @@ export interface User {
     position: string;
     deleted_at: string | null;
     roles: Role[];
+    permissions: Permission[];
     all_permissions: string[];
     pto_stats: {
         total: number;
@@ -177,6 +182,12 @@ export interface User {
     addresses: Address[]; // Make sure this is included
     pto_balances: PtoBalance[];
     pto_requests: PtoRequest[];
+}
+
+export interface Permission {
+    id: number;
+    name: string;
+    description?: string;
 }
 
 type SortField = 'name' | 'departments' | 'position' | 'pto_total';
@@ -196,6 +207,10 @@ export default function Employees({ users }: { users: User[] }) {
     const [isTogglingStatus, setIsTogglingStatus] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
     const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
+    const [isEditingRoles, setIsEditingRoles] = useState(false);
+    const [availableRoles, setAvailableRoles] = useState<Role[]>([]);
+    const [availablePermissions, setAvailablePermissions] = useState<Permission[]>([]);
+    const [isSavingRoles, setIsSavingRoles] = useState(false);
 
     const getInitials = (name: string) => {
         return name
@@ -250,11 +265,129 @@ export default function Employees({ users }: { users: User[] }) {
     };
 
     const openEmployeeSheet = (user: User) => {
-        setSelectedUser(user);
+        // Ensure permissions is always an array
+        const userWithPermissions = {
+            ...user,
+            permissions: user.permissions || []
+        };
+        setSelectedUser(userWithPermissions);
         setRequestStatusFilter('all');
         setRequestSortField('created_at');
         setRequestSortDirection('desc');
+        setIsEditingRoles(false);
         setIsSheetOpen(true);
+    };
+
+    const fetchRolesAndPermissions = async () => {
+        try {
+            const [rolesResponse, permissionsResponse] = await Promise.all([
+                fetch('/user-management/roles'),
+                fetch('/user-management/permissions')
+            ]);
+            
+            if (rolesResponse.ok && permissionsResponse.ok) {
+                const rolesData = await rolesResponse.json();
+                const permissionsData = await permissionsResponse.json();
+                setAvailableRoles(rolesData.data || []);
+                setAvailablePermissions(permissionsData.data || []);
+            }
+        } catch (error) {
+            console.error('Failed to fetch roles and permissions:', error);
+        }
+    };
+
+    const handleEditRoles = () => {
+        setIsEditingRoles(true);
+        fetchRolesAndPermissions();
+    };
+
+    const handleCancelEditRoles = () => {
+        setIsEditingRoles(false);
+    };
+
+    const handleAddRole = (roleId: number) => {
+        if (!selectedUser) return;
+        
+        const role = availableRoles.find(r => r.id === roleId);
+        if (role && !selectedUser.roles.some(r => r.id === roleId)) {
+            setSelectedUser({
+                ...selectedUser,
+                roles: [...selectedUser.roles, role]
+            });
+        }
+    };
+
+    const handleRemoveRole = (roleId: number) => {
+        if (!selectedUser) return;
+        
+        setSelectedUser({
+            ...selectedUser,
+            roles: selectedUser.roles.filter(r => r.id !== roleId)
+        });
+    };
+
+    const handleAddPermission = (permissionId: number) => {
+        if (!selectedUser) return;
+        
+        const permission = availablePermissions.find(p => p.id === permissionId);
+        if (permission && !selectedUser.permissions.some(p => p.id === permissionId)) {
+            setSelectedUser({
+                ...selectedUser,
+                permissions: [...selectedUser.permissions, permission]
+            });
+        }
+    };
+
+    const handleRemovePermission = (permissionId: number) => {
+        if (!selectedUser) return;
+        
+        setSelectedUser({
+            ...selectedUser,
+            permissions: selectedUser.permissions.filter(p => p.id !== permissionId)
+        });
+    };
+
+    const handleSaveRoles = async () => {
+        if (!selectedUser) return;
+        
+        setIsSavingRoles(true);
+        try {
+            // Save roles
+            await router.post(`/role-permission/sync-user-roles`, {
+                user_id: selectedUser.id,
+                roles: selectedUser.roles.map(r => r.id)
+            }, {
+                preserveState: true,
+                preserveScroll: true,
+                onSuccess: () => {
+                    console.log('Roles saved successfully');
+                },
+                onError: (errors) => {
+                    console.error('Failed to save roles:', errors);
+                }
+            });
+
+            // Save direct permissions
+            await router.post(`/role-permission/sync-user-direct-permissions`, {
+                user_id: selectedUser.id,
+                permissions: selectedUser.permissions.map(p => p.id)
+            }, {
+                preserveState: true,
+                preserveScroll: true,
+                onSuccess: () => {
+                    console.log('Permissions saved successfully');
+                },
+                onError: (errors) => {
+                    console.error('Failed to save permissions:', errors);
+                }
+            });
+            
+            setIsEditingRoles(false);
+        } catch (error) {
+            console.error('Failed to save roles and permissions:', error);
+        } finally {
+            setIsSavingRoles(false);
+        }
     };
 
     const openPtoRequestSheet = (request: PtoRequest, event: React.MouseEvent) => {
@@ -837,37 +970,173 @@ export default function Employees({ users }: { users: User[] }) {
 
                                             {/* Roles & Permissions Tab */}
                                             <TabsContent value="roles" className="p-6 space-y-6 m-0">
-                                                <Card>
-                                                    <CardContent className="p-6">
-                                                        <h3 className="text-lg font-semibold mb-4">Assigned Roles</h3>
-                                                        <Button variant={"link"}> Edit </Button>
-                                                        {selectedUser.roles.length > 0 ? (
-                                                            <div className="space-y-4">
-                                                                {selectedUser.roles.map((role) => (
-                                                                    <div key={role.id} className="border rounded-lg p-4">
-                                                                        <div className="flex items-center justify-between mb-3">
-                                                                            <Badge className={getRoleColor(role.name)}>
-                                                                                {role.name}
-                                                                            </Badge>
+                                                <div className="space-y-6">
+                                                    {/* Roles Section */}
+                                                    <Card>
+                                                        <CardContent className="p-6">
+                                                            <div className="flex items-center justify-between mb-4">
+                                                                <h3 className="text-lg font-semibold">Assigned Roles</h3>
+                                                                <div className="flex gap-2">
+                                                                    {!isEditingRoles ? (
+                                                                        <Button variant="outline" size="sm" onClick={handleEditRoles}>
+                                                                            <Edit3 className="h-4 w-4 mr-2" />
+                                                                            Edit Roles
+                                                                        </Button>
+                                                                    ) : (
+                                                                        <div className="flex gap-2">
+                                                                            <Button 
+                                                                                variant="outline" 
+                                                                                size="sm" 
+                                                                                onClick={handleCancelEditRoles}
+                                                                                disabled={isSavingRoles}
+                                                                            >
+                                                                                <X className="h-4 w-4 mr-2" />
+                                                                                Cancel
+                                                                            </Button>
+                                                                            <Button 
+                                                                                size="sm" 
+                                                                                onClick={handleSaveRoles}
+                                                                                disabled={isSavingRoles}
+                                                                            >
+                                                                                <Save className="h-4 w-4 mr-2" />
+                                                                                {isSavingRoles ? 'Saving...' : 'Save Changes'}
+                                                                            </Button>
                                                                         </div>
-                                                                        <div>
-                                                                            <h4 className="text-sm font-medium text-gray-700 mb-2">Permissions</h4>
-                                                                            <div className="flex flex-wrap gap-1">
-                                                                                {role.permissions.map((permission, index) => (
-                                                                                    <Badge key={index} variant="outline" className="text-xs">
-                                                                                        {permission}
-                                                                                    </Badge>
+                                                                    )}
+                                                                </div>
+                                                            </div>
+
+                                                            {isEditingRoles && (
+                                                                <div className="mb-4">
+                                                                    <h4 className="text-sm font-medium text-gray-700 mb-2">Add Role</h4>
+                                                                    <Select onValueChange={(value) => handleAddRole(parseInt(value))}>
+                                                                        <SelectTrigger className="w-full">
+                                                                            <SelectValue placeholder="Select a role to add" />
+                                                                        </SelectTrigger>
+                                                                        <SelectContent>
+                                                                            {availableRoles
+                                                                                .filter(role => !selectedUser.roles.some(r => r.id === role.id))
+                                                                                .map((role) => (
+                                                                                    <SelectItem key={role.id} value={role.id.toString()}>
+                                                                                        {role.name}
+                                                                                    </SelectItem>
                                                                                 ))}
+                                                                        </SelectContent>
+                                                                    </Select>
+                                                                </div>
+                                                            )}
+
+                                                            {selectedUser.roles.length > 0 ? (
+                                                                <div className="space-y-4">
+                                                                    {selectedUser.roles.map((role) => (
+                                                                        <div key={role.id} className="border rounded-lg p-4">
+                                                                            <div className="flex items-center justify-between mb-3">
+                                                                                <Badge className={getRoleColor(role.name)}>
+                                                                                    {role.name}
+                                                                                </Badge>
+                                                                                {isEditingRoles && (
+                                                                                    <Button
+                                                                                        variant="ghost"
+                                                                                        size="sm"
+                                                                                        onClick={() => handleRemoveRole(role.id)}
+                                                                                        className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                                                                                    >
+                                                                                        <Trash2 className="h-4 w-4" />
+                                                                                    </Button>
+                                                                                )}
+                                                                            </div>
+                                                                            <div>
+                                                                                <h4 className="text-sm font-medium text-gray-700 mb-2">Role Permissions</h4>
+                                                                                <div className="flex flex-wrap gap-1">
+                                                                                    {role.permissions.map((permission, index) => (
+                                                                                        <Badge key={index} variant="outline" className="text-xs">
+                                                                                            {permission}
+                                                                                        </Badge>
+                                                                                    ))}
+                                                                                </div>
                                                                             </div>
                                                                         </div>
-                                                                    </div>
-                                                                ))}
+                                                                    ))}
+                                                                </div>
+                                                            ) : (
+                                                                <p className="text-gray-500">No roles assigned</p>
+                                                            )}
+                                                        </CardContent>
+                                                    </Card>
+
+                                                    {/* Direct Permissions Section */}
+                                                    <Card>
+                                                        <CardContent className="p-6">
+                                                            <div className="flex items-center justify-between mb-4">
+                                                                <h3 className="text-lg font-semibold">Direct Permissions</h3>
+                                                                <span className="text-sm text-gray-500">Permissions assigned directly to user</span>
                                                             </div>
-                                                        ) : (
-                                                            <p className="text-gray-500">No roles assigned</p>
-                                                        )}
-                                                    </CardContent>
-                                                </Card>
+
+                                                            {isEditingRoles && (
+                                                                <div className="mb-4">
+                                                                    <h4 className="text-sm font-medium text-gray-700 mb-2">Add Permission</h4>
+                                                                    <Select onValueChange={(value) => handleAddPermission(parseInt(value))}>
+                                                                        <SelectTrigger className="w-full">
+                                                                            <SelectValue placeholder="Select a permission to add" />
+                                                                        </SelectTrigger>
+                                                                        <SelectContent>
+                                                                            {availablePermissions
+                                                                                .filter(permission => !selectedUser.permissions.some(p => p.id === permission.id))
+                                                                                .map((permission) => (
+                                                                                    <SelectItem key={permission.id} value={permission.id.toString()}>
+                                                                                        {permission.name}
+                                                                                    </SelectItem>
+                                                                                ))}
+                                                                        </SelectContent>
+                                                                    </Select>
+                                                                </div>
+                                                            )}
+
+                                                            {selectedUser.permissions.length > 0 ? (
+                                                                <div className="flex flex-wrap gap-2">
+                                                                    {selectedUser.permissions.map((permission) => (
+                                                                        <div key={permission.id} className="flex items-center gap-1">
+                                                                            <Badge variant="secondary" className="text-xs">
+                                                                                {permission.name}
+                                                                            </Badge>
+                                                                            {isEditingRoles && (
+                                                                                <Button
+                                                                                    variant="ghost"
+                                                                                    size="sm"
+                                                                                    onClick={() => handleRemovePermission(permission.id)}
+                                                                                    className="text-red-600 hover:text-red-700 hover:bg-red-50 h-6 w-6 p-0"
+                                                                                >
+                                                                                    <X className="h-3 w-3" />
+                                                                                </Button>
+                                                                            )}
+                                                                        </div>
+                                                                    ))}
+                                                                </div>
+                                                            ) : (
+                                                                <p className="text-gray-500">No direct permissions assigned</p>
+                                                            )}
+                                                        </CardContent>
+                                                    </Card>
+
+                                                    {/* All Permissions Summary */}
+                                                    <Card>
+                                                        <CardContent className="p-6">
+                                                            <h3 className="text-lg font-semibold mb-4">All Effective Permissions</h3>
+                                                            <p className="text-sm text-gray-600 mb-3">All permissions this user has through roles and direct assignments</p>
+                                                            {selectedUser.all_permissions && selectedUser.all_permissions.length > 0 ? (
+                                                                <div className="flex flex-wrap gap-1">
+                                                                    {selectedUser.all_permissions.map((permission, index) => (
+                                                                        <Badge key={index} variant="outline" className="text-xs">
+                                                                            {permission}
+                                                                        </Badge>
+                                                                    ))}
+                                                                </div>
+                                                            ) : (
+                                                                <p className="text-gray-500">No permissions</p>
+                                                            )}
+                                                        </CardContent>
+                                                    </Card>
+                                                </div>
                                             </TabsContent>
 
                                             {/* Emergency Contacts Tab */}

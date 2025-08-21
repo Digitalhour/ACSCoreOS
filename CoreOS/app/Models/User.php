@@ -3,6 +3,7 @@
 namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
+use App\Events\UserStatusChanged;
 use App\Models\PtoModels\PtoBalance;
 use App\Models\PtoModels\PtoPolicy;
 use App\Models\PtoModels\PtoRequest;
@@ -23,8 +24,7 @@ use Spatie\Permission\Traits\HasRoles;
 class User extends Authenticatable
 {
     /** @use HasFactory<\Database\Factories\UserFactory> */
-    use HasFactory, Notifiable, HasRoles, LogsActivity, Impersonate, softDeletes;
-
+    use HasFactory, HasRoles, Impersonate, LogsActivity, Notifiable, softDeletes;
 
     /**
      * The attributes that are mass assignable.
@@ -36,6 +36,8 @@ class User extends Authenticatable
         'email',
         'workos_id',
         'avatar',
+        'last_seen_at',
+        'is_online',
     ];
 
     /**
@@ -48,9 +50,6 @@ class User extends Authenticatable
         'remember_token',
     ];
 
-
-
-
     /**
      * Get the attributes that should be cast.
      *
@@ -61,6 +60,8 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'last_seen_at' => 'datetime',
+            'is_online' => 'boolean',
         ];
     }
 
@@ -69,26 +70,22 @@ class User extends Authenticatable
         return LogOptions::defaults()
             ->logAll()
             ->logOnly([
-                'name', 'email', 'avatar', 'last_login_at', 'last_login_ip'
+                'name', 'email', 'avatar', 'last_login_at', 'last_login_ip',
             ])
             ->useLogName('UserModel')
             ->dontSubmitEmptyLogs();
     }
 
-
-
-
-
-
-
     public function departments(): BelongsToMany
     {
         return $this->belongsToMany(Department::class)->withPivot('assigned_at')->withTimestamps();
     }
+
     public function activities()
     {
         return $this->morphMany(\Spatie\Activitylog\Models\Activity::class, 'subject');
     }
+
     /**
      * Get the user's current position.
      */
@@ -190,8 +187,6 @@ class User extends Authenticatable
         return $this->hasMany(PtoTransaction::class);
     }
 
-
-
     /**
      * Get the PTO policies for this user.
      */
@@ -224,7 +219,6 @@ class User extends Authenticatable
             ->first();
     }
 
-
     /**
      * Emergency Contact
      */
@@ -232,6 +226,7 @@ class User extends Authenticatable
     {
         return $this->hasMany(EmergencyContact::class);
     }
+
     /**
      * Get all users visible to this user (self + hierarchy + departments)
      * Updated to include department members and full hierarchy
@@ -246,7 +241,7 @@ class User extends Authenticatable
 
         // Add all users in subordinate hierarchy (reports of reports, etc.)
         $allSubordinateIds = $this->getAllSubordinateIds();
-        if (!empty($allSubordinateIds)) {
+        if (! empty($allSubordinateIds)) {
             $allSubordinates = User::whereIn('id', $allSubordinateIds)
                 ->with(['departments', 'currentPosition'])
                 ->get();
@@ -276,6 +271,7 @@ class User extends Authenticatable
 
         return $users->unique('id');
     }
+
     /**
      * Get all subordinate user IDs recursively (entire hierarchy below this user)
      */
@@ -297,6 +293,7 @@ class User extends Authenticatable
 
         return array_unique($subordinateIds);
     }
+
     /**
      * Get all users in complete hierarchy (managers above + subordinates below)
      */
@@ -306,7 +303,7 @@ class User extends Authenticatable
 
         // Add all managers up the chain
         $managerIds = $this->getManagersInHierarchy();
-        if (!empty($managerIds)) {
+        if (! empty($managerIds)) {
             $managers = User::whereIn('id', $managerIds)
                 ->with(['departments', 'currentPosition'])
                 ->get();
@@ -315,7 +312,7 @@ class User extends Authenticatable
 
         // Add all subordinates down the chain
         $subordinateIds = $this->getAllSubordinateIds();
-        if (!empty($subordinateIds)) {
+        if (! empty($subordinateIds)) {
             $subordinates = User::whereIn('id', $subordinateIds)
                 ->with(['departments', 'currentPosition'])
                 ->get();
@@ -324,6 +321,7 @@ class User extends Authenticatable
 
         return $users->unique('id');
     }
+
     /**
      * Get employees that this user manages directly
      */
@@ -351,16 +349,15 @@ class User extends Authenticatable
      */
     public function hasWorkosAccount(): bool
     {
-        return !empty($this->workos_id);
+        return ! empty($this->workos_id);
     }
-
 
     /**
      * Check if the user has a temporary WorkOS ID (invitation pending)
      */
     public function hasPendingInvitation(): bool
     {
-        return !empty($this->workos_id) && str_starts_with($this->workos_id, 'inv_');
+        return ! empty($this->workos_id) && str_starts_with($this->workos_id, 'inv_');
     }
 
     /**
@@ -368,8 +365,9 @@ class User extends Authenticatable
      */
     public function hasAcceptedInvitation(): bool
     {
-        return !empty($this->workos_id) && !str_starts_with($this->workos_id, 'inv_');
+        return ! empty($this->workos_id) && ! str_starts_with($this->workos_id, 'inv_');
     }
+
     /**
      * Check if the user needs a WorkOS invitation
      */
@@ -377,6 +375,7 @@ class User extends Authenticatable
     {
         return empty($this->workos_id);
     }
+
     /**
      * Update WorkOS ID when user accepts invitation or is created
      */
@@ -385,6 +384,7 @@ class User extends Authenticatable
         $this->update(['workos_id' => $workosId]);
         Log::info("WorkOS ID updated for user {$this->email}: {$workosId}");
     }
+
     /**
      * Get the user's first name from the full name
      */
@@ -399,12 +399,9 @@ class User extends Authenticatable
     public function getLastNameAttribute(): string
     {
         $nameParts = explode(' ', $this->name);
+
         return count($nameParts) > 1 ? array_slice($nameParts, 1)[0] : '';
     }
-
-
-
-
 
     /**
      * Get the addresses for this user.
@@ -437,7 +434,6 @@ class User extends Authenticatable
     {
         return $this->addresses()->byType($type)->active()->get();
     }
-
 
     /*
   |--------------------------------------------------------------------------
@@ -484,6 +480,7 @@ class User extends Authenticatable
     {
         return Document::accessibleByUser($this)->get();
     }
+
     /**
      * Get all users in this user's hierarchy (including manager and subordinates)
      * This is used for folder/document access when assignment_type is 'hierarchy'
@@ -503,6 +500,7 @@ class User extends Authenticatable
 
         return array_unique($userIds);
     }
+
     /**
      * Check if this user is a manager (has people reporting to them)
      */
@@ -510,14 +508,17 @@ class User extends Authenticatable
     {
         return $this->subordinates()->count() > 0;
     }
+
     /**
      * Check if this user can access content assigned to another user via hierarchy
      */
     public function canAccessUserViaHierarchy($targetUserId): bool
     {
         $hierarchyIds = $this->getHierarchyUserIds();
+
         return in_array($targetUserId, $hierarchyIds);
     }
+
     public function getSubordinatesForFolderAssignment(): array
     {
         return $this->subordinates()
@@ -537,6 +538,7 @@ class User extends Authenticatable
     {
         return $this->hasMany(Enrollment::class);
     }
+
     /**
      * Get all managers in this user's hierarchy (managers who could have this user in their hierarchy)
      */
@@ -588,8 +590,6 @@ class User extends Authenticatable
         return $this->hasMany(Article::class);
     }
 
-
-
     /**
      * blog relationships
      */
@@ -624,5 +624,61 @@ class User extends Authenticatable
         return $this->hasRole('admin') || $this->hasPermissionTo('create blog articles');
     }
 
+    /**
+     * Mark user as online and update last seen timestamp
+     */
+    public function markAsOnline(): void
+    {
+        $wasOffline = ! $this->is_online;
 
+        $this->update([
+            'is_online' => true,
+            'last_seen_at' => now(),
+        ]);
+
+        if ($wasOffline) {
+            UserStatusChanged::dispatch($this, true);
+        }
+    }
+
+    /**
+     * Mark user as offline
+     */
+    public function markAsOffline(): void
+    {
+        $wasOnline = $this->is_online;
+
+        $this->update([
+            'is_online' => false,
+            'last_seen_at' => now(),
+        ]);
+
+        if ($wasOnline) {
+            UserStatusChanged::dispatch($this, false);
+        }
+    }
+
+    /**
+     * Update user's last seen timestamp without changing online status
+     */
+    public function updateLastSeen(): void
+    {
+        $this->update(['last_seen_at' => now()]);
+    }
+
+    /**
+     * Scope to get online users
+     */
+    public function scopeOnline($query)
+    {
+        return $query->where('is_online', true);
+    }
+
+    /**
+     * Scope to get users who were last seen within specified minutes
+     */
+    public function scopeRecentlyActive($query, int $minutes = 5)
+    {
+        return $query->where('last_seen_at', '>=', now()->subMinutes($minutes));
+    }
 }

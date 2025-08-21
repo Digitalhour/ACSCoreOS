@@ -22,7 +22,8 @@ class HREmployeesController extends Controller
                 'ptoRequests.deniedBy',
                 'ptoRequests.cancelledBy', // Add if this relationship exists
                 'ptoBalances.ptoType',
-                'roles.permissions'
+                'roles.permissions',
+                'permissions',
             ])
             ->get()
             ->map(function ($user) {
@@ -43,16 +44,23 @@ class HREmployeesController extends Controller
                     'deleted_at' => $user->deleted_at?->toISOString(),
                     'departments' => $user->departments->pluck('name')->join(', ') ?: 'No Department',
                     'position' => $user->currentPosition?->name ?? 'No Position',
-                    'roles' => $user->roles->map(function($role) {
+                    'roles' => $user->roles->map(function ($role) {
                         return [
                             'id' => $role->id,
                             'name' => $role->name,
                             'permissions' => $role->permissions->pluck('name')->toArray(),
                         ];
                     }),
+                    'permissions' => $user->permissions ? $user->permissions->map(function ($permission) {
+                        return [
+                            'id' => $permission->id,
+                            'name' => $permission->name,
+                            'description' => $permission->description,
+                        ];
+                    }) : [],
                     'all_permissions' => $user->getAllPermissions()->pluck('name')->toArray(),
                     'pto_stats' => $ptoStats,
-                    'emergency_contacts' => $user->emergencyContacts->map(function($contact) {
+                    'emergency_contacts' => $user->emergencyContacts->map(function ($contact) {
                         return [
                             'id' => $contact->id,
                             'name' => $contact->name,
@@ -63,7 +71,7 @@ class HREmployeesController extends Controller
                             'is_primary' => $contact->is_primary,
                         ];
                     }),
-                    'addresses' => $user->addresses->map(function($address) {
+                    'addresses' => $user->addresses->map(function ($address) {
                         return [
                             'id' => $address->id,
                             'type' => $address->type,
@@ -81,7 +89,7 @@ class HREmployeesController extends Controller
                             'single_line_address' => $address->single_line_address,
                         ];
                     }),
-                    'pto_balances' => $user->ptoBalances->map(function($balance) {
+                    'pto_balances' => $user->ptoBalances->map(function ($balance) {
                         return [
                             'id' => $balance->id,
                             'type' => $balance->ptoType->name ?? 'Unknown Type',
@@ -91,7 +99,7 @@ class HREmployeesController extends Controller
                             'year' => $balance->year,
                         ];
                     }),
-                    'pto_requests' => $user->ptoRequests->map(function($request) {
+                    'pto_requests' => $user->ptoRequests->map(function ($request) {
                         return [
                             'id' => $request->id,
                             'request_number' => $request->request_number,
@@ -146,7 +154,7 @@ class HREmployeesController extends Controller
             });
 
         return Inertia::render('human-resources/employees', [
-            'users' => $users
+            'users' => $users,
         ]);
     }
 
@@ -173,7 +181,7 @@ class HREmployeesController extends Controller
             'action' => 'created',
             'user' => $request->user?->name ?? 'System',
             'timestamp' => $request->created_at->format('Y-m-d H:i:s'),
-            'details' => 'Request submitted'
+            'details' => 'Request submitted',
         ];
 
         // Add submission event if different from creation
@@ -182,7 +190,7 @@ class HREmployeesController extends Controller
                 'action' => 'submitted',
                 'user' => $request->user?->name ?? 'System',
                 'timestamp' => $request->submitted_at->format('Y-m-d H:i:s'),
-                'details' => 'Request officially submitted for review'
+                'details' => 'Request officially submitted for review',
             ];
         }
 
@@ -192,7 +200,7 @@ class HREmployeesController extends Controller
                 'action' => 'approved',
                 'user' => $request->approvedBy?->name ?? 'Unknown',
                 'timestamp' => $request->approved_at->format('Y-m-d H:i:s'),
-                'details' => $request->approval_notes ?: 'Request approved'
+                'details' => $request->approval_notes ?: 'Request approved',
             ];
         }
 
@@ -202,7 +210,7 @@ class HREmployeesController extends Controller
                 'action' => 'denied',
                 'user' => $request->deniedBy?->name ?? 'Unknown',
                 'timestamp' => $request->denied_at->format('Y-m-d H:i:s'),
-                'details' => $request->denial_reason ?: 'Request denied'
+                'details' => $request->denial_reason ?: 'Request denied',
             ];
         }
 
@@ -213,12 +221,12 @@ class HREmployeesController extends Controller
                 'action' => 'cancelled',
                 'user' => $cancelledBy,
                 'timestamp' => $request->cancelled_at->format('Y-m-d H:i:s'),
-                'details' => $request->cancellation_reason ?: 'Request cancelled'
+                'details' => $request->cancellation_reason ?: 'Request cancelled',
             ];
         }
 
         // Sort by timestamp
-        usort($history, function($a, $b) {
+        usort($history, function ($a, $b) {
             return strtotime($a['timestamp']) - strtotime($b['timestamp']);
         });
 
@@ -254,7 +262,7 @@ class HREmployeesController extends Controller
         try {
             // Get user's organization membership
             $membershipResponse = Http::withHeaders([
-                'Authorization' => 'Bearer ' . env('WORKOS_API_KEY'),
+                'Authorization' => 'Bearer '.env('WORKOS_API_KEY'),
             ])->get('https://api.workos.com/user_management/organization_memberships', [
                 'user_id' => $user->workos_id ?? $user->id,
                 'organization_id' => env('WORKOS_ORGID'),
@@ -266,13 +274,13 @@ class HREmployeesController extends Controller
                 foreach ($memberships as $membership) {
                     if ($membership['status'] === 'active') {
                         Http::withHeaders([
-                            'Authorization' => 'Bearer ' . env('WORKOS_API_KEY'),
+                            'Authorization' => 'Bearer '.env('WORKOS_API_KEY'),
                         ])->put("https://api.workos.com/user_management/organization_memberships/{$membership['id']}/deactivate");
                     }
                 }
             }
         } catch (\Exception $e) {
-            \Log::error('Failed to deactivate user in WorkOS: ' . $e->getMessage());
+            \Log::error('Failed to deactivate user in WorkOS: '.$e->getMessage());
         }
     }
 
@@ -281,7 +289,7 @@ class HREmployeesController extends Controller
         try {
             // Get user's organization membership
             $membershipResponse = Http::withHeaders([
-                'Authorization' => 'Bearer ' . env('WORKOS_API_KEY'),
+                'Authorization' => 'Bearer '.env('WORKOS_API_KEY'),
             ])->get('https://api.workos.com/user_management/organization_memberships', [
                 'user_id' => $user->workos_id ?? $user->id,
                 'organization_id' => env('WORKOS_ORGID'),
@@ -294,13 +302,13 @@ class HREmployeesController extends Controller
                 foreach ($memberships as $membership) {
                     if ($membership['status'] === 'inactive') {
                         Http::withHeaders([
-                            'Authorization' => 'Bearer ' . env('WORKOS_API_KEY'),
+                            'Authorization' => 'Bearer '.env('WORKOS_API_KEY'),
                         ])->put("https://api.workos.com/user_management/organization_memberships/{$membership['id']}/reactivate");
                     }
                 }
             }
         } catch (\Exception $e) {
-            \Log::error('Failed to reactivate user in WorkOS: ' . $e->getMessage());
+            \Log::error('Failed to reactivate user in WorkOS: '.$e->getMessage());
         }
     }
 
@@ -327,14 +335,10 @@ class HREmployeesController extends Controller
         return $allBlackouts;
     }
 
+    // /Show shit
+    // /
 
-
-
-    ///Show shit
-    ///
-
-
-// Add this method to your existing HREmployeesController.php
+    // Add this method to your existing HREmployeesController.php
 
     public function show(User $user)
     {
@@ -348,7 +352,8 @@ class HREmployeesController extends Controller
             'ptoRequests.deniedBy',
             'ptoRequests.cancelledBy',
             'ptoBalances.ptoType',
-            'roles.permissions'
+            'roles.permissions',
+            'permissions',
         ]);
 
         $ptoRequests = $userData->ptoRequests;
@@ -375,6 +380,13 @@ class HREmployeesController extends Controller
                     'permissions' => $role->permissions->pluck('name')->toArray(),
                 ];
             }),
+            'permissions' => $userData->permissions ? $userData->permissions->map(function ($permission) {
+                return [
+                    'id' => $permission->id,
+                    'name' => $permission->name,
+                    'description' => $permission->description,
+                ];
+            }) : [],
             'all_permissions' => $userData->getAllPermissions()->pluck('name')->toArray(),
             'pto_stats' => $ptoStats,
             'emergency_contacts' => $userData->emergencyContacts->map(function ($contact) {
@@ -433,18 +445,7 @@ class HREmployeesController extends Controller
         ];
 
         return Inertia::render('HumanResources/Employees/Show', [
-            'user' => $formattedUser
+            'user' => $formattedUser,
         ]);
     }
-
-
-
-
-
-
-
-
-
-
-
 }

@@ -9,21 +9,17 @@ import {
     DialogHeader,
     DialogTitle
 } from '@/components/ui/dialog';
+
 import {Label} from '@/components/ui/label';
 import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from '@/components/ui/select';
+
 import {Textarea} from '@/components/ui/textarea';
-import {Tabs, TabsContent, TabsList, TabsTrigger} from '@/components/ui/tabs';
-import {Progress} from '@/components/ui/progress';
 import AppLayout from '@/layouts/app-layout';
+import HrLayout from '@/layouts/settings/hr-layout';
 import {type BreadcrumbItem} from '@/types';
 import {Head, router} from '@inertiajs/react';
 import axios from 'axios';
-import {
-    Activity, CheckCircle, Clock, Loader2, User, Users, XCircle,
-    Building2, BarChart3, FileText, Eye,
-    UserPlus, Briefcase, GraduationCap,
-    Ban, TrendingUp
-} from 'lucide-react';
+import {Activity, Calendar, Clock, Filter, Loader2, TrendingUp, User, Users} from 'lucide-react';
 import {useCallback, useEffect, useState} from 'react';
 import {toast} from 'sonner';
 import InviteUserComponent from "@/components/InviteUserComponent";
@@ -34,10 +30,11 @@ const breadcrumbs: BreadcrumbItem[] = [
         href: '/dashboard',
     },
     {
-        title: 'Human Resources',
-        href: '/hr/overview',
+        title: 'Human Resources Dashboard',
+        href: '/admin/hr-dashboard',
     },
 ];
+
 
 interface User {
     id: number;
@@ -45,8 +42,6 @@ interface User {
     email: string;
     department?: string;
     start_date?: string;
-    position?: string;
-    is_active?: boolean;
 }
 
 interface PtoType {
@@ -68,21 +63,6 @@ interface PtoRequest {
     submitted_at: string;
 }
 
-interface Department {
-    id: number;
-    name: string;
-    description?: string;
-    employee_count: number;
-    pending_requests?: number;
-}
-
-interface Position {
-    id: number;
-    title: string;
-    department?: string;
-    employee_count?: number;
-}
-
 interface DashboardStats {
     total_requests: number;
     pending_requests: number;
@@ -92,13 +72,8 @@ interface DashboardStats {
     total_policies: number;
     total_blackouts: number;
     total_employees: number;
-    total_departments: number;
-    total_positions: number;
-    active_employees: number;
-    inactive_employees: number;
     requests_this_month: number;
     approved_days_this_month: number;
-    new_hires_this_month: number;
 }
 
 interface TopPtoType {
@@ -114,6 +89,19 @@ interface RecentActivity {
     description: string;
     user_name: string;
     created_at: string;
+}
+
+interface DepartmentStat {
+    department: string;
+    employee_count: number;
+    pending_requests: number;
+}
+
+interface Department {
+    id: number;
+    name: string;
+    employee_count?: number;
+    pending_requests?: number;
 }
 
 interface UserPtoData {
@@ -140,11 +128,12 @@ interface UserPtoData {
 export default function HrDashboard() {
     const [stats, setStats] = useState<DashboardStats | null>(null);
     const [pendingRequests, setPendingRequests] = useState<PtoRequest[]>([]);
+    const [ptoTypes, setPtoTypes] = useState<PtoType[]>([]);
+    const [departments, setDepartments] = useState<Department[]>([]);
     const [userData, setUserData] = useState<UserPtoData[]>([]);
     const [topPtoTypes, setTopPtoTypes] = useState<TopPtoType[]>([]);
     const [recentActivities, setRecentActivities] = useState<RecentActivity[]>([]);
-    const [departments, setDepartments] = useState<Department[]>([]);
-    const [positions, setPositions] = useState<Position[]>([]);
+    const [departmentStats, setDepartmentStats] = useState<DepartmentStat[]>([]);
     const [loading, setLoading] = useState(true);
     const [selectedYear, setSelectedYear] = useState(new Date().getFullYear().toString());
     const [availableYears, setAvailableYears] = useState<number[]>([]);
@@ -159,21 +148,21 @@ export default function HrDashboard() {
         try {
             setLoading(true);
 
-            // Get dashboard data from API endpoints
-            const [dashboardResponse, requestsResponse] = await Promise.all([
-                axios.get(`/api/pto-overview/dashboard?year=${selectedYear}`),
-                axios.get('/api/pto-requests?status=pending&per_page=10')
-            ]);
-
+            // Get dashboard data from the new API endpoint
+            const dashboardResponse = await axios.get(`/api/pto-overview/dashboard?year=${selectedYear}`);
             const dashboardData = dashboardResponse.data;
+
+            // Get pending requests
+            const requestsResponse = await axios.get('/api/pto-requests?status=pending&per_page=10');
 
             setStats(dashboardData.stats);
             setUserData(dashboardData.users || []);
+            setPtoTypes(dashboardData.ptoTypes || []);
+            setDepartments(dashboardData.departments || []);
             setAvailableYears(dashboardData.availableYears || []);
             setTopPtoTypes(dashboardData.top_pto_types || []);
             setRecentActivities(dashboardData.recent_activities || []);
-            setDepartments(dashboardData.departments || []);
-            setPositions(dashboardData.positions || []);
+            setDepartmentStats(dashboardData.department_breakdown || []);
             setPendingRequests(requestsResponse.data.data || []);
 
         } catch (error) {
@@ -206,12 +195,9 @@ export default function HrDashboard() {
             toast.success(`Request ${selectedRequest.request_number} approved successfully.`);
             setShowQuickApprovalModal(false);
             await fetchDashboardData();
-        } catch (error) {
+        } catch (error: any) {
             console.error('Error approving request:', error);
-            const errorMessage = error && typeof error === 'object' && 'response' in error 
-                ? (error as {response?: {data?: {error?: string}}}).response?.data?.error || 'Failed to approve request.'
-                : 'Failed to approve request.';
-            toast.error(errorMessage);
+            toast.error(error.response?.data?.error || 'Failed to approve request.');
         } finally {
             setSubmitting(false);
         }
@@ -225,36 +211,36 @@ export default function HrDashboard() {
         });
     }, []);
 
+
+
+
+    // Calculate department breakdown from server data (with safety check)
+    const departmentBreakdown = departmentStats || [];
+
+
+
     if (loading) {
         return (
             <AppLayout breadcrumbs={breadcrumbs}>
-                <Head title="Human Resources Dashboard" />
-                <div className="min-h-screen flex items-center justify-center">
-                    <div className="text-center space-y-4">
-                        <Loader2 className="h-8 w-8 animate-spin mx-auto" />
-                        <p className="text-muted-foreground">Loading HR Dashboard...</p>
+                <Head title="HR Dashboard" />
+                <HrLayout>
+                    <div className="flex h-full flex-1 items-center justify-center">
+                        <Loader2 className="h-8 w-8 animate-spin" />
                     </div>
-                </div>
+                </HrLayout>
             </AppLayout>
         );
     }
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
-            <Head title="Human Resources Dashboard" />
-            <div className="container mx-auto p-6 space-y-8">
-                {/* Header Section */}
-                <div className="flex items-center justify-between">
-                    <div>
-                        <h1 className="text-3xl font-bold tracking-tight">
-                            Human Resources Dashboard
-                        </h1>
-                        <p className="text-muted-foreground">
-                            Comprehensive overview of your organization's HR metrics and activities
-                        </p>
-                    </div>
-                    <div className="flex items-center gap-4">
+            <Head title="Human Resources" />
+            <HrLayout>
+                <div className="flex h-full flex-1 flex-col gap-6">
+                    <div className="flex items-right justify-end">
+
                         <div className="flex items-center gap-2">
+                            <InviteUserComponent />
                             <Label htmlFor="year-select" className="text-sm font-medium">
                                 Year:
                             </Label>
@@ -274,595 +260,363 @@ export default function HrDashboard() {
                                 </SelectContent>
                             </Select>
                         </div>
-                        <InviteUserComponent />
                     </div>
-                </div>
 
-                {/* Key Metrics Overview */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                    <Card>
-                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                            <CardTitle className="text-sm font-medium">Total Employees</CardTitle>
-                            <Users className="h-4 w-4 text-muted-foreground" />
-                        </CardHeader>
-                        <CardContent>
-                            <div className="text-2xl font-bold">{stats?.active_employees || 0}</div>
-                            <p className="text-xs text-muted-foreground">
-                                +{stats?.new_hires_this_month || 0} new hires this month
-                            </p>
-                        </CardContent>
-                    </Card>
+                    {/* Stats Cards */}
+                    <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4">
+                        <Card>
+                            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                                <CardTitle className="text-sm font-medium">Total Employees</CardTitle>
+                                <Users className="h-4 w-4 text-muted-foreground" />
+                            </CardHeader>
+                            <CardContent>
+                                <div className="text-2xl font-bold">
+                                    {(userData || []).length}
+                                </div>
+                                <p className="text-xs text-muted-foreground">
+                                    Active employees with PTO
+                                </p>
+                            </CardContent>
+                        </Card>
 
-                    <Card>
-                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                            <CardTitle className="text-sm font-medium">Pending Approvals</CardTitle>
-                            <Clock className="h-4 w-4 text-muted-foreground" />
-                        </CardHeader>
-                        <CardContent>
-                            <div className="text-2xl font-bold">{stats?.pending_requests || 0}</div>
-                            <p className="text-xs text-muted-foreground">
-                                Time off requests awaiting review
-                            </p>
-                        </CardContent>
-                    </Card>
+                        <Card>
+                            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                                <CardTitle className="text-sm font-medium">Pending Requests</CardTitle>
+                                <Clock className="h-4 w-4 text-muted-foreground" />
+                            </CardHeader>
+                            <CardContent>
+                                <div className="text-2xl font-bold">
+                                    {stats?.pending_requests || 0}
+                                </div>
+                                <p className="text-xs text-muted-foreground">
+                                    Awaiting approval
+                                </p>
+                            </CardContent>
+                        </Card>
 
-                    <Card>
-                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                            <CardTitle className="text-sm font-medium">Departments</CardTitle>
-                            <Building2 className="h-4 w-4 text-muted-foreground" />
-                        </CardHeader>
-                        <CardContent>
-                            <div className="text-2xl font-bold">{stats?.total_departments || 0}</div>
-                            <p className="text-xs text-muted-foreground">
-                                Active organizational units
-                            </p>
-                        </CardContent>
-                    </Card>
+                        <Card>
+                            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                                <CardTitle className="text-sm font-medium">Total Requests</CardTitle>
+                                <Calendar className="h-4 w-4 text-muted-foreground" />
+                            </CardHeader>
+                            <CardContent>
+                                <div className="text-2xl font-bold">
+                                    {stats?.total_requests || 0}
+                                </div>
+                                <p className="text-xs text-muted-foreground">
+                                    All time requests
+                                </p>
+                            </CardContent>
+                        </Card>
 
-                    <Card>
-                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                            <CardTitle className="text-sm font-medium">Active Policies</CardTitle>
-                            <FileText className="h-4 w-4 text-muted-foreground" />
-                        </CardHeader>
-                        <CardContent>
-                            <div className="text-2xl font-bold">{stats?.total_policies || 0}</div>
-                            <p className="text-xs text-muted-foreground">
-                                PTO and HR policies in effect
-                            </p>
-                        </CardContent>
-                    </Card>
-                </div>
+                        <Card>
+                            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                                <CardTitle className="text-sm font-medium">Active Policies</CardTitle>
+                                <TrendingUp className="h-4 w-4 text-muted-foreground" />
+                            </CardHeader>
+                            <CardContent>
+                                <div className="text-2xl font-bold">
+                                    {stats?.total_policies || 0}
+                                </div>
+                                <p className="text-xs text-muted-foreground">
+                                    PTO policies configured
+                                </p>
+                            </CardContent>
+                        </Card>
+                    </div>
 
-                {/* Main Dashboard Tabs */}
-                <Tabs defaultValue="overview" className="space-y-6">
-                    <TabsList className="grid w-full grid-cols-5">
-                        <TabsTrigger value="overview">Overview</TabsTrigger>
-                        <TabsTrigger value="employees">Employees</TabsTrigger>
-                        <TabsTrigger value="time-off">Time Off</TabsTrigger>
-                        <TabsTrigger value="organization">Organization</TabsTrigger>
-                        <TabsTrigger value="reports">Reports</TabsTrigger>
-                    </TabsList>
-
-                    {/* Overview Tab */}
-                    <TabsContent value="overview" className="space-y-6">
-                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                            {/* Left Column - Recent Activities */}
-                            <Card className="lg:col-span-2">
-                                <CardHeader className="flex flex-row items-center justify-between">
-                                    <div>
-                                        <CardTitle>Recent Activity</CardTitle>
-                                        <p className="text-sm text-muted-foreground">Latest HR system activities</p>
+                    <div className="grid grid-cols-1  gap-6 lg:grid-cols-4">
+                        {/* Top PTO Types by Usage */}
+                        <Card className={""}>
+                            <CardHeader>
+                                <CardTitle>Most Used PTO Types</CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                {(topPtoTypes || []).length > 0 ? (
+                                    <div className="space-y-3">
+                                        {(topPtoTypes || []).map((type) => (
+                                            <div key={`${type.name}-${type.code}`} className="flex items-center justify-between">
+                                                <div className="flex items-center gap-2">
+                                                    <div
+                                                        className="h-3 w-3 rounded-full border"
+                                                        style={{ backgroundColor: type.color }}
+                                                    />
+                                                    <span className="font-medium">{type.name}</span>
+                                                    <Badge variant="outline" className="text-xs">
+                                                        {type.code}
+                                                    </Badge>
+                                                </div>
+                                                <span className="text-sm font-medium">
+                                                    {type.request_count} days
+                                                </span>
+                                            </div>
+                                        ))}
                                     </div>
-                                    <Button variant="outline" size="sm">
-                                        <Eye className="h-4 w-4 mr-2" />
-                                        View All
-                                    </Button>
-                                </CardHeader>
-                                <CardContent>
-                                    {recentActivities.length > 0 ? (
-                                        <div className="space-y-4">
-                                            {recentActivities.slice(0, 8).map((activity) => (
-                                                <div key={`activity-${activity.id}`} className="flex items-start gap-3">
-                                                    <div className="h-2 w-2 bg-primary rounded-full mt-2" />
-                                                    <div className="flex-1 space-y-1">
-                                                        <p className="text-sm">{activity.description}</p>
-                                                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                                                            <User className="h-3 w-3" />
-                                                            <span>{activity.user_name}</span>
-                                                            <span>•</span>
-                                                            <span>{formatDate(activity.created_at)}</span>
+                                ) : (
+                                    <div className="text-center text-sm text-muted-foreground">
+                                        No PTO usage data available
+                                    </div>
+                                )}
+                            </CardContent>
+                        </Card>
+
+                        {/* Department Overview */}
+                        <Card>
+                            <CardHeader>
+                                <CardTitle>Department Overview</CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                {(departmentBreakdown || []).length > 0 ? (
+                                    <div className="space-y-3">
+                                        {(departmentBreakdown || []).map((dept) => (
+                                            <div key={dept.department} className="space-y-1">
+                                                <div className="flex items-center justify-between">
+                                                    <span className="font-medium">{dept.department}</span>
+                                                    <div className="flex items-center gap-2 text-sm">
+                                                        <span className="text-muted-foreground">
+                                                            {dept.employee_count} employees
+                                                        </span>
+                                                        {(dept.pending_requests || 0) > 0 && (
+                                                            <Badge variant="secondary">
+                                                                {dept.pending_requests} pending
+                                                            </Badge>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <div className="text-center text-sm text-muted-foreground">
+                                        No department data available
+                                    </div>
+                                )}
+                            </CardContent>
+                        </Card>
+
+                        {/* Recent Activities */}
+                        <Card className={"col-span-2"}>
+                            <CardHeader>
+                                <CardTitle>Recent Activity</CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                {(recentActivities || []).length > 0 ? (
+                                    <div className="space-y-4">
+                                        {(recentActivities || []).slice(0, 5).map((activity) => (
+                                            <div key={`activity-${activity.id}`} className="flex items-start gap-3">
+                                                <div className="mt-0.5">
+                                                    <Activity className="h-4 w-4 text-muted-foreground" />
+                                                </div>
+                                                <div className="flex-1 space-y-1">
+                                                    <p className="text-sm">{activity.description}</p>
+                                                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                                        <span>{activity.user_name}</span>
+                                                        <span>•</span>
+                                                        <span>{formatDate(activity.created_at)}</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <div className="text-center text-sm text-muted-foreground">
+                                        No recent activity
+                                    </div>
+                                )}
+                            </CardContent>
+                        </Card>
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+                        {/* Recent Pending Requests */}
+                        <Card>
+                            <CardHeader className="flex flex-row items-center justify-between">
+                                <CardTitle>Recent Pending Approvals</CardTitle>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => router.visit('/admin/pto-requests?status=pending')}
+                                >
+                                    <Filter className="mr-2 h-4 w-4" />
+                                    View All
+                                </Button>
+                            </CardHeader>
+                            <CardContent>
+                                {(pendingRequests || []).length === 0 ? (
+                                    <div className="text-center text-sm text-muted-foreground">
+                                        No pending requests
+                                    </div>
+                                ) : (
+                                    <div className="space-y-4">
+                                        {(pendingRequests || []).slice(0, 5).map((request) => (
+                                            <div
+                                                key={`pending-${request.id}`}
+                                                className="flex items-center justify-between rounded-lg border p-3"
+                                            >
+                                                <div className="flex items-center gap-3">
+                                                    <User className="h-4 w-4 text-muted-foreground" />
+                                                    <div>
+                                                        <div className="font-medium text-sm">
+                                                            {request.user.name}
+                                                        </div>
+                                                        <div className="text-xs text-muted-foreground">
+                                                            {formatDate(request.start_date)} - {formatDate(request.end_date)}
                                                         </div>
                                                     </div>
                                                 </div>
-                                            ))}
-                                        </div>
-                                    ) : (
-                                        <div className="text-center py-8">
-                                            <Activity className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
-                                            <p className="text-sm text-muted-foreground">No recent activity</p>
-                                        </div>
-                                    )}
-                                </CardContent>
-                            </Card>
-
-                            {/* Right Column - Quick Stats */}
-                            <div className="space-y-6">
-                                {/* Pending Requests Summary */}
-                                <Card>
-                                    <CardHeader>
-                                        <CardTitle className="text-lg">Pending Approvals</CardTitle>
-                                    </CardHeader>
-                                    <CardContent>
-                                        {pendingRequests.length > 0 ? (
-                                            <div className="space-y-3">
-                                                {pendingRequests.slice(0, 5).map((request) => (
-                                                    <div key={`pending-${request.id}`} className="flex items-center justify-between p-2 border rounded">
-                                                        <div className="flex items-center gap-2">
-                                                            <div className="h-2 w-2 rounded-full" style={{ backgroundColor: request.pto_type.color }} />
-                                                            <span className="text-sm">{request.user.name}</span>
-                                                        </div>
-                                                        <Button size="sm" onClick={() => handleQuickApproval(request)}>
-                                                            Approve
-                                                        </Button>
-                                                    </div>
-                                                ))}
-                                                {pendingRequests.length > 5 && (
+                                                <div className="flex items-center gap-2">
+                                                    <div
+                                                        className="h-3 w-3 rounded-full border"
+                                                        style={{ backgroundColor: request.pto_type.color }}
+                                                    />
+                                                    <span className="text-xs">
+                                                        {request.total_days} days
+                                                    </span>
                                                     <Button
-                                                        variant="outline"
                                                         size="sm"
-                                                        className="w-full"
-                                                        onClick={() => router.visit('/hr/time-off-requests?status=pending')}
+                                                        variant="outline"
+                                                        onClick={() => handleQuickApproval(request)}
+                                                        className="ml-2"
                                                     >
-                                                        View {pendingRequests.length - 5} more
+                                                        Quick Approve
                                                     </Button>
-                                                )}
+                                                </div>
                                             </div>
-                                        ) : (
-                                            <div className="text-center py-4">
-                                                <CheckCircle className="h-8 w-8 text-green-500 mx-auto mb-2" />
-                                                <p className="text-sm text-muted-foreground">All caught up!</p>
+                                        ))}
+                                        {(pendingRequests || []).length > 5 && (
+                                            <div className="text-center">
+                                                <Button
+                                                    variant="outline"
+                                                    size="sm"
+                                                    onClick={() => router.visit('/admin/pto-requests?status=pending')}
+                                                >
+                                                    View {(pendingRequests || []).length - 5} more
+                                                </Button>
                                             </div>
                                         )}
-                                    </CardContent>
-                                </Card>
+                                    </div>
+                                )}
+                            </CardContent>
+                        </Card>
 
-                                {/* Quick Actions */}
-                                <Card>
-                                    <CardHeader>
-                                        <CardTitle className="text-lg">Quick Actions</CardTitle>
-                                    </CardHeader>
-                                    <CardContent className="space-y-2">
-                                        <Button variant="outline" className="w-full justify-start" onClick={() => router.visit('/hr/employees')}>
-                                            <Users className="h-4 w-4 mr-2" />
-                                            Manage Employees
-                                        </Button>
-                                        <Button variant="outline" className="w-full justify-start" onClick={() => router.visit('/departments')}>
-                                            <Building2 className="h-4 w-4 mr-2" />
-                                            View Departments
-                                        </Button>
-                                        <Button variant="outline" className="w-full justify-start" onClick={() => router.visit('/admin/positions')}>
-                                            <Briefcase className="h-4 w-4 mr-2" />
-                                            Manage Positions
-                                        </Button>
-                                        <Button variant="outline" className="w-full justify-start" onClick={() => router.visit('/user-management/onboard')}>
-                                            <UserPlus className="h-4 w-4 mr-2" />
-                                            Onboard Employee
-                                        </Button>
-                                    </CardContent>
-                                </Card>
-                            </div>
-                        </div>
-                    </TabsContent>
-
-                    {/* Employees Tab */}
-                    <TabsContent value="employees" className="space-y-6">
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                            <Card>
-                                <CardHeader className="flex flex-row items-center justify-between">
-                                    <CardTitle>Employee Overview</CardTitle>
-                                    <Users className="h-5 w-5 text-muted-foreground" />
-                                </CardHeader>
-                                <CardContent>
+                        {/* PTO Balance Summary */}
+                        <Card>
+                            <CardHeader>
+                                <CardTitle>PTO Balance Summary</CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                {(userData || []).length > 0 ? (
                                     <div className="space-y-4">
-                                        <div className="flex justify-between">
-                                            <span className="text-sm text-muted-foreground">Active Employees</span>
-                                            <span className="font-medium">{stats?.active_employees || 0}</span>
-                                        </div>
-                                        <div className="flex justify-between">
-                                            <span className="text-sm text-muted-foreground">Inactive Employees</span>
-                                            <span className="font-medium">{stats?.inactive_employees || 0}</span>
-                                        </div>
-                                        <div className="flex justify-between">
-                                            <span className="text-sm text-muted-foreground">New Hires (Month)</span>
-                                            <span className="font-medium">{stats?.new_hires_this_month || 0}</span>
-                                        </div>
-                                    </div>
-                                    <Button 
-                                        className="w-full mt-4" 
-                                        onClick={() => router.visit('/hr/employees')}
-                                    >
-                                        View All Employees
-                                    </Button>
-                                </CardContent>
-                            </Card>
-
-                            <Card>
-                                <CardHeader className="flex flex-row items-center justify-between">
-                                    <CardTitle>Departments</CardTitle>
-                                    <Building2 className="h-5 w-5 text-muted-foreground" />
-                                </CardHeader>
-                                <CardContent>
-                                    <div className="space-y-3">
-                                        {departments.slice(0, 4).map((dept) => (
-                                            <div key={dept.id} className="flex justify-between items-center">
-                                                <span className="text-sm font-medium">{dept.name}</span>
-                                                <Badge variant="secondary">{dept.employee_count}</Badge>
+                                        <div className="grid grid-cols-3 gap-4 text-center">
+                                            <div>
+                                                <div className="text-2xl font-bold">
+                                                    {(userData || []).reduce((sum, user) => sum + (user.total_assigned || 0), 0)}
+                                                </div>
+                                                <div className="text-xs text-muted-foreground">Total Assigned</div>
                                             </div>
-                                        ))}
-                                    </div>
-                                    <Button 
-                                        variant="outline" 
-                                        className="w-full mt-4" 
-                                        onClick={() => router.visit('/departments')}
-                                    >
-                                        Manage Departments
-                                    </Button>
-                                </CardContent>
-                            </Card>
-
-                            <Card>
-                                <CardHeader className="flex flex-row items-center justify-between">
-                                    <CardTitle>Positions</CardTitle>
-                                    <Briefcase className="h-5 w-5 text-muted-foreground" />
-                                </CardHeader>
-                                <CardContent>
-                                    <div className="space-y-3">
-                                        {positions.slice(0, 4).map((position) => (
-                                            <div key={position.id} className="flex justify-between items-center">
-                                                <span className="text-sm font-medium">{position.title}</span>
-                                                <Badge variant="outline">{position.employee_count || 0}</Badge>
+                                            <div>
+                                                <div className="text-2xl font-bold">
+                                                    {(userData || []).reduce((sum, user) => sum + (user.total_used || 0), 0)}
+                                                </div>
+                                                <div className="text-xs text-muted-foreground">Total Used</div>
                                             </div>
-                                        ))}
-                                    </div>
-                                    <Button 
-                                        variant="outline" 
-                                        className="w-full mt-4" 
-                                        onClick={() => router.visit('/admin/positions')}
-                                    >
-                                        Manage Positions
-                                    </Button>
-                                </CardContent>
-                            </Card>
-                        </div>
-                    </TabsContent>
+                                            <div>
+                                                <div className="text-2xl font-bold">
+                                                    {(userData || []).reduce((sum, user) => sum + (user.total_available || 0), 0)}
+                                                </div>
+                                                <div className="text-xs text-muted-foreground">Total Available</div>
+                                            </div>
+                                        </div>
 
-                    {/* Time Off Tab */}
-                    <TabsContent value="time-off" className="space-y-6">
-                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                            <Card>
-                                <CardHeader>
-                                    <CardTitle>PTO Usage Analytics</CardTitle>
-                                    <p className="text-sm text-muted-foreground">Most requested time off types</p>
-                                </CardHeader>
-                                <CardContent>
-                                    {topPtoTypes.length > 0 ? (
-                                        <div className="space-y-4">
-                                            {topPtoTypes.map((type) => {
-                                                const maxCount = Math.max(...topPtoTypes.map(t => t.request_count));
-                                                const percentage = maxCount > 0 ? (type.request_count / maxCount * 100) : 0;
-                                                return (
-                                                    <div key={`${type.name}-${type.code}`} className="space-y-2">
-                                                        <div className="flex items-center justify-between">
-                                                            <div className="flex items-center gap-2">
-                                                                <div className="h-3 w-3 rounded-full" style={{ backgroundColor: type.color }} />
-                                                                <span className="font-medium text-sm">{type.name}</span>
-                                                                <Badge variant="outline" className="text-xs">
-                                                                    {type.code}
-                                                                </Badge>
-                                                            </div>
-                                                            <span className="text-sm font-medium">
-                                                                {type.request_count} requests
-                                                            </span>
+                                        <div className="pt-4">
+                                            <div className="text-sm font-medium mb-2">By Department:</div>
+                                            <div className="space-y-2">
+                                                {departmentBreakdown.slice(0, 3).map((dept) => {
+                                                    const deptUsers = userData.filter(user => user.department === dept.department);
+                                                    const deptTotal = deptUsers.reduce((sum, user) => sum + user.total_available, 0);
+
+                                                    return (
+                                                        <div key={dept.department} className="flex justify-between text-sm">
+                                                            <span>{dept.department}</span>
+                                                            <span>{deptTotal} days available</span>
                                                         </div>
-                                                        <Progress value={percentage} className="h-2" />
-                                                    </div>
-                                                );
-                                            })}
-                                        </div>
-                                    ) : (
-                                        <div className="text-center py-8">
-                                            <BarChart3 className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
-                                            <p className="text-sm text-muted-foreground">No PTO usage data available</p>
-                                        </div>
-                                    )}
-                                    <div className="mt-4 space-y-2">
-                                        <Button 
-                                            variant="outline" 
-                                            className="w-full" 
-                                            onClick={() => router.visit('/hr/time-off-requests')}
-                                        >
-                                            View All Requests
-                                        </Button>
-                                        <Button 
-                                            variant="outline" 
-                                            className="w-full" 
-                                            onClick={() => router.visit('/hr/pto-types')}
-                                        >
-                                            Manage PTO Types
-                                        </Button>
-                                    </div>
-                                </CardContent>
-                            </Card>
-
-                            <Card>
-                                <CardHeader>
-                                    <CardTitle>Request Statistics</CardTitle>
-                                    <p className="text-sm text-muted-foreground">Time off request breakdown</p>
-                                </CardHeader>
-                                <CardContent>
-                                    <div className="space-y-4">
-                                        <div className="flex items-center justify-between p-3 border rounded">
-                                            <div className="flex items-center gap-2">
-                                                <CheckCircle className="h-4 w-4 text-green-500" />
-                                                <span className="text-sm font-medium">Approved</span>
-                                            </div>
-                                            <div className="text-right">
-                                                <div className="font-bold text-green-600">{stats?.approved_requests || 0}</div>
-                                                <div className="text-xs text-muted-foreground">{stats?.approved_days_this_month || 0} days</div>
+                                                    );
+                                                })}
                                             </div>
                                         </div>
-                                        <div className="flex items-center justify-between p-3 border rounded">
-                                            <div className="flex items-center gap-2">
-                                                <Clock className="h-4 w-4 text-yellow-500" />
-                                                <span className="text-sm font-medium">Pending</span>
+                                    </div>
+                                ) : (
+                                    <div className="text-center text-sm text-muted-foreground">
+                                        No balance data available
+                                    </div>
+                                )}
+                            </CardContent>
+                        </Card>
+                    </div>
+
+                    {/* Quick Approval Modal */}
+                    <Dialog open={showQuickApprovalModal} onOpenChange={setShowQuickApprovalModal}>
+                        <DialogContent>
+                            <DialogHeader>
+                                <DialogTitle>Quick Approve PTO Request</DialogTitle>
+                                <DialogDescription>
+                                    Approve this PTO request with optional comments.
+                                </DialogDescription>
+                            </DialogHeader>
+                            {selectedRequest && (
+                                <div className="space-y-4">
+                                    <div className="rounded-lg bg-gray-50 p-4">
+                                        <div className="grid grid-cols-2 gap-4 text-sm">
+                                            <div>
+                                                <strong>Employee:</strong> {selectedRequest.user.name}
                                             </div>
-                                            <div className="font-bold text-yellow-600">{stats?.pending_requests || 0}</div>
-                                        </div>
-                                        <div className="flex items-center justify-between p-3 border rounded">
-                                            <div className="flex items-center gap-2">
-                                                <XCircle className="h-4 w-4 text-red-500" />
-                                                <span className="text-sm font-medium">Denied</span>
+                                            <div>
+                                                <strong>PTO Type:</strong> {selectedRequest.pto_type.name}
                                             </div>
-                                            <div className="font-bold text-red-600">{stats?.denied_requests || 0}</div>
-                                        </div>
-                                    </div>
-                                    <Button 
-                                        className="w-full mt-4" 
-                                        onClick={() => router.visit('/hr/pto-policies')}
-                                    >
-                                        Manage PTO Policies
-                                    </Button>
-                                </CardContent>
-                            </Card>
-                        </div>
-                    </TabsContent>
-
-                    {/* Organization Tab */}
-                    <TabsContent value="organization" className="space-y-6">
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                            <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => router.visit('/departments')}>
-                                <CardContent className="p-6">
-                                    <div className="flex items-center gap-4">
-                                        <div className="h-12 w-12 bg-primary/10 rounded-lg flex items-center justify-center">
-                                            <Building2 className="h-6 w-6 text-primary" />
-                                        </div>
-                                        <div>
-                                            <h3 className="font-semibold">Departments</h3>
-                                            <p className="text-sm text-muted-foreground">{stats?.total_departments || 0} departments</p>
-                                        </div>
-                                    </div>
-                                </CardContent>
-                            </Card>
-
-                            <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => router.visit('/admin/positions')}>
-                                <CardContent className="p-6">
-                                    <div className="flex items-center gap-4">
-                                        <div className="h-12 w-12 bg-primary/10 rounded-lg flex items-center justify-center">
-                                            <Briefcase className="h-6 w-6 text-primary" />
-                                        </div>
-                                        <div>
-                                            <h3 className="font-semibold">Positions</h3>
-                                            <p className="text-sm text-muted-foreground">{stats?.total_positions || 0} job positions</p>
-                                        </div>
-                                    </div>
-                                </CardContent>
-                            </Card>
-
-                            <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => router.visit('/admin/user-hierarchy')}>
-                                <CardContent className="p-6">
-                                    <div className="flex items-center gap-4">
-                                        <div className="h-12 w-12 bg-primary/10 rounded-lg flex items-center justify-center">
-                                            <Users className="h-6 w-6 text-primary" />
-                                        </div>
-                                        <div>
-                                            <h3 className="font-semibold">Hierarchy</h3>
-                                            <p className="text-sm text-muted-foreground">Organizational structure</p>
-                                        </div>
-                                    </div>
-                                </CardContent>
-                            </Card>
-
-                            <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => router.visit('/admin/blackouts')}>
-                                <CardContent className="p-6">
-                                    <div className="flex items-center gap-4">
-                                        <div className="h-12 w-12 bg-primary/10 rounded-lg flex items-center justify-center">
-                                            <Ban className="h-6 w-6 text-primary" />
-                                        </div>
-                                        <div>
-                                            <h3 className="font-semibold">Blackout Periods</h3>
-                                            <p className="text-sm text-muted-foreground">{stats?.total_blackouts || 0} active periods</p>
-                                        </div>
-                                    </div>
-                                </CardContent>
-                            </Card>
-
-                            <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => router.visit('/user-management/onboard')}>
-                                <CardContent className="p-6">
-                                    <div className="flex items-center gap-4">
-                                        <div className="h-12 w-12 bg-primary/10 rounded-lg flex items-center justify-center">
-                                            <UserPlus className="h-6 w-6 text-primary" />
-                                        </div>
-                                        <div>
-                                            <h3 className="font-semibold">Onboarding</h3>
-                                            <p className="text-sm text-muted-foreground">New employee setup</p>
-                                        </div>
-                                    </div>
-                                </CardContent>
-                            </Card>
-
-                            <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => router.visit('/hr/training')}>
-                                <CardContent className="p-6">
-                                    <div className="flex items-center gap-4">
-                                        <div className="h-12 w-12 bg-primary/10 rounded-lg flex items-center justify-center">
-                                            <GraduationCap className="h-6 w-6 text-primary" />
-                                        </div>
-                                        <div>
-                                            <h3 className="font-semibold">Training</h3>
-                                            <p className="text-sm text-muted-foreground">Learning & development</p>
-                                        </div>
-                                    </div>
-                                </CardContent>
-                            </Card>
-                        </div>
-                    </TabsContent>
-
-                    {/* Reports Tab */}
-                    <TabsContent value="reports" className="space-y-6">
-                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                            <Card>
-                                <CardHeader>
-                                    <CardTitle>PTO Balance Summary</CardTitle>
-                                    <p className="text-sm text-muted-foreground">Company-wide time off balances</p>
-                                </CardHeader>
-                                <CardContent>
-                                    {userData.length > 0 ? (
-                                        <div className="space-y-4">
-                                            <div className="grid grid-cols-3 gap-4 text-center">
-                                                <div>
-                                                    <div className="text-2xl font-bold">
-                                                        {userData.reduce((sum, user) => sum + (user.total_assigned || 0), 0)}
-                                                    </div>
-                                                    <div className="text-xs text-muted-foreground">Total Assigned</div>
-                                                </div>
-                                                <div>
-                                                    <div className="text-2xl font-bold">
-                                                        {userData.reduce((sum, user) => sum + (user.total_used || 0), 0)}
-                                                    </div>
-                                                    <div className="text-xs text-muted-foreground">Total Used</div>
-                                                </div>
-                                                <div>
-                                                    <div className="text-2xl font-bold">
-                                                        {userData.reduce((sum, user) => sum + (user.total_available || 0), 0)}
-                                                    </div>
-                                                    <div className="text-xs text-muted-foreground">Total Available</div>
-                                                </div>
+                                            <div>
+                                                <strong>Request #:</strong> {selectedRequest.request_number}
+                                            </div>
+                                            <div>
+                                                <strong>Days:</strong> {selectedRequest.total_days}
+                                            </div>
+                                            <div className="col-span-2">
+                                                <strong>Dates:</strong> {formatDate(selectedRequest.start_date)} - {formatDate(selectedRequest.end_date)}
                                             </div>
                                         </div>
-                                    ) : (
-                                        <div className="text-center py-8">
-                                            <BarChart3 className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
-                                            <p className="text-sm text-muted-foreground">No balance data available</p>
-                                        </div>
-                                    )}
-                                </CardContent>
-                            </Card>
-
-                            <Card>
-                                <CardHeader>
-                                    <CardTitle>Monthly Trends</CardTitle>
-                                    <p className="text-sm text-muted-foreground">Key HR metrics for this month</p>
-                                </CardHeader>
-                                <CardContent>
-                                    <div className="space-y-4">
-                                        <div className="flex items-center justify-between p-3 border rounded">
-                                            <div className="flex items-center gap-2">
-                                                <TrendingUp className="h-4 w-4 text-green-500" />
-                                                <span className="text-sm">New Requests</span>
-                                            </div>
-                                            <span className="font-bold">{stats?.requests_this_month || 0}</span>
-                                        </div>
-                                        <div className="flex items-center justify-between p-3 border rounded">
-                                            <div className="flex items-center gap-2">
-                                                <UserPlus className="h-4 w-4 text-blue-500" />
-                                                <span className="text-sm">New Hires</span>
-                                            </div>
-                                            <span className="font-bold">{stats?.new_hires_this_month || 0}</span>
-                                        </div>
-                                        <div className="flex items-center justify-between p-3 border rounded">
-                                            <div className="flex items-center gap-2">
-                                                <CheckCircle className="h-4 w-4 text-green-500" />
-                                                <span className="text-sm">Days Approved</span>
-                                            </div>
-                                            <span className="font-bold">{stats?.approved_days_this_month || 0}</span>
-                                        </div>
                                     </div>
-                                </CardContent>
-                            </Card>
-                        </div>
-                    </TabsContent>
-                </Tabs>
-
-                {/* Quick Approval Modal */}
-                <Dialog open={showQuickApprovalModal} onOpenChange={setShowQuickApprovalModal}>
-                    <DialogContent>
-                        <DialogHeader>
-                            <DialogTitle>Quick Approve PTO Request</DialogTitle>
-                            <DialogDescription>
-                                Approve this PTO request with optional comments.
-                            </DialogDescription>
-                        </DialogHeader>
-                        {selectedRequest && (
-                            <div className="space-y-4">
-                                <div className="rounded-lg bg-muted p-4">
-                                    <div className="grid grid-cols-2 gap-4 text-sm">
-                                        <div>
-                                            <strong>Employee:</strong> {selectedRequest.user.name}
-                                        </div>
-                                        <div>
-                                            <strong>PTO Type:</strong> {selectedRequest.pto_type.name}
-                                        </div>
-                                        <div>
-                                            <strong>Request #:</strong> {selectedRequest.request_number}
-                                        </div>
-                                        <div>
-                                            <strong>Days:</strong> {selectedRequest.total_days}
-                                        </div>
-                                        <div className="col-span-2">
-                                            <strong>Dates:</strong> {formatDate(selectedRequest.start_date)} - {formatDate(selectedRequest.end_date)}
-                                        </div>
+                                    <div>
+                                        <Label htmlFor="approval-comments">Comments (Optional)</Label>
+                                        <Textarea
+                                            id="approval-comments"
+                                            value={approvalComments}
+                                            onChange={(e) => setApprovalComments(e.target.value)}
+                                            placeholder="Add any comments about this approval..."
+                                            rows={3}
+                                        />
                                     </div>
                                 </div>
-                                <div>
-                                    <Label htmlFor="approval-comments">Comments (Optional)</Label>
-                                    <Textarea
-                                        id="approval-comments"
-                                        value={approvalComments}
-                                        onChange={(e) => setApprovalComments(e.target.value)}
-                                        placeholder="Add any comments about this approval..."
-                                        rows={3}
-                                    />
-                                </div>
-                            </div>
-                        )}
-                        <DialogFooter>
-                            <Button
-                                variant="outline"
-                                onClick={() => setShowQuickApprovalModal(false)}
-                                disabled={submitting}
-                            >
-                                Cancel
-                            </Button>
-                            <Button
-                                onClick={submitQuickApproval}
-                                disabled={submitting}
-                            >
-                                {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                                Approve Request
-                            </Button>
-                        </DialogFooter>
-                    </DialogContent>
-                </Dialog>
-            </div>
+                            )}
+                            <DialogFooter>
+                                <Button
+                                    variant="outline"
+                                    onClick={() => setShowQuickApprovalModal(false)}
+                                    disabled={submitting}
+                                >
+                                    Cancel
+                                </Button>
+                                <Button
+                                    onClick={submitQuickApproval}
+                                    disabled={submitting}
+                                    className="bg-green-600 hover:bg-green-700"
+                                >
+                                    {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                    Approve Request
+                                </Button>
+                            </DialogFooter>
+                        </DialogContent>
+                    </Dialog>
+                </div>
+            </HrLayout>
         </AppLayout>
     );
 }

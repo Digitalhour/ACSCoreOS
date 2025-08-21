@@ -1,5 +1,6 @@
 <?php
 
+use App\Events\Example;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\Settings\EmergencyContactsController;
 use App\Http\Controllers\UserManagementController;
@@ -16,6 +17,12 @@ use Laravel\WorkOS\Http\Middleware\ValidateSessionWithWorkOS;
 Route::get('/', function () {
     return Inertia::render('welcome');
 })->name('home');
+
+Route::get('/broadcast', function () {
+
+    broadcast(new Example);
+
+})->name('broadcast');
 
 Route::get('/test', function () {
     return 'Homepage test working!';
@@ -46,47 +53,48 @@ Route::middleware('auth')
     ->middleware(ValidateSessionWithWorkOS::class)
     ->group(function () {
 
-    /*
+        /*
 
-    |--------------------------------------------------------------------------
-    | Dashboard Routes
-    |--------------------------------------------------------------------------
-    */
-    Route::get('dashboard', [DashboardController::class, 'index'])->name('dashboard');
-    Route::get('/dashboard/monthly-sales-data', [DashboardController::class, 'monthlySalesData']);
-    Route::get('/dashboard/yearly-sales-data', [DashboardController::class, 'yearlySalesData']);
+        |--------------------------------------------------------------------------
+        | Dashboard Routes
+        |--------------------------------------------------------------------------
+        */
+        Route::get('dashboard', [DashboardController::class, 'index'])->name('dashboard');
+        Route::get('/dashboard/monthly-sales-data', [DashboardController::class, 'monthlySalesData']);
+        Route::get('/dashboard/yearly-sales-data', [DashboardController::class, 'yearlySalesData']);
 
-    /*
-    |--------------------------------------------------------------------------
-    | Settings Routes
-    |--------------------------------------------------------------------------
-    */
-    Route::prefix('settings')->name('emergency-contacts.')->group(function () {
-        Route::get('emergency-contacts', [EmergencyContactsController::class, 'index'])->name('index');
-        Route::post('emergency-contacts', [EmergencyContactsController::class, 'store'])->name('store');
-        Route::patch('emergency-contacts/{emergencyContact}', [EmergencyContactsController::class, 'update'])->name('update');
-        Route::delete('emergency-contacts/{emergencyContact}', [EmergencyContactsController::class, 'destroy'])->name('destroy');
+        /*
+        |--------------------------------------------------------------------------
+        | Settings Routes
+        |--------------------------------------------------------------------------
+        */
+        Route::prefix('settings')->name('emergency-contacts.')->group(function () {
+            Route::get('emergency-contacts', [EmergencyContactsController::class, 'index'])->name('index');
+            Route::post('emergency-contacts', [EmergencyContactsController::class, 'store'])->name('store');
+            Route::patch('emergency-contacts/{emergencyContact}', [EmergencyContactsController::class, 'update'])->name('update');
+            Route::delete('emergency-contacts/{emergencyContact}', [EmergencyContactsController::class, 'destroy'])->name('destroy');
+        });
+
+        /*
+        |--------------------------------------------------------------------------
+        | User Management Routes
+        |--------------------------------------------------------------------------
+        */
+        Route::prefix('user-management')->name('user-management.')->group(function () {
+            Route::get('/', [UserManagementController::class, 'index'])->name('index');
+            Route::post('invite-user', [UserManagementController::class, 'inviteUserWithPto'])->name('invite');
+        });
+
+        // User Management API Routes
+        Route::prefix('api')->group(function () {
+            Route::get('/widget-token', [UserManagementController::class, 'getWidgetToken']);
+            Route::get('/organization-users', [UserManagementController::class, 'getOrganizationUsers']);
+            Route::post('/deactivate-user', [UserManagementController::class, 'deactivateUser']);
+            Route::post('/reactivate-user', [UserManagementController::class, 'reactivateUser']);
+            Route::post('/invite-user-with-pto', [UserManagementController::class, 'inviteUserWithPto']);
+
+        });
     });
-
-    /*
-    |--------------------------------------------------------------------------
-    | User Management Routes
-    |--------------------------------------------------------------------------
-    */
-    Route::prefix('user-management')->name('user-management.')->group(function () {
-        Route::get('/', [UserManagementController::class, 'index'])->name('index');
-        Route::post('invite-user', [UserManagementController::class, 'inviteUserWithPto'])->name('invite');
-    });
-
-    // User Management API Routes
-    Route::prefix('api')->group(function () {
-        Route::get('/widget-token', [UserManagementController::class, 'getWidgetToken']);
-        Route::get('/organization-users', [UserManagementController::class, 'getOrganizationUsers']);
-        Route::post('/deactivate-user', [UserManagementController::class, 'deactivateUser']);
-        Route::post('/reactivate-user', [UserManagementController::class, 'reactivateUser']);
-        Route::post('/invite-user-with-pto', [UserManagementController::class, 'inviteUserWithPto']);
-    });
-});
 /*
 |--------------------------------------------------------------------------
 | Additional Route Files

@@ -1,23 +1,10 @@
 import {Card, CardContent, CardHeader, CardTitle} from '@/components/ui/card';
+
 import AppLayout from '@/layouts/app-layout';
 import QueueDashboardPage from '@/pages/quese-status'; // Ensured all icons are imported
-import OnlineUsersComponent from '@/components/OnlineUsersComponent';
 import {type BreadcrumbItem} from '@/types';
 import {Head, Link as InertiaLink} from '@inertiajs/react'; // Renamed Link to InertiaLink to avoid conflict
-import {
-    Activity,
-    Briefcase,
-    DatabaseZap,
-    FileText,
-    LayoutDashboardIcon,
-    ListChecks,
-    MessageSquare,
-    Network,
-    Plane,
-    Settings2,
-    UploadCloud,
-    Users,
-} from 'lucide-react';
+import {DatabaseZap, LayoutDashboardIcon, UploadCloud} from 'lucide-react';
 
 // Breadcrumbs for the page
 const breadcrumbs: BreadcrumbItem[] = [
@@ -110,54 +97,54 @@ const adminLinks: LinkCategory[] = [
     //         },
     //     ],
     // },
-    {
-        title: 'User & Access Management',
-        icon: Users,
-        links: [
-            {
-                routeName: 'admin.positions.index',
-                href: '/admin/positions',
-                label: 'Manage Positions',
-                icon: Briefcase,
-                description: 'Configure job titles and roles.',
-            },
-            {
-                routeName: 'admin.user-hierarchy.index',
-                href: '/admin/user-hierarchy',
-                label: 'User Hierarchy',
-                icon: Users,
-                description: 'Set or modify Employees structures.',
-            },
-            {
-                routeName: 'acs-origination',
-                href: '/organization-chart',
-                label: 'Organization Chart',
-                icon: Network,
-                description: 'Company hierarchy.',
-            },
-            {
-                routeName: 'roles-permissions.index',
-                href: '/roles-permissions',
-                label: 'Roles & Permissions',
-                icon: Settings2,
-                description: 'Define user access controls.',
-            },
-            {
-                routeName: 'admin.user-activity.index',
-                href: '/admin/user-activity',
-                label: 'User Activity Monitor',
-                icon: Activity,
-                description: 'Track user actions and behavior.',
-            },
-            {
-                routeName: 'impersonate.index',
-                href: '/impersonate',
-                icon: Plane,
-                description: 'Impersonate a user',
-                label: 'Impersonation',
-            },
-        ],
-    },
+    // {
+    //     title: 'User & Access Management',
+    //     icon: Users,
+    //     links: [
+    //         {
+    //             routeName: 'admin.positions.index',
+    //             href: '/admin/positions',
+    //             label: 'Manage Positions',
+    //             icon: Briefcase,
+    //             description: 'Configure job titles and roles.',
+    //         },
+    //         {
+    //             routeName: 'admin.user-hierarchy.index',
+    //             href: '/admin/user-hierarchy',
+    //             label: 'User Hierarchy',
+    //             icon: Users,
+    //             description: 'Set or modify Employees structures.',
+    //         },
+    //         {
+    //             routeName: 'acs-origination',
+    //             href: '/organization-chart',
+    //             label: 'Organization Chart',
+    //             icon: Network,
+    //             description: 'Company hierarchy.',
+    //         },
+    //         {
+    //             routeName: 'roles-permissions.index',
+    //             href: '/roles-permissions',
+    //             label: 'Roles & Permissions',
+    //             icon: Settings2,
+    //             description: 'Define user access controls.',
+    //         },
+    //         {
+    //             routeName: 'admin.user-activity.index',
+    //             href: '/admin/user-activity',
+    //             label: 'User Activity Monitor',
+    //             icon: Activity,
+    //             description: 'Track user actions and behavior.',
+    //         },
+    //         {
+    //             routeName: 'impersonate.index',
+    //             href: '/impersonate',
+    //             icon: Plane,
+    //             description: 'Impersonate a user',
+    //             label: 'Impersonation',
+    //         },
+    //     ],
+    // },
     {
         title: 'Data & Content',
         icon: DatabaseZap,
@@ -172,40 +159,40 @@ const adminLinks: LinkCategory[] = [
 
         ],
     },
-    {
-        title: 'Billy AI Suite',
-        icon: MessageSquare,
-        links: [
-            { routeName: 'billy', href: '/billy', label: 'Billy Chat', icon: MessageSquare, description: 'Interact with the AI assistant.' },
-            {
-                routeName: 'billy.feedback.index',
-                href: '/billy/feedback',
-                label: 'AI Feedback',
-                icon: FileText,
-                description: 'Review user feedback on AI.',
-            },
-            {
-                routeName: 'billy.conversations.index',
-                href: '/billy/conversations',
-                label: 'AI Conversations',
-                icon: ListChecks,
-                description: 'Manage AI chat logs.',
-            },
-        ],
-    },
-    {
-        title: 'General',
-        icon: LayoutDashboardIcon,
-        links: [
-            {
-                routeName: 'dashboard',
-                href: '/dashboard',
-                label: 'Main Dashboard',
-                icon: LayoutDashboardIcon,
-                description: 'Go to the main user dashboard.',
-            },
-        ],
-    },
+    // {
+    //     title: 'Billy AI Suite',
+    //     icon: MessageSquare,
+    //     links: [
+    //         { routeName: 'billy', href: '/billy', label: 'Billy Chat', icon: MessageSquare, description: 'Interact with the AI assistant.' },
+    //         {
+    //             routeName: 'billy.feedback.index',
+    //             href: '/billy/feedback',
+    //             label: 'AI Feedback',
+    //             icon: FileText,
+    //             description: 'Review user feedback on AI.',
+    //         },
+    //         {
+    //             routeName: 'billy.conversations.index',
+    //             href: '/billy/conversations',
+    //             label: 'AI Conversations',
+    //             icon: ListChecks,
+    //             description: 'Manage AI chat logs.',
+    //         },
+    //     ],
+    // },
+    // {
+    //     title: 'General',
+    //     icon: LayoutDashboardIcon,
+    //     links: [
+    //         {
+    //             routeName: 'dashboard',
+    //             href: '/dashboard',
+    //             label: 'Main Dashboard',
+    //             icon: LayoutDashboardIcon,
+    //             description: 'Go to the main user dashboard.',
+    //         },
+    //     ],
+    // },
     {
         title: 'Developers',
         icon: LayoutDashboardIcon,
@@ -242,11 +229,11 @@ const adminLinks: LinkCategory[] = [
     },
 ];
 
+
 // The Admin Dashboard Page Component
-export default function adminDashboard({ userStats }: { userStats: { totalUsers: number; activeUsers: number; totalLogins: number } }) {
-    // Keeping original function name as per user's file
-    // Helper function to generate href, assuming 'route' function is available
-    // If not, it falls back to the hardcoded 'href'
+export default function adminDashboard() {
+
+
     const getHref = (link: DashboardLink): string => {
         if (typeof route === 'function') {
             try {
@@ -311,17 +298,7 @@ export default function adminDashboard({ userStats }: { userStats: { totalUsers:
                 </div>
                 <div className="mt-8 grid auto-rows-min gap-4 md:grid-cols-3">
                     <div className="flex flex-col gap-4">
-                        <Card className="border-sidebar-border/70 dark:border-sidebar-border relative bg-white dark:bg-gray-800">
-                            <CardHeader>
-                                <CardTitle className="flex items-center space-x-2">
-                                    <Users className="h-5 w-5 text-green-500" />
-                                    <span>Real-time User Activity</span>
-                                </CardTitle>
-                            </CardHeader>
-                            <CardContent>
-                                <OnlineUsersComponent />
-                            </CardContent>
-                        </Card>
+
                     </div>
                     <div className="border-sidebar-border/70 dark:border-sidebar-border relative col-span-2 rounded-xl border">
                         <QueueDashboardPage />

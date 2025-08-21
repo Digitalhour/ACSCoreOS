@@ -365,7 +365,7 @@ export default function PtoPoliciesView({ ptoPolicies: initialPolicies, users: i
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Manage PTO Policies" />
             <HrLayout>
-                <div className="flex h-full flex-1 flex-col gap-6 p-4">
+                <div className="flex flex-col gap-4 ">
                     <div className="flex items-center justify-between">
                         <h1 className="text-2xl font-bold">Manage PTO Policies</h1>
                         <Button onClick={handleCreate} className="gap-2">
@@ -376,7 +376,7 @@ export default function PtoPoliciesView({ ptoPolicies: initialPolicies, users: i
 
                     {/* Filters */}
                     <Card>
-                        <CardContent className="pt-6">
+                        <CardContent className="">
                             <div className="grid grid-cols-1 gap-4 md:grid-cols-5">
                                 <div>
                                     <Label htmlFor="search">Search</Label>
