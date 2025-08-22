@@ -35,41 +35,66 @@ import {
 import {toast} from 'sonner';
 import {
     Activity,
+    Ban,
+    BarChart,
     Bell,
+    BookOpen,
     BookOpenText,
+    Bot,
     BotMessageSquareIcon,
+    Building,
     Calendar,
+    CalendarDays,
+    CalendarRange,
     ChevronDown,
     ChevronRight,
+    ClipboardList,
     Clock,
+    Code,
     Cog,
+    Database,
     DollarSign,
     Download,
     Edit,
     ExternalLink,
+    Files,
     FileText,
+    Folder,
     GraduationCap,
     Home,
+    Image,
     ImageUp,
     LayoutDashboard,
     LayoutList,
-    LucideIcon,
     Mail,
+    Map,
+    Menu,
+    MessageCircle,
+    MessageSquare,
     Minus,
     MoreHorizontal,
     Package,
+    PenTool,
+    Phone,
     Plus,
     Power,
     Save,
     Search,
     Settings,
+    Shield,
     ShieldCheck,
     ShipWheel,
     Smartphone,
+    ThumbsUp,
     Trash,
     Trash2,
+    TrendingUp,
     Upload,
+    User,
+    UserCheck,
+    UserPlus,
     Users,
+    Warehouse,
 } from 'lucide-react';
 
 interface NavigationItem {
@@ -123,39 +148,71 @@ type NavigationFormData = {
     roles: string[];
     permissions: string[];
 };
+
+
+
 const iconMap: Record<string, LucideIcon> = {
     Activity,
+    Ban,
+    BarChart,
+    Bell,
+    BookOpen,
     BookOpenText,
+    Bot,
     BotMessageSquareIcon,
+    Building,
+    Calendar,
+    CalendarDays,
+    CalendarRange,
     ChevronDown,
     ChevronRight,
+    ClipboardList,
     Clock,
+    Code,
     Cog,
+    Database,
     DollarSign,
+    Download,
+    Edit,
+    ExternalLink,
+    Files,
     FileText,
+    Folder,
     GraduationCap,
+    Home,
+    Image,
     ImageUp,
     LayoutDashboard,
     LayoutList,
+    Mail,
+    Map,
+    Menu,
+    MessageCircle,
+    MessageSquare,
+    Minus,
+    MoreHorizontal,
     Package,
+    PenTool,
+    Phone,
+    Plus,
+    Power,
+    Save,
+    Search,
+    Settings,
+    Shield,
     ShieldCheck,
     ShipWheel,
     Smartphone,
-    Users,
-    Home,
-    Settings,
-    Bell,
-    Calendar,
-    Mail,
-    Search,
-    Plus,
-    Minus,
-    Edit,
+    ThumbsUp,
     Trash,
-    Save,
-    Download,
+    Trash2,
+    TrendingUp,
     Upload,
-    Power,
+    User,
+    UserCheck,
+    UserPlus,
+    Users,
+    Warehouse,
 };
 const renderIcon = (iconName?: string) => {
     if (!iconName) return null;
@@ -196,7 +253,7 @@ export default function NavigationManagement({
         };
 
         if (editingItem) {
-            put(`/admin/navigation/${editingItem.id}`, {
+            put(`/dev-ops/navigation/${editingItem.id}`, {
                 onSuccess: () => {
                     setDialogOpen(false);
                     reset();
@@ -208,7 +265,7 @@ export default function NavigationManagement({
                 },
             });
         } else {
-            post('/admin/navigation', {
+            post('/dev-ops/navigation', {
                 onSuccess: () => {
                     setDialogOpen(false);
                     reset();
@@ -239,7 +296,7 @@ export default function NavigationManagement({
     };
 
     const handleDelete = (item: NavigationItem) => {
-        router.delete(`/admin/navigation/${item.id}`, {
+        router.delete(`/dev-ops/navigation/${item.id}`, {
             onSuccess: () => {
                 toast.success('Navigation item deleted successfully!');
             },
@@ -250,7 +307,7 @@ export default function NavigationManagement({
     };
 
     const handleToggleActive = (item: NavigationItem) => {
-        router.post(`/admin/navigation/${item.id}/toggle-active`, {}, {
+        router.post(`/dev-ops/navigation/${item.id}/toggle-active`, {}, {
             onSuccess: () => {
                 toast.success(`Navigation item ${item.is_active ? 'deactivated' : 'activated'} successfully!`);
             },

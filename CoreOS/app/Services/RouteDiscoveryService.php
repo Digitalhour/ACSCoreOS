@@ -185,8 +185,8 @@ class RouteDiscoveryService
             'pto' => 'PTO Management',
             'time-clock' => 'Time & Attendance',
             'billy' => 'AI Assistant',
-            'wiki' => 'Wiki & Documentation',
-            'blog' => 'Content Management',
+            'wiki' => 'Wiki',
+            'blog' => 'Company News',
             'admin' => 'Administration',
             'access-control' => 'Access Control',
             'user-management' => 'User Management',
@@ -200,6 +200,9 @@ class RouteDiscoveryService
             'departments' => 'Organization',
             'holidays' => 'Organization',
             'team' => 'Organization',
+            'tags' => 'Company Documents',
+            'folders' => 'Company Documents',
+            'documents' => 'Company Documents',
         ];
 
         // Extract primary resource from route name

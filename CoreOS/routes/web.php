@@ -2,7 +2,6 @@
 
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\Settings\EmergencyContactsController;
-use App\Http\Controllers\UserManagementController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 use Laravel\WorkOS\Http\Middleware\ValidateSessionWithWorkOS;
@@ -16,25 +15,6 @@ use Laravel\WorkOS\Http\Middleware\ValidateSessionWithWorkOS;
 Route::get('/', function () {
     return Inertia::render('welcome');
 })->name('home');
-
-Route::get('/test', function () {
-    return 'Homepage test working!';
-});
-
-Route::get('/_debug-session', function () {
-    $n = session('ping', 0) + 1;
-    session(['ping' => $n]);
-
-    return [
-        'session_id' => session()->getId(),
-        'ping' => $n,
-        'csrf_token' => csrf_token(),
-        'driver' => config('session.driver'),
-        'domain' => config('session.domain'),
-        'secure' => config('session.secure'),
-        'same_site' => config('session.same_site'),
-    ];
-});
 
 /*
 |--------------------------------------------------------------------------
@@ -58,7 +38,7 @@ Route::middleware('auth')
 
         /*
         |--------------------------------------------------------------------------
-        | Settings Routes
+        | User Settings Routes
         |--------------------------------------------------------------------------
         */
         Route::prefix('settings')->name('emergency-contacts.')->group(function () {
@@ -68,30 +48,9 @@ Route::middleware('auth')
             Route::delete('emergency-contacts/{emergencyContact}', [EmergencyContactsController::class, 'destroy'])->name('destroy');
         });
 
-        /*
-        |--------------------------------------------------------------------------
-        | User Management Routes
-        |--------------------------------------------------------------------------
-        */
-        Route::prefix('user-management')->name('user-management.')->group(function () {
-            Route::get('/', [UserManagementController::class, 'index'])->name('index');
-            Route::post('invite-user', [UserManagementController::class, 'inviteUserWithPto'])->name('invite');
-        });
 
-        // User Management API Routes
-        Route::prefix('api')->group(function () {
-            Route::get('/widget-token', [UserManagementController::class, 'getWidgetToken']);
-            Route::get('/organization-users', [UserManagementController::class, 'getOrganizationUsers']);
-            Route::post('/deactivate-user', [UserManagementController::class, 'deactivateUser']);
-            Route::post('/reactivate-user', [UserManagementController::class, 'reactivateUser']);
-            Route::post('/invite-user-with-pto', [UserManagementController::class, 'inviteUserWithPto']);
 
-            // Online Users API
-            Route::get('/online-users', [App\Http\Controllers\OnlineUsersController::class, 'index']);
-            Route::post('/mark-online', [App\Http\Controllers\OnlineUsersController::class, 'markOnline']);
-            Route::post('/mark-offline', [App\Http\Controllers\OnlineUsersController::class, 'markOffline']);
-            Route::post('/update-last-seen', [App\Http\Controllers\OnlineUsersController::class, 'updateLastSeen']);
-        });
+
     });
 /*
 |--------------------------------------------------------------------------
@@ -134,4 +93,4 @@ require __DIR__.'/developer-routes.php';
 
 // Parts Database (commented out)
 require __DIR__.'/parts-database.php';
-require __DIR__.'/admin-routes.php';
+//require __DIR__.'/admin-routes.php';

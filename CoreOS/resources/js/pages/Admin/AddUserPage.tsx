@@ -1,13 +1,13 @@
 import AppLayout from '@/layouts/app-layout'; // Your main app layout
-import { Head, Link as InertiaLink, useForm } from '@inertiajs/react';
+import {Head, Link as InertiaLink, useForm} from '@inertiajs/react';
 import React from 'react';
 // import AdminLayout from '@/layouts/admin-layout'; // Or your specific admin layout
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'; // Shadcn Select
-import { type BreadcrumbItem, type PageProps, type User as AuthenticatedUser } from '@/types';
+import {Button} from '@/components/ui/button';
+import {Card, CardContent, CardDescription, CardHeader, CardTitle} from '@/components/ui/card';
+import {Input} from '@/components/ui/input';
+import {Label} from '@/components/ui/label';
+import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from '@/components/ui/select'; // Shadcn Select
+import {type BreadcrumbItem, type PageProps, type User as AuthenticatedUser} from '@/types';
 
 // Define interfaces for data passed from Laravel (same as pre-registration example)
 interface Position {
@@ -60,7 +60,7 @@ export default function AddUserPage({ positions, potentialManagers, spatieRoles,
 
     const breadcrumbs: BreadcrumbItem[] = [
         {
-            title: 'Add a new Employees',
+            title: 'ADMIN ADD USER PAGE',
             href: '/users/add',
         },
     ];

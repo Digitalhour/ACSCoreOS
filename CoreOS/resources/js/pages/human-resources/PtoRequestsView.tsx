@@ -34,7 +34,7 @@ const breadcrumbs: BreadcrumbItem[] = [
         href: '/admin/pto',
     },
     {
-        title: 'PTO Requestssss',
+        title: 'PTO Reques',
         href: '/admin/pto-requests',
     },
 ];

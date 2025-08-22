@@ -1,20 +1,24 @@
 import HistoricalPtoModal from '@/components/HistoricalPtoModal';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Switch } from '@/components/ui/switch';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Textarea } from '@/components/ui/textarea';
+import {Badge} from '@/components/ui/badge';
+import {Button} from '@/components/ui/button';
+import {Card, CardContent, CardHeader, CardTitle} from '@/components/ui/card';
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle
+} from '@/components/ui/dialog';
+import {Label} from '@/components/ui/label';
+import {Table, TableBody, TableCell, TableHead, TableHeader, TableRow} from '@/components/ui/table';
+import {Textarea} from '@/components/ui/textarea';
 import AppLayout from '@/layouts/app-layout';
-import { type BreadcrumbItem } from '@/types';
-import { Head, router, useForm, usePage } from '@inertiajs/react';
-import { Calendar, CheckCircle, Clock, Download, Eye, Filter, Loader2, Search, X, XCircle } from 'lucide-react';
-import { useCallback, useEffect, useState } from 'react';
-import { toast } from 'sonner';
+import {type BreadcrumbItem} from '@/types';
+import {Head, router, useForm, usePage} from '@inertiajs/react';
+import {Calendar, CheckCircle, Clock, Download, Eye, Filter, Loader2, X, XCircle} from 'lucide-react';
+import {useCallback, useEffect, useState} from 'react';
+import {toast} from 'sonner';
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
@@ -26,7 +30,7 @@ const breadcrumbs: BreadcrumbItem[] = [
         href: '/admin/pto',
     },
     {
-        title: 'PTO Requestssss',
+        title: 'ADMIN PTO REQUESTS VIEW',
         href: '/admin/pto-requests',
     },
 ];
