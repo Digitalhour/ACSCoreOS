@@ -283,7 +283,7 @@ class AccessControlController extends Controller
                 $stats['deactivated']
             );
 
-            return redirect()->back()->with('success', $message);
+            return back()->with('success', $message);
 
         } catch (\Exception $e) {
             return redirect()->back()->with('error', 'Failed to sync routes: ' . $e->getMessage());
@@ -400,7 +400,7 @@ class AccessControlController extends Controller
             }
 
             \DB::commit();
-            return redirect()->back()->with('success', 'Route permissions and roles updated for ' . count($validated['route_ids']) . ' routes');
+            return back()->with('success', 'Route permissions and roles updated for ' . count($validated['route_ids']) . ' routes');
 
         } catch (\Exception $e) {
             \DB::rollback();

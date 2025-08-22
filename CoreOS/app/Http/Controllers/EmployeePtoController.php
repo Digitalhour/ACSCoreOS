@@ -633,6 +633,7 @@ class EmployeePtoController extends Controller
             ->whereIn('status', ['approved', 'pending'])
             ->whereIn('pto_type_id', $showablePtoTypeIds) // Only show PTO types marked for department calendar
             ->whereYear('start_date', $year)
+            ->whereHas('user')
             ->get();
 
         // Get current user's own PTO requests (always show regardless of calendar setting)

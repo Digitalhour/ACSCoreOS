@@ -313,7 +313,7 @@ export default function PayrollDepartments({ timesheets, departments, filters }:
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
-            <Head title="Department Timesheets" />
+            <Head title="Payroll Timesheets" />
 
             <div className="space-y-6 p-6">
                 {/* Header */}

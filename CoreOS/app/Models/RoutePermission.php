@@ -15,7 +15,6 @@ class RoutePermission extends Model
         'controller_class',
         'controller_method',
         'group_name',
-        'display_name',
         'description',
         'is_protected',
         'is_active',

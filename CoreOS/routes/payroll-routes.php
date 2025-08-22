@@ -7,7 +7,6 @@ use Illuminate\Support\Facades\Route;
 
 Route::middleware('auth')->middleware('verified')->group(function () {
     Route::prefix('time-clock')->group(function () {
-
             // Manager routes (NEW)
             Route::prefix('manager')->group(function () {
                 Route::get('/dashboard', [ManagerTimeClockController::class, 'dashboard'])->name('time-clock.manager.dashboard');
@@ -25,32 +24,6 @@ Route::middleware('auth')->middleware('verified')->group(function () {
                 Route::get('/day-entries-modal', [ManagerTimeClockController::class, 'getDayEntriesModal'])->name('time-clock.manager.day-entries-modal');
 
         });
-
-        Route::middleware('permission:Corporate-payroll')->group(function () {
-            Route::prefix('payroll')->group(function () {
-                Route::match(['get', 'post'], '/dashboard', [PayrollTimeClockController::class, 'dashboard'])->name('time-clock.payroll.dashboard');
-
-                Route::post('/process/{timesheet}', [PayrollTimeClockController::class, 'process'])->name('time-clock.payroll.process');
-                Route::post('/bulk-process', [PayrollTimeClockController::class, 'bulkProcess'])->name('time-clock.payroll.bulk-process');
-                Route::get('/export', [PayrollTimeClockController::class, 'export'])->name('time-clock.payroll.export');
-                Route::get('/reports', [PayrollTimeClockController::class, 'reports'])->name('time-clock.payroll.reports');
-                Route::get('/timesheet/{timesheet}/punches', [PayrollTimeClockController::class, 'timesheetPunches'])->name('time-clock.payroll.timesheet.punches');
-                Route::put('/punch/{timeClock}/edit', [PayrollTimeClockController::class, 'editPunch'])->name('time-clock.payroll.punch.edit');
-                Route::put('/break/{audit}/edit', [PayrollTimeClockController::class, 'editBreak'])->name('time-clock.payroll.break.edit');
-                Route::delete('/punch/{timeClock}/delete', [PayrollTimeClockController::class, 'deletePunch'])->name('time-clock.payroll.punch.delete');
-                Route::delete('/break/{audit}/delete', [PayrollTimeClockController::class, 'deleteBreak'])->name('time-clock.payroll.break.delete');
-                Route::post('/punch/create', [PayrollTimeClockController::class, 'addEntry'])->name('time-clock.payroll.punch.create');
-                Route::post('/punch/{timeClock}/clock-out', [PayrollTimeClockController::class, 'clockOut'])->name('time-clock.payroll.punch.clock-out');
-                Route::get('/export-punches', [PayrollTimeClockController::class, 'exportPunches'])->name('time-clock.payroll.export-punches');
-                Route::post('/reject/{timesheet}', [PayrollTimeClockController::class, 'reject'])->name('payroll.reject');
-                Route::post('/bulk-reject', [PayrollTimeClockController::class, 'bulkReject'])->name('payroll.bulk-reject');
-                Route::post('/update-entry/{timeClock}', [PayrollTimeClockController::class, 'updateEntry'])->name('time-clock.payroll.update-entry');
-                Route::post('/add-entry', [PayrollTimeClockController::class, 'addEntry'])->name('time-clock.payroll.add-entry');
-            });
-        });
-
-
-
         // Employees routes (existing)
         Route::get('/employee', [TimeClockController::class, 'employee'])->name('time-clock.employee');
         Route::post('/clock-in', [TimeClockController::class, 'clockIn'])->name('time-clock.clock-in');
@@ -63,12 +36,29 @@ Route::middleware('auth')->middleware('verified')->group(function () {
         Route::post('/submit-timesheet', [TimeClockController::class, 'submitTimesheet'])->name('time-clock.submit-timesheet');
         Route::post('/withdraw-timesheet', [TimeClockController::class, 'withdrawTimesheet'])->name('time-clock.withdraw-timesheet');
         Route::get('/week-timesheet', [TimeClockController::class, 'getWeekTimesheet'])->name('time-clock.week-timesheet');
+    });
 
+    Route::prefix('payroll')->group(function () {
+        Route::match(['get', 'post'], '/dashboard', [PayrollTimeClockController::class, 'dashboard'])->name('payroll.dashboard');
 
-
-
-
+        Route::post('/process/{timesheet}', [PayrollTimeClockController::class, 'process'])->name('payroll.process');
+        Route::post('/bulk-process', [PayrollTimeClockController::class, 'bulkProcess'])->name('payroll.bulk-process');
+        Route::get('/export', [PayrollTimeClockController::class, 'export'])->name('payroll.export');
+        Route::get('/reports', [PayrollTimeClockController::class, 'reports'])->name('payroll.reports');
+        Route::get('/timesheet/{timesheet}/punches', [PayrollTimeClockController::class, 'timesheetPunches'])->name('payroll.timesheet.punches');
+        Route::put('/punch/{timeClock}/edit', [PayrollTimeClockController::class, 'editPunch'])->name('payroll.punch.edit');
+        Route::put('/break/{audit}/edit', [PayrollTimeClockController::class, 'editBreak'])->name('payroll.break.edit');
+        Route::delete('/punch/{timeClock}/delete', [PayrollTimeClockController::class, 'deletePunch'])->name('payroll.punch.delete');
+        Route::delete('/break/{audit}/delete', [PayrollTimeClockController::class, 'deleteBreak'])->name('payroll.break.delete');
+        Route::post('/punch/create', [PayrollTimeClockController::class, 'addEntry'])->name('payroll.punch.create');
+        Route::post('/punch/{timeClock}/clock-out', [PayrollTimeClockController::class, 'clockOut'])->name('payroll.punch.clock-out');
+        Route::get('/export-punches', [PayrollTimeClockController::class, 'exportPunches'])->name('payroll.export-punches');
+        Route::post('/reject/{timesheet}', [PayrollTimeClockController::class, 'reject'])->name('payroll.reject');
+        Route::post('/bulk-reject', [PayrollTimeClockController::class, 'bulkReject'])->name('payroll.bulk-reject');
+        Route::post('/update-entry/{timeClock}', [PayrollTimeClockController::class, 'updateEntry'])->name('payroll.update-entry');
+        Route::post('/add-entry', [PayrollTimeClockController::class, 'addEntry'])->name('payroll.add-entry');
 
     });
+
 
 });

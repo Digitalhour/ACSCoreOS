@@ -10,7 +10,10 @@ import {
     DialogHeader,
     DialogTitle
 } from '@/components/ui/dialog';
+import {Input} from '@/components/ui/input';
 import {Label} from '@/components/ui/label';
+import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from '@/components/ui/select';
+import {Switch} from '@/components/ui/switch';
 import HrLayout from '@/layouts/settings/hr-layout';
 import {Table, TableBody, TableCell, TableHead, TableHeader, TableRow} from '@/components/ui/table';
 import {Textarea} from '@/components/ui/textarea';
@@ -88,6 +91,11 @@ interface PaginatedData {
     to: number;
 }
 
+interface Department {
+    id: number;
+    name: string;
+}
+
 interface PageProps {
     [key: string]: any;
     title: string;
@@ -95,11 +103,13 @@ interface PageProps {
     users: User[];
     allPtoTypes: PtoType[];
     filteredPtoTypes: PtoType[];
+    departments: Department[];
     filters: {
         search?: string;
         status?: string;
         pto_type?: string;
         user?: string;
+        department?: string;
         pending_only?: boolean;
     };
     flash?: {
@@ -109,7 +119,11 @@ interface PageProps {
 }
 
 export default function PtoRequestsView() {
-    const { ptoRequests, users, allPtoTypes, filteredPtoTypes, filters, flash } = usePage<PageProps>().props;
+    const { ptoRequests, users, allPtoTypes, filteredPtoTypes, departments, filters, flash } = usePage<PageProps>().props;
+
+    // Debug logging (remove in production)
+    // console.log('Current filters from backend:', filters);
+    // console.log('Departments:', departments);
 
     const [isHistoricalModalOpen, setIsHistoricalModalOpen] = useState<boolean>(false);
 
@@ -119,9 +133,10 @@ export default function PtoRequestsView() {
         processing: filterProcessing,
     } = useForm({
         search: filters.search || '',
-        status: filters.status || '',
-        pto_type: filters.pto_type || '',
-        user: filters.user || '',
+        status: filters.status || 'all',
+        pto_type: filters.pto_type || 'all',
+        user: filters.user || 'all',
+        department: filters.department || 'all',
         pending_only: filters.pending_only || false,
     });
 
@@ -158,31 +173,55 @@ export default function PtoRequestsView() {
         }
     }, [flash]);
 
+
+
     const handleFilterChange = useCallback(
         (field: keyof typeof filterData, value: any) => {
             const formValue = value === undefined ? '' : value;
-            setFilterData(field, formValue);
 
+            // Build the complete new filter state first
+            const updatedFilters = {
+                ...filterData,
+                [field]: formValue,
+            };
+
+            // If the user filter is changed, also reset the PTO type filter
             if (field === 'user') {
-                setFilterData('pto_type', '');
+                updatedFilters.pto_type = 'all';
+                // Update UI state in one call for this case
+                setFilterData({
+                    user: formValue,
+                    pto_type: 'all'
+                });
+            } else {
+                // Update UI state for other filters
+                setFilterData(field, formValue);
             }
 
-            setTimeout(() => {
-                router.get(
-                    '/admin/pto-requests',
-                    {
-                        ...filterData,
-                        [field]: formValue,
-                        ...(field === 'user' ? { pto_type: '' } : {}),
-                    },
-                    {
+            // Convert "all" values to empty strings for the backend request
+            const backendFilters = Object.fromEntries(
+                Object.entries(updatedFilters).map(([key, val]) => [
+                    key,
+                    val === 'all' ? '' : val
+                ])
+            );
+
+            // Send the request to the backend
+            if (field === 'search') {
+                setTimeout(() => {
+                    router.get('/admin/pto-requests', backendFilters, {
                         preserveState: true,
                         preserveScroll: true,
-                    },
-                );
-            }, 300);
+                    });
+                }, 300);
+            } else {
+                router.get('/admin/pto-requests', backendFilters, {
+                    preserveState: true,
+                    preserveScroll: true,
+                });
+            }
         },
-        [filterData, setFilterData],
+        [filterData, setFilterData], // Dependencies remain the same
     );
 
     const clearFilters = useCallback(() => {
@@ -190,7 +229,7 @@ export default function PtoRequestsView() {
             '/admin/pto-requests',
             {},
             {
-                preserveState: true,
+                preserveState: false,
                 preserveScroll: true,
             },
         );
@@ -285,10 +324,18 @@ export default function PtoRequestsView() {
     };
 
     const handlePageChange = (page: number) => {
+        // Convert "all" values to empty strings for the backend
+        const backendFilters = Object.fromEntries(
+            Object.entries(filterData).map(([key, value]) => [
+                key,
+                value === 'all' ? '' : value
+            ])
+        );
+
         router.get(
             '/admin/pto-requests',
             {
-                ...filterData,
+                ...backendFilters,
                 page,
             },
             {
@@ -299,7 +346,12 @@ export default function PtoRequestsView() {
     };
 
     const pendingCount = ptoRequests.data.filter((r) => r.status === 'pending').length;
-    const hasActiveFilters = filterData.search || filterData.status || filterData.pto_type || filterData.user || filterData.pending_only;
+    const hasActiveFilters = filterData.search ||
+        (filterData.status && filterData.status !== 'all') ||
+        (filterData.pto_type && filterData.pto_type !== 'all') ||
+        (filterData.user && filterData.user !== 'all') ||
+        (filterData.department && filterData.department !== 'all') ||
+        filterData.pending_only;
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
@@ -321,15 +373,137 @@ export default function PtoRequestsView() {
                 </div>
 
                 <Card>
-                    <div className="grid grid-cols-1 gap-4 md:grid-cols-5">
                     <CardHeader>
                         <CardTitle className="flex items-center gap-2">
                             <Filter className="h-5 w-5" />
                             Filters
                         </CardTitle>
                     </CardHeader>
-                    <CardContent className="space-y-4">{/* Filters remain the same */}</CardContent>
-                    </div>
+                    <CardContent className="space-y-4">
+                        <div className="grid grid-cols-1 gap-4 md:grid-cols-6">
+                            {/* Search */}
+                            <div className="space-y-2">
+                                <Label htmlFor="search">Search</Label>
+                                <Input
+                                    id="search"
+                                    type="text"
+                                    placeholder="Search by name, email, or request #"
+                                    value={filterData.search}
+                                    onChange={(e) => handleFilterChange('search', e.target.value)}
+                                />
+                            </div>
+
+                            {/* User Filter */}
+                            <div className="space-y-2">
+                                <Label htmlFor="user">User</Label>
+                                <Select
+                                    value={filterData.user}
+                                    onValueChange={(value) => handleFilterChange('user', value)}
+                                >
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="All users" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="all">All users</SelectItem>
+                                        {users.map((user) => (
+                                            <SelectItem key={user.id} value={user.id.toString()}>
+                                                {user.name} ({user.email})
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+
+                            {/* Department Filter */}
+                            <div className="space-y-2">
+                                <Label htmlFor="department">Department</Label>
+                                <Select
+                                    value={filterData.department}
+                                    onValueChange={(value) => handleFilterChange('department', value)}
+                                >
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="All departments" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="all">All departments</SelectItem>
+                                        {departments.map((department) => (
+                                            <SelectItem key={department.id} value={department.id.toString()}>
+                                                {department.name}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+
+                            {/* Status Filter */}
+                            <div className="space-y-2">
+                                <Label htmlFor="status">Status</Label>
+                                <Select
+                                    value={filterData.status}
+                                    onValueChange={(value) => handleFilterChange('status', value)}
+                                >
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="All statuses" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="all">All statuses</SelectItem>
+                                        <SelectItem value="pending">Pending</SelectItem>
+                                        <SelectItem value="approved">Approved</SelectItem>
+                                        <SelectItem value="denied">Denied</SelectItem>
+                                        <SelectItem value="cancelled">Cancelled</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+
+                            {/* PTO Type Filter */}
+                            <div className="space-y-2">
+                                <Label htmlFor="pto_type">PTO Type</Label>
+                                <Select
+                                    value={filterData.pto_type}
+                                    onValueChange={(value) => handleFilterChange('pto_type', value)}
+                                >
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="All types" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="all">All types</SelectItem>
+                                        {(filterData.user && filterData.user !== 'all' ? filteredPtoTypes : allPtoTypes).map((ptoType) => (
+                                            <SelectItem key={ptoType.id} value={ptoType.id.toString()}>
+                                                <div className="flex items-center gap-2">
+                                                    <div
+                                                        className="h-3 w-3 rounded border"
+                                                        style={{ backgroundColor: ptoType.color }}
+                                                    />
+                                                    {ptoType.name}
+                                                </div>
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+
+                            {/* Actions */}
+                            <div className="flex items-end space-y-2">
+                                <div className="flex flex-col gap-2">
+                                    <div className="flex items-center space-x-2">
+                                        <Switch
+                                            id="pending_only"
+                                            checked={filterData.pending_only}
+                                            onCheckedChange={(checked) => handleFilterChange('pending_only', checked)}
+                                        />
+                                        <Label htmlFor="pending_only" className="text-sm">
+                                            Pending only
+                                        </Label>
+                                    </div>
+                                    {hasActiveFilters && (
+                                        <Button variant="outline" size="sm" onClick={clearFilters}>
+                                            Clear filters
+                                        </Button>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    </CardContent>
                 </Card>
 
                 <Card>

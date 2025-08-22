@@ -135,7 +135,7 @@ class RouteDiscoveryService
             'controller_class' => $controllerClass,
             'controller_method' => $controllerMethod,
             'group_name' => $this->determineGroupName($name, $controllerClass),
-            'display_name' => $this->createDisplayName($name, $controllerMethod),
+            'description' => $this->createDisplayName($name, $controllerMethod),
             'middleware' => $this->getCleanMiddleware($route),
             'is_protected' => $this->shouldProtectRoute($route),
             'is_active' => true,
@@ -181,7 +181,7 @@ class RouteDiscoveryService
         // Use custom mapping for better grouping
         $customMappings = [
             'hr' => 'Human Resources',
-            'hrs' => 'Human Resources', 
+            'hrs' => 'Human Resources',
             'pto' => 'PTO Management',
             'time-clock' => 'Time & Attendance',
             'billy' => 'AI Assistant',
@@ -206,19 +206,19 @@ class RouteDiscoveryService
         $parts = explode('.', $routeName);
         if (count($parts) > 1) {
             $primaryResource = $parts[0];
-            
+
             // Check for custom mapping first
             if (isset($customMappings[$primaryResource])) {
                 return $customMappings[$primaryResource];
             }
-            
+
             return $this->formatGroupName($primaryResource);
         }
 
         // Fallback to controller-based grouping with mappings
         if ($controllerClass) {
             $controllerName = class_basename($controllerClass);
-            
+
             // Controller-specific mappings
             $controllerMappings = [
                 'HREmployeesController' => 'Human Resources',
@@ -236,11 +236,11 @@ class RouteDiscoveryService
                 'WarehouseController' => 'Warehouse Operations',
                 'DashboardController' => 'Dashboard',
             ];
-            
+
             if (isset($controllerMappings[$controllerName])) {
                 return $controllerMappings[$controllerName];
             }
-            
+
             $resource = str_replace('Controller', '', $controllerName);
             return $this->formatGroupName(Str::kebab($resource));
         }
@@ -263,10 +263,10 @@ class RouteDiscoveryService
     {
         // Remove redundant prefixes (e.g., access-control.access-control.* -> access-control.*)
         $cleanRouteName = $this->removeRedundantPrefixes($routeName);
-        
+
         // Split into parts
         $parts = explode('.', $cleanRouteName);
-        
+
         // Action mappings for better display names
         $actionMappings = [
             'index' => 'View',
@@ -289,22 +289,22 @@ class RouteDiscoveryService
             'bulk' => 'Bulk Operations',
             'search' => 'Search',
         ];
-        
+
         // Get the action (usually the last part)
         $action = end($parts);
         $actionDisplay = $actionMappings[$action] ?? ucwords(str_replace(['-', '_'], ' ', $action));
-        
+
         // Get the resource context (everything except the action)
         $resourceParts = array_slice($parts, 0, -1);
         $resourceContext = implode(' ', array_map(function($part) {
             return ucwords(str_replace(['-', '_'], ' ', $part));
         }, $resourceParts));
-        
+
         // Combine for final display name
         if (empty($resourceContext)) {
             return $actionDisplay;
         }
-        
+
         return "{$actionDisplay} {$resourceContext}";
     }
 
@@ -315,11 +315,11 @@ class RouteDiscoveryService
     {
         // Pattern: prefix.prefix.rest -> prefix.rest
         $parts = explode('.', $routeName);
-        
+
         if (count($parts) >= 3 && $parts[0] === $parts[1]) {
             array_splice($parts, 1, 1); // Remove duplicate
         }
-        
+
         return implode('.', $parts);
     }
 

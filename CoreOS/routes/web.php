@@ -1,6 +1,5 @@
 <?php
 
-use App\Events\Example;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\Settings\EmergencyContactsController;
 use App\Http\Controllers\UserManagementController;
@@ -17,12 +16,6 @@ use Laravel\WorkOS\Http\Middleware\ValidateSessionWithWorkOS;
 Route::get('/', function () {
     return Inertia::render('welcome');
 })->name('home');
-
-Route::get('/broadcast', function () {
-
-    broadcast(new Example);
-
-})->name('broadcast');
 
 Route::get('/test', function () {
     return 'Homepage test working!';
@@ -93,6 +86,11 @@ Route::middleware('auth')
             Route::post('/reactivate-user', [UserManagementController::class, 'reactivateUser']);
             Route::post('/invite-user-with-pto', [UserManagementController::class, 'inviteUserWithPto']);
 
+            // Online Users API
+            Route::get('/online-users', [App\Http\Controllers\OnlineUsersController::class, 'index']);
+            Route::post('/mark-online', [App\Http\Controllers\OnlineUsersController::class, 'markOnline']);
+            Route::post('/mark-offline', [App\Http\Controllers\OnlineUsersController::class, 'markOffline']);
+            Route::post('/update-last-seen', [App\Http\Controllers\OnlineUsersController::class, 'updateLastSeen']);
         });
     });
 /*

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\Department;
 use App\Models\PtoModels\PtoApproval;
 use App\Models\PtoModels\PtoBalance;
 use App\Models\PtoModels\PtoRequest;
@@ -34,10 +35,10 @@ class PtoAdminController extends Controller
      */
     public function requests()
     {
-        $filters = request()->only(['search', 'status', 'pto_type', 'user', 'pending_only']);
+        $filters = request()->only(['search', 'status', 'pto_type', 'user', 'department', 'pending_only']);
 
         $query = PtoRequest::with([
-            'user:id,name,email', 'ptoType:id,name,code,color', 'approvedBy:id,name', 'deniedBy:id,name',
+            'user:id,name,email', 'user.departments:id,name', 'ptoType:id,name,code,color', 'approvedBy:id,name', 'deniedBy:id,name',
             'approvals.approver:id,name'
         ])
             ->orderBy('submitted_at', 'desc');
@@ -53,10 +54,14 @@ class PtoAdminController extends Controller
 
         if (!empty($filters['status'])) {
             $query->where('status', $filters['status']);
+        } elseif (!empty($filters['pending_only'])) {
+            $query->where('status', 'pending');
         }
 
-        if (!empty($filters['pending_only'])) {
-            $query->where('status', 'pending');
+        if (!empty($filters['department'])) {
+            $query->whereHas('user.departments', function ($departmentQuery) use ($filters) {
+                $departmentQuery->where('departments.id', $filters['department']);
+            });
         }
 
         if (!empty($filters['search'])) {
@@ -77,6 +82,7 @@ class PtoAdminController extends Controller
 
         $users = User::select('id', 'name', 'email')->orderBy('name')->get();
         $allPtoTypes = PtoType::active()->ordered()->select('id', 'name', 'code', 'color')->get();
+        $departments = Department::where('is_active', true)->select('id', 'name')->orderBy('name')->get();
 
         // Get filtered PTO types for the selected user
         $filteredPtoTypes = [];
@@ -113,6 +119,7 @@ class PtoAdminController extends Controller
             'users' => $users,
             'allPtoTypes' => $allPtoTypes,
             'filteredPtoTypes' => $filteredPtoTypes,
+            'departments' => $departments,
             'filters' => $filters,
         ]);
     }
