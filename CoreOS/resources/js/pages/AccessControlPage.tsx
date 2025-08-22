@@ -574,7 +574,7 @@ export default React.memo(function AccessControlPage({
 
     const handleBulkAssign = (e: React.FormEvent) => {
         e.preventDefault();
-        postBulkAssign('/dev-ops/access-control/bulk/update-route-permissions', {
+        postBulkAssign('/access-control/bulk/update-route-permissions', {
             onSuccess: () => {
                 toast.success(`Permissions and roles assigned to ${bulkAssignData.route_ids.length} routes in ${bulkAssignModal.groupName}!`);
                 setBulkAssignModal({ open: false, groupName: '', routes: [] });
@@ -657,7 +657,7 @@ export default React.memo(function AccessControlPage({
     // Save functions using router
     const saveRolePermissions = () => {
         setIsProcessing(true);
-        router.post('/dev-ops/access-control/role-permissions',
+        router.post('/access-control/role-permissions',
             { matrix: rolePermissionMatrix },
             {
                 onSuccess: () => {
@@ -676,7 +676,7 @@ export default React.memo(function AccessControlPage({
 
     const saveUserRoles = () => {
         setIsProcessing(true);
-        router.post('/dev-ops/access-control/user-roles',
+        router.post('/access-control/user-roles',
             { matrix: userRoleMatrix },
             {
                 onSuccess: () => {
@@ -702,7 +702,7 @@ export default React.memo(function AccessControlPage({
             is_protected: data.is_protected
         }));
 
-        router.post('/dev-ops/access-control/route-permissions',
+        router.post('/access-control/route-permissions',
             { assignments },
             {
                 onSuccess: () => {
@@ -721,7 +721,7 @@ export default React.memo(function AccessControlPage({
 
     const syncRoutes = () => {
         setIsProcessing(true);
-        router.post('/dev-ops/access-control/sync-routes', {}, {
+        router.post('/access-control/sync-routes', {}, {
             onSuccess: () => {
                 toast.success('Routes synced successfully!');
                 setIsProcessing(false);
@@ -766,7 +766,7 @@ export default React.memo(function AccessControlPage({
 
     const handleCreateCategory = (e: React.FormEvent) => {
         e.preventDefault();
-        postCategory('/dev-ops/access-control/categories', {
+        postCategory('/access-control/categories', {
             onSuccess: () => {
                 toast.success('Category created successfully!');
                 setCategoryModal({ open: false, mode: 'create', category: null });
@@ -779,7 +779,7 @@ export default React.memo(function AccessControlPage({
     const handleUpdateCategory = (e: React.FormEvent) => {
         e.preventDefault();
         if (!categoryModal.category) return;
-        putCategory(`/dev-ops/access-control/categories/${categoryModal.category.id}`, {
+        putCategory(`/access-control/categories/${categoryModal.category.id}`, {
             onSuccess: () => {
                 toast.success('Category updated successfully!');
                 setCategoryModal({ open: false, mode: 'create', category: null });
@@ -800,7 +800,7 @@ export default React.memo(function AccessControlPage({
 
     const handleUpdateUserPermissions = (e: React.FormEvent) => {
         e.preventDefault();
-        postUserPerm('/dev-ops/access-control/user-permissions', {
+        postUserPerm('/access-control/user-permissions', {
             onSuccess: () => {
                 toast.success('User permissions updated successfully!');
                 setUserPermissionModal({ open: false, user: null });
@@ -827,7 +827,7 @@ export default React.memo(function AccessControlPage({
 
     const handleCreatePermission = (e: React.FormEvent) => {
         e.preventDefault();
-        postPermission('/dev-ops/access-control/permissions', {
+        postPermission('/access-control/permissions', {
             onSuccess: () => {
                 toast.success('Permission created successfully!');
                 setPermissionModal({ open: false, mode: 'create', permission: null });
@@ -840,7 +840,7 @@ export default React.memo(function AccessControlPage({
     const handleUpdatePermission = (e: React.FormEvent) => {
         e.preventDefault();
         if (!permissionModal.permission) return;
-        putPermission(`/dev-ops/access-control/permissions/${permissionModal.permission.id}`, {
+        putPermission(`/access-control/permissions/${permissionModal.permission.id}`, {
             onSuccess: () => {
                 toast.success('Permission updated successfully!');
                 setPermissionModal({ open: false, mode: 'create', permission: null });
@@ -866,7 +866,7 @@ export default React.memo(function AccessControlPage({
 
     const handleCreateRole = (e: React.FormEvent) => {
         e.preventDefault();
-        postRole('/dev-ops/access-control/roles', {
+        postRole('/access-control/roles', {
             onSuccess: () => {
                 toast.success('Role created successfully!');
                 setRoleModal({ open: false, mode: 'create', role: null });
@@ -879,7 +879,7 @@ export default React.memo(function AccessControlPage({
     const handleUpdateRole = (e: React.FormEvent) => {
         e.preventDefault();
         if (!roleModal.role) return;
-        putRole(`/dev-ops/access-control/roles/${roleModal.role.id}`, {
+        putRole(`/access-control/roles/${roleModal.role.id}`, {
             onSuccess: () => {
                 toast.success('Role updated successfully!');
                 setRoleModal({ open: false, mode: 'create', role: null });
@@ -901,7 +901,7 @@ export default React.memo(function AccessControlPage({
 
     const handleBulkCategoryAssignment = (e: React.FormEvent) => {
         e.preventDefault();
-        postBulkCategory('/dev-ops/access-control/bulk/assign-permission-categories', {
+        postBulkCategory('/access-control/bulk/assign-permission-categories', {
             onSuccess: () => {
                 toast.success('Categories assigned successfully!');
                 setBulkCategoryModal({ open: false, selectedPermissions: [] });
@@ -921,10 +921,10 @@ export default React.memo(function AccessControlPage({
         if (!deleteDialog.item) return;
 
         const endpoint = deleteDialog.type === 'permission'
-            ? `/dev-ops/access-control/permissions/${deleteDialog.item.id}`
+            ? `/access-control/permissions/${deleteDialog.item.id}`
             : deleteDialog.type === 'role'
-                ? `/dev-ops/access-control/roles/${deleteDialog.item.id}`
-                : `/dev-ops/access-control/categories/${deleteDialog.item.id}`;
+                ? `/access-control/roles/${deleteDialog.item.id}`
+                : `/access-control/categories/${deleteDialog.item.id}`;
 
         if (deleteDialog.type === 'permission') {
             deletePermission(endpoint, {
