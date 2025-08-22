@@ -31,6 +31,7 @@ class RoutePermissionMiddleware
         'telescope.*',
         'horizon.*',
         'debugbar.*',
+        'pto.*',
     ];
 
     /**

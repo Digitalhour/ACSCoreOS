@@ -42,6 +42,7 @@ class HandleInertiaRequests extends Middleware
 $user = Auth::user();
         return [
             ...parent::share($request),
+            'pagePresenceId' => hash('xxh3', $request->fullUrl()),
             'name' => config('app.name'),
             'quote' => ['message' => trim($message), 'author' => trim($author)],
             'auth' => [

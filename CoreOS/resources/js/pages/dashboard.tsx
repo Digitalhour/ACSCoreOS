@@ -3,7 +3,7 @@ import {type BreadcrumbItem} from '@/types';
 import {Head} from '@inertiajs/react';
 import BlogFeed from "@/components/BlogFeed";
 import React, {useEffect, useState} from 'react';
-
+import {useEchoPresence} from "@laravel/echo-react";
 import {
     ChartConfig,
     ChartContainer,
@@ -14,7 +14,6 @@ import {
 } from "@/components/ui/chart";
 import {Area, AreaChart, CartesianGrid, Line, LineChart, XAxis, YAxis} from "recharts";
 import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue,} from "@/components/ui/select";
-
 import {usePermission} from "@/hooks/usePermission";
 import DashboardTimeClock from "@/components/DashboardTimeClock";
 import {TimeclockPermissionsEnum} from "@/types/permissions";
@@ -99,6 +98,7 @@ interface Props {
     currentStatus?: CurrentStatus;
     breakTypes?: BreakType[];
     User?: User; // Update User interface to include required fields
+    pageId?: number;
 }
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -137,12 +137,15 @@ const chartConfig = {
 
 
 
-export default function Dashboard({
+
+export default function Dashboard ({
                                       articles,
+
                                       currentStatus,
                                       breakTypes = [],
                                       User
                                   }: Props) {
+
     const [monthlySalesData, setMonthlySalesData] = useState<SalesData[]>([]);
     const [totalNetSales, setTotalNetSales] = useState<number>(0);
     const [totalGrossSales, setTotalGrossSales] = useState<number>(0);
@@ -225,16 +228,38 @@ export default function Dashboard({
             default: return "This month";
         }
     };
-    const { hasPermission, hasRole, hasAnyRole } = usePermission();
-    // useEcho('presence.online', 'OrderStatusUpdatedEvent', (e) => {
-    // console.log(e);
-    // })
 
+    const { hasPermission, hasRole, hasAnyRole } = usePermission();
+    const [members, setMembers] = useState<Member[]>([]);
+    type Member = { id: number; name: string; avatar?: string | null };
+    // useEcho("online-users", "UserPinged", (payload) => {
+    //     console.log(payload.user);
+    // });
+    useEchoPresence('online-users','UserOnlineStatus', (e) => {
+        console.log(e);
+    })
+    // useEchoPresence("online-users", {
+    //
+    //     here: (users) => setMembers(users),
+    //     joining: (user) => setMembers((p) => [...p, user]),
+    //     leaving: (user) => setMembers((p) => p.filter((m) => m.id !== user.id)),
+    // });
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Dashboard" />
 
             <div className="flex flex-col gap-4 rounded-xl p-2 sm:p-4">
+                <div>
+                    <div>Viewing now: {members.length}</div>
+                    <div>
+                        <h3>Online Users ({members.length})</h3>
+                        <ul>
+                            {members.map((m) => (
+                                <li key={m.id}>{m.name}</li>
+                            ))}
+                        </ul>
+                    </div>
+                </div>
                 {/* Stats Cards Grid - Updated to include TimeClock */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-8 gap-3 sm:gap-4">
                     {hasPermission(TimeclockPermissionsEnum.Show) && (

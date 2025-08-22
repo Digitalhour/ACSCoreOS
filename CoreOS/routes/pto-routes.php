@@ -5,7 +5,6 @@ use App\Http\Controllers\Api\PtoApi\HRDashboardController;
 use App\Http\Controllers\Api\PtoApi\PtoOverviewController;
 use App\Http\Controllers\Api\PtoApi\PtoTypeController;
 use App\Http\Controllers\DepartmentTimeOffController;
-use App\Http\Controllers\EmployeePtoController;
 use Illuminate\Support\Facades\Route;
 use Laravel\WorkOS\Http\Middleware\ValidateSessionWithWorkOS;
 
@@ -20,16 +19,7 @@ Route::middleware('auth')
             Route::post('/pto-requests/{ptoRequest}/approve',[DepartmentTimeOffController::class, 'approve'])->name('pto.requests.approve');
             Route::post('/pto-requests/{ptoRequest}/deny',[DepartmentTimeOffController::class, 'deny'])->name('pto.requests.deny');
 
-        // User PTO dashboard
-            Route::get('/employee/pto', [EmployeePtoController::class, 'index'])->name('pto.dashboard');
-        // User PTO request management
-            Route::post('/pto/requests', [EmployeePtoController::class, 'store'])->name('pto.requests.store');
-            Route::post('/pto/requests/{ptoRequest}/cancel',[EmployeePtoController::class, 'cancel'])->name('pto.requests.cancel');
 
-        // Legacy redirect
-            Route::get('/request-pto', function () {
-                return redirect()->route('pto.dashboard');
-            })->name('request-pto');
 
 
         Route::get('/admin/pto', [PtoAdminController::class, 'dashboard'])->name('admin.pto.dashboard');

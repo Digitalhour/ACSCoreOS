@@ -1,9 +1,17 @@
 <?php
 
 //
-// Broadcast::Channel('App.Models.User.{id}', function ($user, $id) {
-//    return (int) $user->id === (int) $id;
-// });
+ Broadcast::Channel('App.Models.User.{id}', function ($user, $id) {
+    return (int) $user->id === (int) $id;
+ });
+
+
+
+Broadcast::channel('online-users', function ($user) {
+//    return ;
+
+    return ['id' => $user->id, 'name' => $user->name, 'avatar_url' => $user->avatar_url];
+});
 //
 //
 // broadcast::channel('chat', function() {

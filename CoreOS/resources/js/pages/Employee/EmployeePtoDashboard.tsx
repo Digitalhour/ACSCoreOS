@@ -107,6 +107,7 @@ interface DepartmentPtoRequest {
 interface PtoDataItem {
     policy: any;
     balance: number;
+    used_balance: number;
     pending_balance: number;
     available_balance: number;
     pto_type: {
@@ -933,21 +934,12 @@ export default function EmployeePtoDashboard() {
 
     // Prepare donut chart data for each PTO type
     const getPtoChartData = (ptoItem: PtoDataItem) => {
-        const totalBalance = ptoItem.balance;
+        const remainingBalance = ptoItem.balance; // This is the remaining balance after used
+        const usedBalance = ptoItem.used_balance; // This is what was actually used
         const pendingBalance = ptoItem.pending_balance || 0;
-        const usedBalance = totalBalance - ptoItem.available_balance - pendingBalance;
-        const remainingBalance = ptoItem.available_balance;
-        const approvedDays = getApprovedDaysForType(ptoItem.pto_type.id);
+        const availableBalance = ptoItem.available_balance; // This is remaining - pending
 
         const data = [];
-        if (approvedDays > 0) {
-            data.push({
-                label: 'approved',
-                value: approvedDays,
-                color: 'rgba(40,40,40,0.38)',
-                description: `${approvedDays} days approved`
-            });
-        }
 
         if (usedBalance > 0) {
             data.push({
@@ -967,12 +959,12 @@ export default function EmployeePtoDashboard() {
             });
         }
 
-        if (remainingBalance > 0) {
+        if (availableBalance > 0) {
             data.push({
                 label: 'remaining',
-                value: remainingBalance,
+                value: availableBalance,
                 color: ptoItem.pto_type.color,
-                description: `${remainingBalance} days remaining`
+                description: `${availableBalance} days remaining`
             });
         }
 
@@ -983,7 +975,7 @@ export default function EmployeePtoDashboard() {
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="PTO Dashboard" />
 
-            <div className="flex h-full flex-1 flex-col gap-6 p-4">
+            <div className="flex flex-col gap-4 p-4">
                 <div className="flex items-center justify-between">
                     <h1 className="text-2xl font-bold text-gray-600">PTO Dashboard</h1>
                     <Button onClick={() => setShowRequestForm(true)} className="gap-2 bg-green-600 hover:bg-green-700">
@@ -994,35 +986,35 @@ export default function EmployeePtoDashboard() {
                 {/* Time Off Policy Overview */}
                 <div className="flex flex-col-4 gap-2 ">
                     {pto_data.map((item) => (
-                        <Card key={item.pto_type.id}>
-                            <CardHeader className="pb-4">
+                        <div key={item.pto_type.id} className={"border-2 border-gray-200 rounded-lg p-4 "}>
+                            <div className="pb-4">
                                 <div className="flex justify-between gap-2">
-                                    <CardTitle className="text-gray-600">Your Time Off Overview</CardTitle>
+                                    <div className="text-gray-600 font-medium">Your Time Off Overview</div>
                                     <Badge variant="outline" style={{ backgroundColor: item.pto_type.color }}>
                                         <p className="text-md font-semibold text-gray-700 uppercase">{item.pto_type.name}</p>
                                     </Badge>
                                 </div>
-                            </CardHeader>
-                            <CardContent className="flex flex-col">
+                            </div>
+                            <div className="flex flex-col">
                                 <div>
                                     <div className="space-y-4">
                                         <DonutChart data={getPtoChartData(item)} />
                                     </div>
                                 </div>
-                            </CardContent>
-                        </Card>
+                            </div>
+                        </div>
                     ))}
                 </div>
 
                 <div className="grid gap-6 lg:grid-cols-2">
                     {/* Upcoming Requests */}
-                    <Card>
-                        <CardHeader>
-                            <CardTitle className="text-gray-600">Upcoming Requests</CardTitle>
-                        </CardHeader>
-                        <CardContent>
+                    <div className={"border-2 border-gray-200 rounded-lg p-4 "}>
+                        <div>
+                            <div className="text-gray-900 font-medium">Upcoming Requests</div>
+                        </div>
+                        <div className={"p-4"}>
                             <div className="space-y-4">
-                                <div className="grid grid-cols-4 gap-4 text-sm font-medium text-gray-500">
+                                <div className="grid grid-cols-4 gap-4 text-sm font-medium text-gray-600">
                                     <div>Date</div>
                                     <div>Type</div>
                                     <div>Status</div>
@@ -1082,7 +1074,7 @@ export default function EmployeePtoDashboard() {
                                                     ) : (
                                                         <div className="text-xs text-gray-500">
                                                             {request.status === 'approved' && hoursUntilStart < 24
-                                                                ? `Cannot cancel (${Math.ceil(hoursUntilStart)}h left)`
+                                                                ? `Started on ${formatDate(request.start_date)}`
                                                                 : request.status === 'denied' || request.status === 'cancelled'
                                                                     ? 'Not cancellable'
                                                                     : ''
@@ -1099,18 +1091,18 @@ export default function EmployeePtoDashboard() {
                                     </div>
                                 )}
                             </div>
-                        </CardContent>
-                    </Card>
+                        </div>
+                    </div>
 
                     {/* Company Holidays */}
-                    <Card>
-                        <CardHeader>
-                            <CardTitle className="flex items-center gap-2 text-gray-600">
+                    <div className={"border-2 border-gray-200 rounded-lg p-4 "}>
+                        <div >
+                            <div className="flex items-center gap-2 text-gray-600">
                                 <Calendar className="h-5 w-5" />
                                 Upcoming Company Holidays
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent>
+                            </div>
+                        </div>
+                        <div className={"p-4"}>
                             <div className="space-y-4">
                                 <div className="grid grid-cols-2 gap-4 text-sm font-medium text-gray-500">
                                     <div>Date</div>
@@ -1131,8 +1123,8 @@ export default function EmployeePtoDashboard() {
                                     </div>
                                 )}
                             </div>
-                        </CardContent>
-                    </Card>
+                        </div>
+                    </div>
                 </div>
 
                 {/* Cancel Dialog */}
@@ -1189,11 +1181,11 @@ export default function EmployeePtoDashboard() {
                 </Dialog>
 
                 {/* Taken Time Off */}
-                <Card>
-                    <CardHeader>
-                        <CardTitle className="text-gray-600">Taken Time Off</CardTitle>
-                    </CardHeader>
-                    <CardContent>
+                <div className={"border-2 border-gray-200 rounded-lg p-4 "}>
+                    <div>
+                        <div className="text-gray-900 font-medium">Taken Time Off</div>
+                    </div>
+                    <div className={"p-4"}>
                         <div className="space-y-4">
                             <div className="grid grid-cols-3 gap-4 text-sm font-medium text-gray-500">
                                 <div>Date</div>
@@ -1221,8 +1213,8 @@ export default function EmployeePtoDashboard() {
                                 </div>
                             )}
                         </div>
-                    </CardContent>
-                </Card>
+                    </div>
+                </div>
 
                 {/* Department PTO Calendar */}
                 <Card>

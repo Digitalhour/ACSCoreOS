@@ -19,7 +19,7 @@ Route::middleware('auth')->middleware(ValidateSessionWithWorkOS::class)->group(f
 
 
 
-    Route::group(['middleware' => ['role_or_permission:Developer']], function () {
+//    Route::group(['middleware' => ['role_or_permission:Developer']], function () {
         //dev dashboard
 //        Route::get('/admin', function () {
 //            return Inertia::render('Admin/adminDashboard', [
@@ -141,5 +141,5 @@ Route::middleware('auth')->middleware(ValidateSessionWithWorkOS::class)->group(f
 
 
 
-    });
+//    });
 });

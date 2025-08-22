@@ -526,6 +526,7 @@ class EmployeePtoController extends Controller
                         'code' => $ptoType->code,
                     ],
                     'balance' => (float) $balance->balance,
+                    'used_balance' => (float) $balance->used_balance,
                     'pending_balance' => (float) $balance->pending_balance,
                     'available_balance' => (float) ($balance->balance - $balance->pending_balance),
                     'policy' => $policy ? [

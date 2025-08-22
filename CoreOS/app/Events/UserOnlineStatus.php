@@ -4,10 +4,10 @@ namespace App\Events;
 
 use App\Models\User;
 use Illuminate\Broadcasting\PresenceChannel;
-use Illuminate\Contracts\Broadcasting\ShouldBroadcast;
+use Illuminate\Contracts\Broadcasting\ShouldBroadcastNow;
 use Illuminate\Foundation\Events\Dispatchable;
 
-class UserOnlineStatus implements ShouldBroadcast
+class UserOnlineStatus implements ShouldBroadcastNow
 {
     use Dispatchable;
 
@@ -18,8 +18,8 @@ class UserOnlineStatus implements ShouldBroadcast
         return new PresenceChannel('online-users');
     }
 
-    public function broadcastWith()
+    public function broadcastWith(User $user)
     {
-        return ['id' => $this->user->id, 'name' => $this->user->name];
+        return $user->only('id', 'name', 'avatar_url');
     }
 }

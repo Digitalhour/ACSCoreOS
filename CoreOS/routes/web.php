@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\EmployeePtoController;
 use App\Http\Controllers\Settings\EmergencyContactsController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -25,6 +26,19 @@ Route::get('/', function () {
 Route::middleware('auth')
     ->middleware(ValidateSessionWithWorkOS::class)
     ->group(function () {
+
+
+        // User PTO dashboard
+        Route::get('/employee/pto', [EmployeePtoController::class, 'index'])->name('pto.dashboard');
+        // User PTO request management
+        Route::post('/pto/requests', [EmployeePtoController::class, 'store'])->name('pto.requests.store');
+        Route::post('/pto/requests/{ptoRequest}/cancel',[EmployeePtoController::class, 'cancel'])->name('pto.requests.cancel');
+
+        // Legacy redirect
+        Route::get('/request-pto', function () {
+            return redirect()->route('pto.dashboard');
+        })->name('request-pto');
+
 
         /*
 

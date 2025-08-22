@@ -256,7 +256,7 @@ class PtoBalanceController extends Controller
                     'balance' => $balance->balance,
                     'pending_balance' => $balance->pending_balance,
                     'used_balance' => $balance->used_balance,
-                    'available_balance' => $balance->balance - $balance->pending_balance,
+                    'available_balance' => $balance->balance - $balance->used_balance - $balance->pending_balance,
                     'year' => $balance->year,
                 ];
             }
