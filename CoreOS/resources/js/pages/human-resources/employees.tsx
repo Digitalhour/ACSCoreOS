@@ -2,7 +2,6 @@ import AppLayout from '@/layouts/app-layout';
 import {type BreadcrumbItem} from '@/types';
 import {Head, router} from '@inertiajs/react';
 import HrLayout from "@/layouts/settings/hr-layout";
-import {Table, TableBody, TableCell, TableHeader, TableRow} from "@/components/ui/table";
 import {Avatar, AvatarFallback, AvatarImage} from "@/components/ui/avatar";
 import {Badge} from "@/components/ui/badge";
 import {Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle} from "@/components/ui/sheet";
@@ -26,7 +25,6 @@ import {
     Home,
     Mail,
     MapPin,
-    Plus,
     Save,
     Search,
     Shield,
@@ -38,6 +36,7 @@ import {
     X
 } from 'lucide-react';
 import {Separator} from "@/components/ui/separator";
+import {formatDate, formatDateTime} from "@/lib/utils";
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
@@ -264,18 +263,8 @@ export default function Employees({ users }: { users: User[] }) {
         }
     };
 
-    const openEmployeeSheet = (user: User) => {
-        // Ensure permissions is always an array
-        const userWithPermissions = {
-            ...user,
-            permissions: user.permissions || []
-        };
-        setSelectedUser(userWithPermissions);
-        setRequestStatusFilter('all');
-        setRequestSortField('created_at');
-        setRequestSortDirection('desc');
-        setIsEditingRoles(false);
-        setIsSheetOpen(true);
+    const openEmployeeProfile = (user: User) => {
+        router.visit(`/hr/employees/${user.id}`);
     };
 
     const fetchRolesAndPermissions = async () => {
@@ -284,7 +273,7 @@ export default function Employees({ users }: { users: User[] }) {
                 fetch('/user-management/roles'),
                 fetch('/user-management/permissions')
             ]);
-            
+
             if (rolesResponse.ok && permissionsResponse.ok) {
                 const rolesData = await rolesResponse.json();
                 const permissionsData = await permissionsResponse.json();
@@ -307,7 +296,7 @@ export default function Employees({ users }: { users: User[] }) {
 
     const handleAddRole = (roleId: number) => {
         if (!selectedUser) return;
-        
+
         const role = availableRoles.find(r => r.id === roleId);
         if (role && !selectedUser.roles.some(r => r.id === roleId)) {
             setSelectedUser({
@@ -319,7 +308,7 @@ export default function Employees({ users }: { users: User[] }) {
 
     const handleRemoveRole = (roleId: number) => {
         if (!selectedUser) return;
-        
+
         setSelectedUser({
             ...selectedUser,
             roles: selectedUser.roles.filter(r => r.id !== roleId)
@@ -328,7 +317,7 @@ export default function Employees({ users }: { users: User[] }) {
 
     const handleAddPermission = (permissionId: number) => {
         if (!selectedUser) return;
-        
+
         const permission = availablePermissions.find(p => p.id === permissionId);
         if (permission && !selectedUser.permissions.some(p => p.id === permissionId)) {
             setSelectedUser({
@@ -340,7 +329,7 @@ export default function Employees({ users }: { users: User[] }) {
 
     const handleRemovePermission = (permissionId: number) => {
         if (!selectedUser) return;
-        
+
         setSelectedUser({
             ...selectedUser,
             permissions: selectedUser.permissions.filter(p => p.id !== permissionId)
@@ -349,7 +338,7 @@ export default function Employees({ users }: { users: User[] }) {
 
     const handleSaveRoles = async () => {
         if (!selectedUser) return;
-        
+
         setIsSavingRoles(true);
         try {
             // Save roles
@@ -381,7 +370,7 @@ export default function Employees({ users }: { users: User[] }) {
                     console.error('Failed to save permissions:', errors);
                 }
             });
-            
+
             setIsEditingRoles(false);
         } catch (error) {
             console.error('Failed to save roles and permissions:', error);
@@ -574,23 +563,6 @@ export default function Employees({ users }: { users: User[] }) {
         </th>
     );
 
-    const formatDate = (dateString: string) => {
-        return new Date(dateString).toLocaleDateString('en-US', {
-            year: 'numeric',
-            month: 'short',
-            day: 'numeric'
-        });
-    };
-
-    const formatDateTime = (dateString: string) => {
-        return new Date(dateString).toLocaleDateString('en-US', {
-            year: 'numeric',
-            month: 'short',
-            day: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit'
-        });
-    };
 
     const activeFiltersCount = (searchTerm ? 1 : 0) + (statusFilter !== 'all' ? 1 : 0);
 
@@ -598,174 +570,236 @@ export default function Employees({ users }: { users: User[] }) {
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Employees" />
             <HrLayout>
-                <div className="space-y-2">
-                    <div className="flex justify-between items-center">
-                        <div>
-                            <h1 className="text-2xl font-bold text-gray-900">Employees</h1>
-                            <p className="text-gray-600">ACS Employees details</p>
+                <div className="space-y-6">
+                    {/* Header Section */}
+                    <div className="bg-gradient-to-r from-blue-600 to-indigo-700 rounded-xl p-6 text-white">
+                        <div className="flex justify-between items-center">
+                            <div>
+                                <h1 className="text-3xl font-bold">Employee Directory</h1>
+                                <p className="text-blue-100 mt-1">Manage and view employee profiles</p>
+                            </div>
+                            <div className="text-right">
+                                <div className="text-2xl font-bold">{users.length}</div>
+                                <div className="text-sm text-blue-100">Total Employees</div>
+                            </div>
                         </div>
-                        <div className="text-sm text-gray-500">
-                            {sortedUsers.length} of {users.length} employee{users.length !== 1 ? 's' : ''}
+
+                        {/* Quick Stats */}
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-6">
+                            <div className="bg-white/10 backdrop-blur-sm rounded-lg p-4">
+                                <div className="flex items-center">
+                                    <UserRoundCheck className="h-5 w-5 mr-2" />
+                                    <div>
+                                        <div className="text-lg font-semibold">{users.filter(u => !u.deleted_at).length}</div>
+                                        <div className="text-xs text-blue-100">Active</div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="bg-white/10 backdrop-blur-sm rounded-lg p-4">
+                                <div className="flex items-center">
+                                    <UserX className="h-5 w-5 mr-2" />
+                                    <div>
+                                        <div className="text-lg font-semibold">{users.filter(u => u.deleted_at).length}</div>
+                                        <div className="text-xs text-blue-100">Inactive</div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="bg-white/10 backdrop-blur-sm rounded-lg p-4">
+                                <div className="flex items-center">
+                                    <CalendarMinus2 className="h-5 w-5 mr-2" />
+                                    <div>
+                                        <div className="text-lg font-semibold">{users.reduce((sum, u) => sum + u.pto_stats.pending, 0)}</div>
+                                        <div className="text-xs text-blue-100">Pending PTO</div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="bg-white/10 backdrop-blur-sm rounded-lg p-4">
+                                <div className="flex items-center">
+                                    <Building className="h-5 w-5 mr-2" />
+                                    <div>
+                                        <div className="text-lg font-semibold">{new Set(users.map(u => u.departments)).size}</div>
+                                        <div className="text-xs text-blue-100">Departments</div>
+                                    </div>
+                                </div>
+                            </div>
+
+                        </div>
+                        <div className="flex flex-col lg:flex-row gap-4 p-4">
+                            <div className="flex-1 relative">
+                                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
+                                <Input
+                                    placeholder="Search employees by name, email, department, or position..."
+                                    value={searchTerm}
+                                    onChange={(e) => setSearchTerm(e.target.value)}
+                                    className="pl-11 h-11 text-base"
+                                />
+                            </div>
+                            <div className="flex gap-3">
+                                <Select value={statusFilter} onValueChange={(value: StatusFilter) => setStatusFilter(value)}>
+                                    <SelectTrigger className="w-44 h-11">
+                                        <div className="flex items-center gap-2">
+                                            <Filter className="h-4 w-4" />
+                                            <SelectValue />
+                                        </div>
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="all">All Employees</SelectItem>
+                                        <SelectItem value="active">Active Only</SelectItem>
+                                        <SelectItem value="deactivated">Inactive Only</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                                {activeFiltersCount > 0 && (
+                                    <Button
+                                        variant="outline"
+                                        onClick={clearFilters}
+                                        className="flex items-center gap-2 h-11"
+                                    >
+                                        <X className="h-4 w-4" />
+                                        Clear Filters ({activeFiltersCount})
+                                    </Button>
+                                )}
+                            </div>
                         </div>
                     </div>
 
-                    {/* Search and Filters */}
-                    <Card>
-                        <CardContent >
-                            <div className="flex flex-col md:flex-row gap-4">
-                                <div className="flex-1 relative">
-                                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-                                    <Input
-                                        placeholder="Search employees by name, email, department, or position..."
-                                        value={searchTerm}
-                                        onChange={(e) => setSearchTerm(e.target.value)}
-                                        className="pl-10"
-                                    />
-                                </div>
-                                <div className="flex gap-2">
-                                    <Select value={statusFilter} onValueChange={(value: StatusFilter) => setStatusFilter(value)}>
-                                        <SelectTrigger className="w-40">
-                                            <div className="flex items-center gap-2">
-                                                <Filter className="h-4 w-4" />
-                                                <SelectValue />
-                                            </div>
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="all">All Employees</SelectItem>
-                                            <SelectItem value="active">Active Only</SelectItem>
-                                            <SelectItem value="deactivated">Deactivated Only</SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                    {activeFiltersCount > 0 && (
-                                        <Button
-                                            variant="outline"
-                                            size="sm"
-                                            onClick={clearFilters}
-                                            className="flex items-center gap-1"
-                                        >
-                                            <X className="h-4 w-4" />
-                                            Clear ({activeFiltersCount})
-                                        </Button>
-                                    )}
-                                </div>
-                            </div>
-                        </CardContent>
-                    </Card>
+    
 
-                    <div className="bg-white rounded-lg border">
-                        <Table>
-                            <TableHeader>
-                                <TableRow>
-                                    <SortHeader field="name">Employee</SortHeader>
-                                    <SortHeader field="departments">Department</SortHeader>
-                                    <SortHeader field="position">Position</SortHeader>
-                                    <th className="text-left py-3 px-4 font-medium text-gray-900">Status</th>
-                                    <th className="text-left py-3 px-4 font-medium text-gray-900">Roles</th>
-                                    <SortHeader field="pto_total">PTO Requests</SortHeader>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {sortedUsers.map((user) => (
-                                    <TableRow
-                                        key={user.id}
-                                        className="hover:bg-gray-50 cursor-pointer"
-                                        onClick={() => openEmployeeSheet(user)}
-                                    >
-                                        <TableCell className="py-4 px-4">
-                                            <div className="flex items-center space-x-3">
-                                                <Avatar className="h-10 w-10">
+                    {/* Employee Cards Grid */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                        {sortedUsers.map((user) => (
+                            <Card
+                                key={user.id}
+                                className="group hover:shadow-xl transition-all duration-300 cursor-pointer border-0 shadow-md hover:-translate-y-1"
+                                onClick={() => openEmployeeProfile(user)}
+                            >
+                                <CardContent className="p-6">
+                                    {/* Employee Header */}
+                                    <div className="flex items-start justify-between mb-4">
+                                        <div className="flex items-center space-x-3">
+                                            <div className="relative">
+                                                <Avatar className="h-12 w-12 ring-2 ring-gray-100">
                                                     <AvatarImage src={user.avatar || undefined} alt={user.name} />
-                                                    <AvatarFallback className="bg-blue-100 text-blue-600">
+                                                    <AvatarFallback className="bg-gradient-to-br from-blue-500 to-indigo-600 text-white font-semibold text-sm">
                                                         {getInitials(user.name)}
                                                     </AvatarFallback>
                                                 </Avatar>
-                                                <div>
-                                                    <div className="font-medium text-gray-900">{user.name}</div>
-                                                    <div className="text-sm text-gray-500">{user.email}</div>
-                                                </div>
+                                                <div className={`absolute -bottom-1 -right-1 w-4 h-4 rounded-full border-2 border-white ${
+                                                    user.deleted_at ? 'bg-red-500' : 'bg-green-500'
+                                                }`}></div>
                                             </div>
-                                        </TableCell>
-                                        <TableCell className="py-4 px-4">
-                                            <div className="text-sm text-gray-900">{user.departments}</div>
-                                        </TableCell>
-                                        <TableCell className="py-4 px-4">
-                                            <div className="text-sm text-gray-900">{user.position}</div>
-                                        </TableCell>
-                                        <TableCell className="py-4 px-4">
-                                            <Badge className={`${user.deleted_at ? 'bg-red-100 text-red-800 border-red-200' : 'bg-green-100 text-green-800 border-green-200'}`}>
-                                                {user.deleted_at ? (
-                                                    <>
-                                                        <UserX className="h-3 w-3 mr-1"/>
-                                                        Deactivated
-                                                    </>
-                                                ) : (
-                                                    <>
-                                                        <UserRoundCheck className="h-3 w-3 mr-1"/>
-                                                        Active
-                                                    </>
-                                                )}
-                                            </Badge>
-                                        </TableCell>
-                                        <TableCell className="py-4 px-4">
+                                        </div>
+                                        <Badge className={`${
+                                            user.deleted_at
+                                                ? 'bg-red-100 text-red-700 border-red-200'
+                                                : 'bg-green-100 text-green-700 border-green-200'
+                                        } font-medium`}>
+                                            {user.deleted_at ? 'Inactive' : 'Active'}
+                                        </Badge>
+                                    </div>
+
+                                    {/* Employee Info */}
+                                    <div className="space-y-3">
+                                        <div>
+                                            <h3 className="font-semibold text-gray-900 text-lg leading-tight">{user.name}</h3>
+                                            <p className="text-sm text-gray-600 mt-1">{user.email}</p>
+                                        </div>
+
+                                        <div className="space-y-2">
+                                            <div className="flex items-center text-sm">
+                                                <Briefcase className="h-4 w-4 text-gray-400 mr-2" />
+                                                <span className="text-gray-700 font-medium">{user.position}</span>
+                                            </div>
+                                            <div className="flex items-center text-sm">
+                                                <Building className="h-4 w-4 text-gray-400 mr-2" />
+                                                <span className="text-gray-600">{user.departments}</span>
+                                            </div>
+                                        </div>
+
+                                        {/* Roles */}
+                                        <div>
                                             <div className="flex flex-wrap gap-1">
                                                 {user.roles.length > 0 ? (
                                                     user.roles.slice(0, 2).map((role) => (
-                                                        <Badge key={role.id} className={getRoleColor(role.name)}>
+                                                        <Badge key={role.id} variant="secondary" className="text-xs px-2 py-1">
                                                             {role.name}
                                                         </Badge>
                                                     ))
                                                 ) : (
-                                                    <Badge variant="outline" className="text-gray-500">
+                                                    <Badge variant="outline" className="text-xs text-gray-500">
                                                         No Role
                                                     </Badge>
                                                 )}
                                                 {user.roles.length > 2 && (
-                                                    <Badge variant="outline" className="text-gray-500">
-                                                        +{user.roles.length - 2} more
+                                                    <Badge variant="outline" className="text-xs text-gray-500">
+                                                        +{user.roles.length - 2}
                                                     </Badge>
                                                 )}
                                             </div>
-                                        </TableCell>
-                                        <TableCell className="py-4 px-4">
-                                            <div className="flex flex-wrap gap-1">
-                                                <Badge variant="secondary" >
-                                                    Total: {user.pto_stats.total}
-                                                </Badge>
-                                                {user.pto_stats.pending > 0 && (
-                                                    <Badge variant="secondary" >
-                                                        Pending: {user.pto_stats.pending}
-                                                    </Badge>
-                                                )}
-                                                {user.pto_stats.approved > 0 && (
-                                                    <Badge variant="secondary" >
-                                                        Approved: {user.pto_stats.approved}
-                                                    </Badge>
-                                                )}
-                                                {user.pto_stats.denied > 0 && (
-                                                    <Badge variant="secondary" >
-                                                        Denied: {user.pto_stats.denied}
-                                                    </Badge>
-                                                )}
-                                            </div>
-                                        </TableCell>
-                                    </TableRow>
-                                ))}
-                            </TableBody>
-                        </Table>
+                                        </div>
 
-                        {sortedUsers.length === 0 && (
-                            <div className="text-center py-12">
-                                <div className="text-gray-500">
-                                    {activeFiltersCount > 0 ? 'No employees match your search criteria' : 'No employees found'}
-                                </div>
+                                        {/* PTO Stats */}
+                                        <div className="border-t pt-3 mt-4">
+                                            <div className="flex justify-between items-center text-sm">
+                                                <span className="text-gray-600">PTO Balance</span>
+                                                <span className="font-semibold text-blue-600">
+                                                    {user.pto_balances.length > 0 ? user.pto_balances[0].balance.toFixed(1) : '0'} days
+                                                </span>
+                                            </div>
+                                            <div className="flex justify-between items-center text-sm mt-1">
+                                                <span className="text-gray-600">Total Requests</span>
+                                                <div className="flex items-center space-x-2">
+                                                    <span className="font-medium">{user.pto_stats.total}</span>
+                                                    {user.pto_stats.pending > 0 && (
+                                                        <Badge variant="secondary" className="text-xs">
+                                                            {user.pto_stats.pending} pending
+                                                        </Badge>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* View Profile Button */}
+                                    <div className="mt-4 pt-4 border-t">
+                                        <Button
+                                            variant="ghost"
+                                            className="w-full justify-center text-sm font-medium text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                openEmployeeProfile(user);
+                                            }}
+                                        >
+                                            <Eye className="h-4 w-4 mr-2" />
+                                            View Profile
+                                        </Button>
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        ))}
+                    </div>
+
+                    {/* Empty State */}
+                    {sortedUsers.length === 0 && (
+                        <Card className="shadow-sm">
+                            <CardContent className="p-12 text-center">
+                                <Users className="h-16 w-16 text-gray-300 mx-auto mb-4" />
+                                <h3 className="text-lg font-medium text-gray-900 mb-2">
+                                    {activeFiltersCount > 0 ? 'No employees match your search' : 'No employees found'}
+                                </h3>
+                                <p className="text-gray-600 mb-4">
+                                    {activeFiltersCount > 0
+                                        ? 'Try adjusting your search criteria or filters.'
+                                        : 'Start by adding employees to your organization.'
+                                    }
+                                </p>
                                 {activeFiltersCount > 0 && (
-                                    <Button variant="outline" onClick={clearFilters} className="mt-2">
-                                        Clear filters
+                                    <Button variant="outline" onClick={clearFilters}>
+                                        Clear all filters
                                     </Button>
                                 )}
-                            </div>
-                        )}
-                    </div>
+                            </CardContent>
+                        </Card>
+                    )}
                 </div>
 
                 {/* Employees Details Sheet */}
@@ -984,17 +1018,17 @@ export default function Employees({ users }: { users: User[] }) {
                                                                         </Button>
                                                                     ) : (
                                                                         <div className="flex gap-2">
-                                                                            <Button 
-                                                                                variant="outline" 
-                                                                                size="sm" 
+                                                                            <Button
+                                                                                variant="outline"
+                                                                                size="sm"
                                                                                 onClick={handleCancelEditRoles}
                                                                                 disabled={isSavingRoles}
                                                                             >
                                                                                 <X className="h-4 w-4 mr-2" />
                                                                                 Cancel
                                                                             </Button>
-                                                                            <Button 
-                                                                                size="sm" 
+                                                                            <Button
+                                                                                size="sm"
                                                                                 onClick={handleSaveRoles}
                                                                                 disabled={isSavingRoles}
                                                                             >

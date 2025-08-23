@@ -183,6 +183,7 @@ Route::middleware('auth')
 
     Route::prefix('hr')->name('hr.')->group(function () {
         Route::get('/employees', [HREmployeesController::class, 'index'])->name('employees.index');
+        Route::get('/employees/{id}', [HREmployeesController::class, 'show'])->name('employees.show');
         Route::delete('/employees/{user}', [HREmployeesController::class, 'destroy'])->name('employees.destroy');
         Route::patch('/employees/{id}/restore', [HREmployeesController::class, 'restore'])->name('employees.restore');
     });

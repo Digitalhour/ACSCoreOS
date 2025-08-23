@@ -1,9 +1,9 @@
-import { Breadcrumbs } from '@/components/breadcrumbs';
-import { SidebarTrigger } from '@/components/ui/sidebar';
-import { type BreadcrumbItem as BreadcrumbItemType } from '@/types';
+import {Breadcrumbs} from '@/components/breadcrumbs';
+import {SidebarTrigger} from '@/components/ui/sidebar';
+import {type BreadcrumbItem as BreadcrumbItemType, SharedData} from '@/types';
 import {ImpersonationBanner} from "@/components/impersonation-banner";
-import { usePage } from '@inertiajs/react';
-import { SharedData } from '@/types';
+import {usePage} from '@inertiajs/react';
+
 export function AppSidebarHeader({ breadcrumbs = [] }: { breadcrumbs?: BreadcrumbItemType[] }) {
     const { isImpersonating } = usePage<SharedData>().props;
 

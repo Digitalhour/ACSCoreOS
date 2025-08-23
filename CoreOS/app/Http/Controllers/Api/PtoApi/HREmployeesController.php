@@ -340,8 +340,9 @@ class HREmployeesController extends Controller
 
     // Add this method to your existing HREmployeesController.php
 
-    public function show(User $user)
+    public function show($id)
     {
+        $user = User::withTrashed()->findOrFail($id);
         $userData = $user->load([
             'departments',
             'emergencyContacts',
@@ -354,6 +355,8 @@ class HREmployeesController extends Controller
             'ptoBalances.ptoType',
             'roles.permissions',
             'permissions',
+            'manager.currentPosition',
+            'subordinates.currentPosition',
         ]);
 
         $ptoRequests = $userData->ptoRequests;
@@ -442,9 +445,31 @@ class HREmployeesController extends Controller
                     'updated_at' => $request->updated_at->format('Y-m-d H:i:s'),
                 ];
             }),
+            'hierarchy' => [
+                'manager' => $userData->manager ? [
+                    'id' => $userData->manager->id,
+                    'name' => $userData->manager->name,
+                    'email' => $userData->manager->email,
+                    'avatar' => $userData->manager->avatar,
+                    'position' => $userData->manager->currentPosition?->name ?? 'No Position',
+                    'deleted_at' => $userData->manager->deleted_at?->toISOString(),
+                ] : null,
+                'subordinates' => $userData->subordinates->map(function ($subordinate) {
+                    return [
+                        'id' => $subordinate->id,
+                        'name' => $subordinate->name,
+                        'email' => $subordinate->email,
+                        'avatar' => $subordinate->avatar,
+                        'position' => $subordinate->currentPosition?->name ?? 'No Position',
+                        'deleted_at' => $subordinate->deleted_at?->toISOString(),
+                    ];
+                }),
+                'is_manager' => $userData->isManager(),
+                'reports_to_user_id' => $userData->reports_to_user_id,
+            ],
         ];
 
-        return Inertia::render('HumanResources/Employees/Show', [
+        return Inertia::render('human-resources/employee-profile', [
             'user' => $formattedUser,
         ]);
     }

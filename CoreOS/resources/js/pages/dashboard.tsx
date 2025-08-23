@@ -3,7 +3,6 @@ import {type BreadcrumbItem} from '@/types';
 import {Head} from '@inertiajs/react';
 import BlogFeed from "@/components/BlogFeed";
 import React, {useEffect, useState} from 'react';
-import {useEchoPresence} from "@laravel/echo-react";
 import {
     ChartConfig,
     ChartContainer,
@@ -230,36 +229,16 @@ export default function Dashboard ({
     };
 
     const { hasPermission, hasRole, hasAnyRole } = usePermission();
-    const [members, setMembers] = useState<Member[]>([]);
-    type Member = { id: number; name: string; avatar?: string | null };
-    // useEcho("online-users", "UserPinged", (payload) => {
-    //     console.log(payload.user);
-    // });
-    useEchoPresence('online-users','UserOnlineStatus', (e) => {
-        console.log(e);
-    })
-    // useEchoPresence("online-users", {
-    //
-    //     here: (users) => setMembers(users),
-    //     joining: (user) => setMembers((p) => [...p, user]),
-    //     leaving: (user) => setMembers((p) => p.filter((m) => m.id !== user.id)),
-    // });
+    // useEchoPresence('online-users','UserOnlineStatus', (e) => {
+    //     console.log(e);
+    // })
+
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Dashboard" />
 
             <div className="flex flex-col gap-4 rounded-xl p-2 sm:p-4">
-                <div>
-                    <div>Viewing now: {members.length}</div>
-                    <div>
-                        <h3>Online Users ({members.length})</h3>
-                        <ul>
-                            {members.map((m) => (
-                                <li key={m.id}>{m.name}</li>
-                            ))}
-                        </ul>
-                    </div>
-                </div>
+
                 {/* Stats Cards Grid - Updated to include TimeClock */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-8 gap-3 sm:gap-4">
                     {hasPermission(TimeclockPermissionsEnum.Show) && (

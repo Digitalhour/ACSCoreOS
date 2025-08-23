@@ -41,3 +41,35 @@ export function formatDistanceToNow(date: Date, options?: { addSuffix?: boolean 
     const suffix = options?.addSuffix ? ' ago' : '';
     return `${diffInYears} year${diffInYears > 1 ? 's' : ''}${suffix}`;
 }
+
+/**
+ * Format a date string to avoid timezone issues
+ * Extracts just the date part (YYYY-MM-DD) from datetime strings and creates date in local timezone
+ */
+export function formatDate(dateString: string): string {
+    // Extract just the date part (YYYY-MM-DD) from datetime strings
+    const dateOnly = dateString.split(' ')[0];
+    const [year, month, day] = dateOnly.split('-').map(Number);
+    
+    // Create date object in local timezone
+    const date = new Date(year, month - 1, day);
+    
+    return date.toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric'
+    });
+}
+
+/**
+ * Format a datetime string (keeps timezone behavior for timestamps)
+ */
+export function formatDateTime(dateString: string): string {
+    return new Date(dateString).toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+    });
+}
