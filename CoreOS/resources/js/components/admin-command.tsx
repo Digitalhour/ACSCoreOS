@@ -1,7 +1,7 @@
 'use client';
 
-import { router, usePage } from '@inertiajs/react'; // Import Inertia router and usePage
-import { Calculator, CreditCard, FileCog, Settings, Shield, Smile, UploadCloud, User } from 'lucide-react'; // Added UploadCloud and Database
+import {router, usePage} from '@inertiajs/react'; // Import Inertia router and usePage
+import {Calculator, CreditCard, FileCog, Settings, Shield, Smile, UploadCloud, User} from 'lucide-react'; // Added UploadCloud and Database
 import * as React from 'react';
 
 import {
@@ -47,6 +47,7 @@ export default function AdminCommandDialog() {
     const goToCsvUploader = () => navigateTo('csv.uploader');
     const goToDataManagement = () => navigateTo('data.management');
     const goToAddUser = () => navigateTo('adduser.create');
+    const goToAdminDashboard = () => navigateTo('admin.dashboard');
 
     // Keyboard shortcut for Ctrl+P to navigate to Roles and Permissions
     React.useEffect(() => {
@@ -89,9 +90,9 @@ export default function AdminCommandDialog() {
                 <CommandList>
                     <CommandEmpty>No results found.</CommandEmpty>
                     <CommandGroup heading="Data Tools">
-                        <CommandItem onSelect={goToCsvUploader} value="csv-uploader">
+                        <CommandItem onSelect={goToAdminDashboard} value="csv-uploader">
                             <UploadCloud className="mr-2 h-4 w-4" />
-                            <span>CSV Uploader</span>
+                            <span>Devops Dash</span>
                             {/* <CommandShortcut>⌘U</CommandShortcut>  Example shortcut */}
                         </CommandItem>
                         <CommandItem onSelect={goToDataManagement} value="data-management">

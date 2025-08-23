@@ -286,6 +286,7 @@ class PtoRequestController extends Controller
 
             Log::info("PTO Request created: ID {$ptoRequest->id}, User: {$user->name}, Days: {$totalDays}");
 
+
             return response()->json($responseData, 201);
 
         } catch (\Exception $e) {

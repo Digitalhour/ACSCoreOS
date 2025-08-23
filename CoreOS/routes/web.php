@@ -27,18 +27,16 @@ Route::middleware('auth')
     ->middleware(ValidateSessionWithWorkOS::class)
     ->group(function () {
 
-
         // User PTO dashboard
         Route::get('/employee/pto', [EmployeePtoController::class, 'index'])->name('pto.dashboard');
         // User PTO request management
         Route::post('/pto/requests', [EmployeePtoController::class, 'store'])->name('pto.requests.store');
-        Route::post('/pto/requests/{ptoRequest}/cancel',[EmployeePtoController::class, 'cancel'])->name('pto.requests.cancel');
+        Route::post('/pto/requests/{ptoRequest}/cancel', [EmployeePtoController::class, 'cancel'])->name('pto.requests.cancel');
 
         // Legacy redirect
         Route::get('/request-pto', function () {
             return redirect()->route('pto.dashboard');
         })->name('request-pto');
-
 
         /*
 
@@ -49,6 +47,11 @@ Route::middleware('auth')
         Route::get('dashboard', [DashboardController::class, 'index'])->name('dashboard');
         Route::get('/dashboard/monthly-sales-data', [DashboardController::class, 'monthlySalesData']);
         Route::get('/dashboard/yearly-sales-data', [DashboardController::class, 'yearlySalesData']);
+
+        // Notifications
+        Route::get('notifications', function () {
+            return Inertia::render('NotificationsView');
+        })->name('notifications.index');
 
         /*
         |--------------------------------------------------------------------------
@@ -61,9 +64,6 @@ Route::middleware('auth')
             Route::patch('emergency-contacts/{emergencyContact}', [EmergencyContactsController::class, 'update'])->name('update');
             Route::delete('emergency-contacts/{emergencyContact}', [EmergencyContactsController::class, 'destroy'])->name('destroy');
         });
-
-
-
 
     });
 /*
@@ -107,4 +107,4 @@ require __DIR__.'/developer-routes.php';
 
 // Parts Database (commented out)
 require __DIR__.'/parts-database.php';
-//require __DIR__.'/admin-routes.php';
+// require __DIR__.'/admin-routes.php';

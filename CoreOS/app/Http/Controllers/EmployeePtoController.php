@@ -264,6 +264,7 @@ class EmployeePtoController extends Controller
             $ptoRequest->load(['user', 'ptoType', 'approvals.approver']);
             $this->sendPtoNotifications($ptoRequest, 'created');
 
+
             // Determine success message based on blackout status
             $successMessage = 'PTO request submitted successfully! Holidays in your date range were automatically excluded.';
 

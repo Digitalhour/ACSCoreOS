@@ -1,16 +1,18 @@
 <?php
 
-//
- Broadcast::Channel('App.Models.User.{id}', function ($user, $id) {
-    return (int) $user->id === (int) $id;
- });
+use Illuminate\Support\Facades\Broadcast;
+
+Broadcast::channel('App.Models.User.{id}', function ($user, $id) {
+//    return (int) $user->id === (int) $id;
+    return auth()->check();
+});
 
 
 
 Broadcast::channel('online-users', function ($user) {
 //    return ;
-
-    return ['id' => $user->id, 'name' => $user->name, 'avatar_url' => $user->avatar_url];
+return auth()->check();
+//    return ['id' => $user->id, 'name' => $user->name, 'avatar_url' => $user->avatar_url];
 });
 //
 //
@@ -37,9 +39,10 @@ Broadcast::channel('online-users', function ($user) {
 // });
 
 // PTO request channel - managers can listen to their team's requests
-// Broadcast::channel('pto-requests.manager.{managerId}', function ($user, $managerId) {
-//    return (int) $user->id === (int) $managerId;
-// });
+Broadcast::channel('pto-requests.manager.{managerId}', function ($user, $managerId) {
+    // Only allow the manager with the specific ID to access their channel
+    return (int) $user->id === (int) $managerId;
+});
 // Broadcast::channel('presence.online', function ($user) {
 //    return $user ? [
 //        'id' => $user->id,

@@ -27,6 +27,7 @@ class RoutePermissionMiddleware
         'auth.*',
         'workos.*',
         'access-control.*',  // Exclude all access control routes
+        'broadcasting.*',    // Exclude broadcasting auth routes
         '_ignition.*',
         'telescope.*',
         'horizon.*',

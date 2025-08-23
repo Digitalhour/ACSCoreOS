@@ -187,6 +187,7 @@ class User extends Authenticatable
         return $this->hasMany(PtoTransaction::class);
     }
 
+
     /**
      * Get the PTO policies for this user.
      */
