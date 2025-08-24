@@ -22,7 +22,6 @@ export function UserMenuContent({ user }: UserMenuContentProps) {
         cleanup();
         router.flushAll();
     };
-
     return (
         <>
             <DropdownMenuLabel className="p-0 font-normal">

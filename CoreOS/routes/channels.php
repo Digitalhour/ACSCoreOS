@@ -1,18 +1,24 @@
 <?php
 
 use Illuminate\Support\Facades\Broadcast;
+use App\Models\User;
 
 Broadcast::channel('App.Models.User.{id}', function ($user, $id) {
 //    return (int) $user->id === (int) $id;
-    return auth()->check();
+//    return auth()->check();
 });
 
 
 
 Broadcast::channel('online-users', function ($user) {
 //    return ;
-return auth()->check();
-//    return ['id' => $user->id, 'name' => $user->name, 'avatar_url' => $user->avatar_url];
+//return auth()->check();
+$user = auth()->user();
+    return $user ? [
+        'id' => $user->id,
+        'name' => $user->name,
+        // add avatar, role, etc. if you want them in the presence list
+    ] : false;
 });
 //
 //
