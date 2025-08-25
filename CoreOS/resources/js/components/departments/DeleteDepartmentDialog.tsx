@@ -24,7 +24,7 @@ export default function DeleteDepartmentDialog({ department, trigger }: DeleteDe
     const { delete: destroy, processing } = useForm();
 
     const handleDelete = () => {
-        destroy(`/departments/${department.id}`);
+        destroy(`/human-resources/departments/${department.id}`);
     };
 
     return (

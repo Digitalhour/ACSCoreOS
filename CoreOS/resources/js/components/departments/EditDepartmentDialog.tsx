@@ -47,7 +47,7 @@ export default function EditDepartmentDialog({ department, open, onOpenChange }:
         e.preventDefault();
         if (!department) return;
 
-        put(`/departments/${department.id}`, {
+        put(`/human-resources/departments/${department.id}`, {
             onSuccess: () => {
                 reset();
                 onOpenChange(false);

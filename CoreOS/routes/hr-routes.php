@@ -71,7 +71,7 @@ Route::middleware('auth')
 
 
 
-        Route::get('/hr/overview', [PtoOverviewController::class, 'index'])->name('pto.overview');
+        Route::get('/human-resources/overview', [PtoOverviewController::class, 'index'])->name('pto.overview');
     // Time Clock
 //    Route::get('/timeclock', function () {
 //        return Inertia::render('TimeClock/Index');
@@ -155,7 +155,7 @@ Route::middleware('auth')
 
     Route::get('/user-management', [UserManagementController::class, 'index'])->name('user-management.index');
 
-    Route::get('/user-management/onboard', [UserManagementController::class, 'onboard'])->name('user-management.onboard');
+    Route::get('/human-resources/onboard', [UserManagementController::class, 'onboard'])->name('user-management.onboard');
 
 // Main invite route - returns back to same page with wizard data
     Route::post('/user-management/invite-user', [UserManagementController::class, 'inviteUserWithPto'])->name('user-management.invite-user');
@@ -166,7 +166,7 @@ Route::middleware('auth')
 
 
 
-    Route::prefix('admin')->name('admin.')->group(function () {
+    Route::prefix('human-resources')->name('admin.')->group(function () {
 
 
 
@@ -176,12 +176,12 @@ Route::middleware('auth')
 
     });
 
-    Route::post('/admin/blackouts/get-blackouts-for-user', [BlackoutController::class, 'getBlackoutsForUser'])
+    Route::post('/human-resources/blackouts/get-blackouts-for-user', [BlackoutController::class, 'getBlackoutsForUser'])
         ->name('admin.blackouts.get-blackouts-for-user');
 
 
 
-    Route::prefix('hr')->name('hr.')->group(function () {
+    Route::prefix('human-resources')->name('hr.')->group(function () {
         Route::get('/employees', [HREmployeesController::class, 'index'])->name('employees.index');
         Route::get('/employees/{id}', [HREmployeesController::class, 'show'])->name('employees.show');
         Route::delete('/employees/{user}', [HREmployeesController::class, 'destroy'])->name('employees.destroy');
@@ -191,13 +191,13 @@ Route::middleware('auth')
 
 
 
-        Route::get('/hr/dashboard', [PtoOverviewController::class, 'index'])->name('hr.pto.dashboard');
+
         Route::post('/hr/pto/submit-historical',
             [PTOSubmitHistoricalController::class, 'submitHistoricalPto'])->name('submit-historical');
 
-        Route::get('/hr/pto-policies', [PtoPolicyController::class, 'policies'])->name('hr.pto.policies');
-        Route::get('/hr/pto-types', [PtoAdminController::class, 'types'])->name('hr.pto.types');
-        Route::get('/hr/time-off-requests', [PtoAdminController::class, 'requests'])->name('hr.pto.requests');
+        Route::get('/human-resources/pto-policies', [PtoPolicyController::class, 'policies'])->name('hr.pto.policies');
+        Route::get('/human-resources/pto-types', [PtoAdminController::class, 'types'])->name('hr.pto.types');
+        Route::get('/human-resources/time-off-requests', [PtoAdminController::class, 'requests'])->name('hr.pto.requests');
 
         Route::prefix('api')->name('api.')->group(function () {
             Route::get('/pto-overview/dashboard', [PtoOverviewController::class, 'getDashboardData']);

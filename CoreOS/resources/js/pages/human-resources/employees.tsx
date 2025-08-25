@@ -44,8 +44,8 @@ const breadcrumbs: BreadcrumbItem[] = [
         href: '/dashboard',
     },
     {
-        title: 'Human Resources',
-        href: '/hr',
+        title: 'Human Resources Dahboard',
+        href: '/hr/dashboard',
     },
     {
         title: 'Employees',
@@ -572,26 +572,15 @@ export default function Employees({ users }: { users: User[] }) {
             <HrLayout>
                 <div className="space-y-6">
                     {/* Header Section */}
-                    <div className="bg-gradient-to-r from-blue-600 to-indigo-700 rounded-xl p-6 text-white">
-                        <div className="flex justify-between items-center">
-                            <div>
-                                <h1 className="text-3xl font-bold">Employee Directory</h1>
-                                <p className="text-blue-100 mt-1">Manage and view employee profiles</p>
-                            </div>
-                            <div className="text-right">
-                                <div className="text-2xl font-bold">{users.length}</div>
-                                <div className="text-sm text-blue-100">Total Employees</div>
-                            </div>
-                        </div>
-
-                        {/* Quick Stats */}
-                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-6">
+                    <div className="">
+                             {/* Quick Stats */}
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                             <div className="bg-white/10 backdrop-blur-sm rounded-lg p-4">
                                 <div className="flex items-center">
                                     <UserRoundCheck className="h-5 w-5 mr-2" />
                                     <div>
                                         <div className="text-lg font-semibold">{users.filter(u => !u.deleted_at).length}</div>
-                                        <div className="text-xs text-blue-100">Active</div>
+                                        <div className="text-xs ">Active</div>
                                     </div>
                                 </div>
                             </div>
@@ -600,7 +589,7 @@ export default function Employees({ users }: { users: User[] }) {
                                     <UserX className="h-5 w-5 mr-2" />
                                     <div>
                                         <div className="text-lg font-semibold">{users.filter(u => u.deleted_at).length}</div>
-                                        <div className="text-xs text-blue-100">Inactive</div>
+                                        <div className="text-xs ">Inactive</div>
                                     </div>
                                 </div>
                             </div>
@@ -609,7 +598,7 @@ export default function Employees({ users }: { users: User[] }) {
                                     <CalendarMinus2 className="h-5 w-5 mr-2" />
                                     <div>
                                         <div className="text-lg font-semibold">{users.reduce((sum, u) => sum + u.pto_stats.pending, 0)}</div>
-                                        <div className="text-xs text-blue-100">Pending PTO</div>
+                                        <div className="text-xs ">Pending PTO</div>
                                     </div>
                                 </div>
                             </div>
@@ -618,7 +607,7 @@ export default function Employees({ users }: { users: User[] }) {
                                     <Building className="h-5 w-5 mr-2" />
                                     <div>
                                         <div className="text-lg font-semibold">{new Set(users.map(u => u.departments)).size}</div>
-                                        <div className="text-xs text-blue-100">Departments</div>
+                                        <div className="text-xs ">Departments</div>
                                     </div>
                                 </div>
                             </div>
@@ -662,20 +651,20 @@ export default function Employees({ users }: { users: User[] }) {
                         </div>
                     </div>
 
-    
+
 
                     {/* Employee Cards Grid */}
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                         {sortedUsers.map((user) => (
                             <Card
                                 key={user.id}
-                                className="group hover:shadow-xl transition-all duration-300 cursor-pointer border-0 shadow-md hover:-translate-y-1"
+                                className="group hover:shadow-xl transition-all duration-300 cursor-pointer border-1 shadow-md hover:-translate-y-1 shadow-black/10"
                                 onClick={() => openEmployeeProfile(user)}
                             >
                                 <CardContent className="p-6">
                                     {/* Employee Header */}
                                     <div className="flex items-start justify-between mb-4">
-                                        <div className="flex items-center space-x-3">
+                                        <div className="flex items-center space-x-1">
                                             <div className="relative">
                                                 <Avatar className="h-12 w-12 ring-2 ring-gray-100">
                                                     <AvatarImage src={user.avatar || undefined} alt={user.name} />

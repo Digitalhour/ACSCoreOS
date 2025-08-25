@@ -353,6 +353,7 @@ class HREmployeesController extends Controller
             'ptoRequests.deniedBy',
             'ptoRequests.cancelledBy',
             'ptoBalances.ptoType',
+            'ptoPolicies.ptoType',
             'roles.permissions',
             'permissions',
             'manager.currentPosition',
@@ -441,8 +442,74 @@ class HREmployeesController extends Controller
                     'total_days' => (float) $request->total_days,
                     'status' => $request->status,
                     'reason' => $request->reason,
+
+                    // Enhanced approval details
+                    'approval_notes' => $request->approval_notes,
+                    'approved_by' => $request->approvedBy?->name,
+                    'approved_by_id' => $request->approved_by,
+                    'approved_at' => $request->approved_at?->format('Y-m-d H:i:s'),
+
+                    // Enhanced denial details
+                    'denial_reason' => $request->denial_reason,
+                    'denied_by' => $request->deniedBy?->name,
+                    'denied_by_id' => $request->denied_by,
+                    'denied_at' => $request->denied_at?->format('Y-m-d H:i:s'),
+
+                    // Enhanced cancellation details
+                    'cancellation_reason' => $request->cancellation_reason ?? null,
+                    'cancelled_by' => $request->cancelledBy?->name ?? ($request->cancelled_by ? User::find($request->cancelled_by)?->name : null),
+                    'cancelled_by_id' => $request->cancelled_by ?? null,
+                    'cancelled_at' => $request->cancelled_at?->format('Y-m-d H:i:s'),
+
+                    // Request lifecycle details
                     'created_at' => $request->created_at->format('Y-m-d H:i:s'),
                     'updated_at' => $request->updated_at->format('Y-m-d H:i:s'),
+                    'submitted_at' => $request->submitted_at?->format('Y-m-d H:i:s'),
+
+                    // Additional status information
+                    'status_changed_at' => $request->status_changed_at?->format('Y-m-d H:i:s') ?? $request->updated_at->format('Y-m-d H:i:s'),
+                    'status_changed_by' => $this->getStatusChangedBy($request),
+
+                    // Manager/supervisor information
+                    'manager_notes' => $request->manager_notes ?? null,
+                    'hr_notes' => $request->hr_notes ?? null,
+
+                    // Blackout information
+                    'has_blackout_conflicts' => method_exists($request, 'hasBlackoutConflicts') ? $request->hasBlackoutConflicts() : false,
+                    'has_blackout_warnings' => method_exists($request, 'hasBlackoutWarnings') ? $request->hasBlackoutWarnings() : false,
+                    'blackouts' => $this->getFormattedBlackouts($request),
+
+                    // Request modification history
+                    'modification_history' => $this->getModificationHistory($request),
+                ];
+            }),
+            'pto_policies' => $userData->ptoPolicies->map(function ($policy) {
+                return [
+                    'id' => $policy->id,
+                    'name' => $policy->name,
+                    'description' => $policy->description,
+                    'initial_days' => (float) $policy->initial_days,
+                    'annual_accrual_amount' => (float) $policy->annual_accrual_amount,
+                    'bonus_days_per_year' => (float) $policy->bonus_days_per_year,
+                    'rollover_enabled' => (bool) $policy->rollover_enabled,
+                    'max_rollover_days' => $policy->max_rollover_days ? (float) $policy->max_rollover_days : null,
+                    'max_negative_balance' => (float) $policy->max_negative_balance,
+                    'years_for_bonus' => $policy->years_for_bonus,
+                    'accrual_frequency' => $policy->accrual_frequency,
+                    'prorate_first_year' => (bool) $policy->prorate_first_year,
+                    'effective_date' => $policy->effective_date ? $policy->effective_date->format('Y-m-d') : null,
+                    'end_date' => $policy->end_date ? $policy->end_date->format('Y-m-d') : null,
+                    'is_active' => (bool) $policy->is_active,
+                    'pto_type_id' => $policy->pto_type_id,
+                    'user_id' => $policy->user_id,
+                    'pto_type' => [
+                        'id' => $policy->ptoType->id,
+                        'name' => $policy->ptoType->name,
+                        'code' => $policy->ptoType->code,
+                        'color' => $policy->ptoType->color ?? '#6b7280',
+                    ],
+                    'created_at' => $policy->created_at->format('Y-m-d H:i:s'),
+                    'updated_at' => $policy->updated_at->format('Y-m-d H:i:s'),
                 ];
             }),
             'hierarchy' => [

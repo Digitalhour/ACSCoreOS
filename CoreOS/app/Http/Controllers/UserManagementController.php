@@ -29,7 +29,7 @@ class UserManagementController extends Controller
 
     public function onboard()
     {
-        return Inertia::render('UserManagement/OnboardEmployee');
+        return Inertia::render('human-resources/OnboardEmployee');
     }
 
     public function getWidgetToken(Request $request): JsonResponse
@@ -489,7 +489,7 @@ class UserManagementController extends Controller
             ]);
 
             $role = Role::findOrFail($request->role_id);
-            
+
             // Check if user already has this role
             if (!$user->hasRole($role->name)) {
                 $user->assignRole($role->name);
@@ -517,7 +517,7 @@ class UserManagementController extends Controller
             ]);
 
             $permission = Permission::findOrFail($request->permission_id);
-            
+
             // Check if user already has this permission
             if (!$user->hasPermissionTo($permission->name)) {
                 $user->givePermissionTo($permission->name);

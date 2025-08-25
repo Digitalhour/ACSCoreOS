@@ -73,8 +73,12 @@ interface ApiResponse<T> {
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
-        title: 'User Management',
-        href: '/user-management',
+        title: 'Dashboard',
+        href: '/dashboard',
+    },
+    {
+        title: 'Human Resources Dashboard',
+        href: '/hr/dashboard',
     },
     {
         title: 'Onboard Employees',

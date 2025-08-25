@@ -25,7 +25,14 @@ import {
     Trash2,
     User,
     Users,
-    X
+    X,
+    Clock,
+    CheckCircle,
+    XCircle,
+    MessageCircle,
+    Settings,
+    Plus,
+    Calendar
 } from 'lucide-react';
 import {Separator} from "@/components/ui/separator";
 import {formatDate, formatDateTime} from "@/lib/utils";
@@ -115,6 +122,54 @@ export interface ModificationHistoryItem {
     details: string;
 }
 
+export interface PtoApproval {
+    id: number;
+    pto_request_id: number;
+    approver_id: number;
+    status: string;
+    comments?: string;
+    level: number;
+    sequence: number;
+    is_required: boolean;
+    is_parallel: boolean;
+    responded_at?: string;
+    created_at: string;
+    updated_at: string;
+    approver: {
+        id: number;
+        name: string;
+        email: string;
+    };
+}
+
+export interface PtoUserPolicy {
+    id: number;
+    name: string;
+    description?: string;
+    initial_days: number;
+    annual_accrual_amount: number;
+    bonus_days_per_year: number;
+    rollover_enabled: boolean;
+    max_rollover_days?: number;
+    max_negative_balance: number;
+    years_for_bonus: number;
+    accrual_frequency: string;
+    prorate_first_year: boolean;
+    effective_date: string;
+    end_date?: string;
+    is_active: boolean;
+    pto_type_id: number;
+    user_id: number;
+    pto_type: {
+        id: number;
+        name: string;
+        code: string;
+        color: string;
+    };
+    created_at: string;
+    updated_at: string;
+}
+
 export interface Role {
     id: number;
     name: string;
@@ -165,6 +220,7 @@ export interface User {
     addresses: Address[];
     pto_balances: PtoBalance[];
     pto_requests: PtoRequest[];
+    pto_policies?: PtoUserPolicy[];
     hierarchy: Hierarchy;
 }
 
@@ -178,6 +234,7 @@ export default function EmployeeProfile({ user }: { user: User }) {
     const [requestStatusFilter, setRequestStatusFilter] = useState<string>('all');
     const [requestSortField, setRequestSortField] = useState<string>('created_at');
     const [requestSortDirection, setRequestSortDirection] = useState<'asc' | 'desc'>('desc');
+    const [expandedRequests, setExpandedRequests] = useState<Set<number>>(new Set());
 
     const breadcrumbs: BreadcrumbItem[] = [
         {
@@ -433,6 +490,38 @@ export default function EmployeeProfile({ user }: { user: User }) {
         });
     };
 
+    const toggleRequestExpansion = (requestId: number) => {
+        const newExpanded = new Set(expandedRequests);
+        if (newExpanded.has(requestId)) {
+            newExpanded.delete(requestId);
+        } else {
+            newExpanded.add(requestId);
+        }
+        setExpandedRequests(newExpanded);
+    };
+
+    const getTimelineIcon = (action: string) => {
+        switch (action.toLowerCase()) {
+            case 'submitted':
+            case 'created':
+                return <Calendar className="h-4 w-4 text-blue-600" />;
+            case 'approved':
+                return <CheckCircle className="h-4 w-4 text-green-600" />;
+            case 'denied':
+            case 'rejected':
+                return <XCircle className="h-4 w-4 text-red-600" />;
+            case 'cancelled':
+                return <X className="h-4 w-4 text-gray-600" />;
+            case 'modified':
+            case 'updated':
+                return <Edit3 className="h-4 w-4 text-yellow-600" />;
+            case 'commented':
+                return <MessageCircle className="h-4 w-4 text-purple-600" />;
+            default:
+                return <Clock className="h-4 w-4 text-gray-600" />;
+        }
+    };
+
     const RequestSortHeader = ({ field, children }: { field: string; children: React.ReactNode }) => (
         <th className="text-left py-3 px-4 font-medium text-gray-900 cursor-pointer hover:bg-gray-50"
             onClick={() => handleRequestSort(field)}>
@@ -591,6 +680,12 @@ export default function EmployeeProfile({ user }: { user: User }) {
                                                 className="data-[state=active]:bg-white data-[state=active]:text-gray-900 data-[state=active]:shadow-sm text-gray-600 hover:text-gray-900 px-4 py-2.5 rounded-lg font-medium text-sm transition-all duration-200"
                                             >
                                                 PTO History
+                                            </TabsTrigger>
+                                            <TabsTrigger
+                                                value="pto-policies"
+                                                className="data-[state=active]:bg-white data-[state=active]:text-gray-900 data-[state=active]:shadow-sm text-gray-600 hover:text-gray-900 px-4 py-2.5 rounded-lg font-medium text-sm transition-all duration-200"
+                                            >
+                                                PTO Policies
                                             </TabsTrigger>
                                         </TabsList>
                                     </div>
@@ -1191,55 +1286,228 @@ export default function EmployeeProfile({ user }: { user: User }) {
                                 </CardHeader>
                                 <CardContent>
                                     {selectedUser.pto_requests.length > 0 ? (
-                                        <div className="overflow-x-auto">
-                                            <table className="min-w-full border border-gray-200 rounded-lg">
-                                                <thead className="bg-gray-50">
-                                                <tr>
-                                                    <RequestSortHeader field="request_number">Request #</RequestSortHeader>
-                                                    <RequestSortHeader field="pto_type">Type</RequestSortHeader>
-                                                    <RequestSortHeader field="start_date">Start Date</RequestSortHeader>
-                                                    <th className="text-left py-3 px-4 font-medium text-gray-900">End Date</th>
-                                                    <RequestSortHeader field="total_days">Days</RequestSortHeader>
-                                                    <RequestSortHeader field="status">Status</RequestSortHeader>
-                                                    <RequestSortHeader field="created_at">Created</RequestSortHeader>
-                                                </tr>
-                                                </thead>
-                                                <tbody>
-                                                {getFilteredAndSortedRequests(selectedUser.pto_requests).map((request) => (
-                                                    <tr
-                                                        key={request.id}
-                                                        className="border-t hover:bg-gray-50"
-                                                    >
-                                                        <td className="py-3 px-4 text-sm font-medium text-gray-900">
-                                                            {request.request_number}
-                                                        </td>
-                                                        <td className="py-3 px-4 text-sm text-gray-900">
-                                                            {request.pto_type}
-                                                        </td>
-                                                        <td className="py-3 px-4 text-sm text-gray-900">
-                                                            {formatDate(request.start_date)}
-                                                        </td>
-                                                        <td className="py-3 px-4 text-sm text-gray-900">
-                                                            {formatDate(request.end_date)}
-                                                        </td>
-                                                        <td className="py-3 px-4 text-sm text-gray-900">
-                                                            {request.total_days}
-                                                        </td>
-                                                        <td className="py-3 px-4">
-                                                            <Badge className={getStatusColor(request.status)}>
-                                                                {request.status}
-                                                            </Badge>
-                                                        </td>
-                                                        <td className="py-3 px-4 text-sm text-gray-900">
-                                                            {formatDateTime(request.created_at)}
-                                                        </td>
-                                                    </tr>
-                                                ))}
-                                                </tbody>
-                                            </table>
+                                        <div className="space-y-4">
+                                            {getFilteredAndSortedRequests(selectedUser.pto_requests).map((request) => (
+                                                <div key={request.id} className="border rounded-lg overflow-hidden">
+                                                    {/* Main Request Row */}
+                                                    <div className="p-4 hover:bg-gray-50 cursor-pointer transition-colors" onClick={() => toggleRequestExpansion(request.id)}>
+                                                        <div className="flex items-center justify-between">
+                                                            <div className="flex items-center space-x-4">
+                                                                <div className="flex items-center space-x-2">
+                                                                    {expandedRequests.has(request.id) ? 
+                                                                        <ChevronDown className="h-4 w-4 text-gray-400" /> : 
+                                                                        <ChevronUp className="h-4 w-4 text-gray-400" />
+                                                                    }
+                                                                    <span className="text-sm font-semibold text-gray-900">{request.request_number}</span>
+                                                                </div>
+                                                                <div className="flex items-center space-x-3">
+                                                                    <span className="text-sm text-gray-600">{request.pto_type}</span>
+                                                                    <span className="text-sm text-gray-600">
+                                                                        {formatDate(request.start_date)} - {formatDate(request.end_date)}
+                                                                    </span>
+                                                                    <span className="text-sm text-gray-600">({request.total_days} days)</span>
+                                                                </div>
+                                                            </div>
+                                                            <div className="flex items-center space-x-3">
+                                                                <Badge className={getStatusColor(request.status)}>
+                                                                    {request.status}
+                                                                </Badge>
+                                                                <span className="text-xs text-gray-500">
+                                                                    {formatDateTime(request.created_at)}
+                                                                </span>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Expanded Timeline Section */}
+                                                    {expandedRequests.has(request.id) && (
+                                                        <div className="border-t bg-gray-50/50">
+                                                            <div className="p-6">
+                                                                {/* Request Details */}
+                                                                <div className="mb-6">
+                                                                    <h4 className="text-sm font-semibold text-gray-900 mb-3">Request Details</h4>
+                                                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                                                                        <div>
+                                                                            <span className="text-gray-500 font-medium">Reason:</span>
+                                                                            <p className="text-gray-900 mt-1">{request.reason || 'No reason provided'}</p>
+                                                                        </div>
+                                                                        {request.approval_notes && (
+                                                                            <div>
+                                                                                <span className="text-gray-500 font-medium">Approval Notes:</span>
+                                                                                <p className="text-gray-900 mt-1">{request.approval_notes}</p>
+                                                                            </div>
+                                                                        )}
+                                                                        {request.denial_reason && (
+                                                                            <div>
+                                                                                <span className="text-gray-500 font-medium">Denial Reason:</span>
+                                                                                <p className="text-red-700 mt-1">{request.denial_reason}</p>
+                                                                            </div>
+                                                                        )}
+                                                                        {request.manager_notes && (
+                                                                            <div>
+                                                                                <span className="text-gray-500 font-medium">Manager Notes:</span>
+                                                                                <p className="text-gray-900 mt-1">{request.manager_notes}</p>
+                                                                            </div>
+                                                                        )}
+                                                                        {request.hr_notes && (
+                                                                            <div>
+                                                                                <span className="text-gray-500 font-medium">HR Notes:</span>
+                                                                                <p className="text-gray-900 mt-1">{request.hr_notes}</p>
+                                                                            </div>
+                                                                        )}
+                                                                    </div>
+                                                                </div>
+
+                                                                {/* Timeline Section */}
+                                                                {request.modification_history && request.modification_history.length > 0 && (
+                                                                    <div>
+                                                                        <h4 className="text-sm font-semibold text-gray-900 mb-4 flex items-center">
+                                                                            <Clock className="h-4 w-4 mr-2" />
+                                                                            Request Timeline
+                                                                        </h4>
+                                                                        <div className="space-y-4">
+                                                                            {request.modification_history
+                                                                                .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+                                                                                .map((historyItem, index) => (
+                                                                                <div key={index} className="flex items-start space-x-3">
+                                                                                    <div className="mt-0.5 flex-shrink-0">
+                                                                                        {getTimelineIcon(historyItem.action)}
+                                                                                    </div>
+                                                                                    <div className="flex-1 min-w-0">
+                                                                                        <div className="flex items-center space-x-2">
+                                                                                            <span className="text-sm font-medium text-gray-900 capitalize">
+                                                                                                {historyItem.action}
+                                                                                            </span>
+                                                                                            <span className="text-xs text-gray-500">by</span>
+                                                                                            <span className="text-sm text-gray-700">{historyItem.user}</span>
+                                                                                        </div>
+                                                                                        <div className="text-xs text-gray-500 mt-1">
+                                                                                            {formatDateTime(historyItem.timestamp)}
+                                                                                        </div>
+                                                                                        {historyItem.details && (
+                                                                                            <div className="text-sm text-gray-600 mt-2 bg-white rounded p-2 border border-gray-100">
+                                                                                                {historyItem.details}
+                                                                                            </div>
+                                                                                        )}
+                                                                                    </div>
+                                                                                </div>
+                                                                            ))}
+                                                                        </div>
+                                                                    </div>
+                                                                )}
+
+                                                                {/* Blackout Warnings/Conflicts if present */}
+                                                                {request.blackouts && request.blackouts.length > 0 && (
+                                                                    <div className="mt-6 pt-4 border-t border-gray-200">
+                                                                        <h4 className="text-sm font-semibold text-gray-900 mb-3 flex items-center">
+                                                                            <AlertTriangle className="h-4 w-4 mr-2 text-yellow-500" />
+                                                                            Blackout Periods
+                                                                        </h4>
+                                                                        <div className="space-y-2">
+                                                                            {request.blackouts.map((blackout, index) => (
+                                                                                <div key={index} className={`text-sm p-3 rounded-lg border ${
+                                                                                    blackout.type === 'conflict' 
+                                                                                        ? 'bg-red-50 border-red-200 text-red-800' 
+                                                                                        : 'bg-yellow-50 border-yellow-200 text-yellow-800'
+                                                                                }`}>
+                                                                                    <div className="font-medium">{blackout.blackout_name}</div>
+                                                                                    <div className="text-xs mt-1">{blackout.date_range}</div>
+                                                                                    <div className="mt-2">{blackout.message}</div>
+                                                                                </div>
+                                                                            ))}
+                                                                        </div>
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            ))}
                                         </div>
                                     ) : (
                                         <p className="text-gray-500">No PTO requests found</p>
+                                    )}
+                                </CardContent>
+                            </Card>
+                        </TabsContent>
+
+                        {/* PTO Policies Tab */}
+                        <TabsContent value="pto-policies" className="space-y-6">
+                            <Card>
+                                <CardHeader>
+                                    <div className="flex justify-between items-center">
+                                        <CardTitle className="text-lg">PTO Policies</CardTitle>
+                                        <Button variant="outline" size="sm">
+                                            <Plus className="h-4 w-4 mr-2" />
+                                            Add Policy
+                                        </Button>
+                                    </div>
+                                </CardHeader>
+                                <CardContent>
+                                    {selectedUser.pto_policies && selectedUser.pto_policies.length > 0 ? (
+                                        <div className="space-y-4">
+                                            {selectedUser.pto_policies.map((policy) => (
+                                                <div key={policy.id} className="border rounded-lg p-4 hover:shadow-sm transition-shadow">
+                                                    <div className="flex items-start justify-between mb-3">
+                                                        <div className="flex items-center space-x-3">
+                                                            <div 
+                                                                className="w-4 h-4 rounded-full border-2 border-white shadow-sm" 
+                                                                style={{ backgroundColor: policy.pto_type.color }}
+                                                            ></div>
+                                                            <div>
+                                                                <h4 className="font-semibold text-gray-900">{policy.name}</h4>
+                                                                <p className="text-sm text-gray-600">{policy.pto_type.name} ({policy.pto_type.code})</p>
+                                                            </div>
+                                                        </div>
+                                                        <div className="flex items-center space-x-2">
+                                                            <Badge className={policy.is_active ? 'bg-green-100 text-green-800 border-green-200' : 'bg-gray-100 text-gray-800 border-gray-200'}>
+                                                                {policy.is_active ? 'Active' : 'Inactive'}
+                                                            </Badge>
+                                                            <Button variant="ghost" size="sm">
+                                                                <Edit3 className="h-4 w-4" />
+                                                            </Button>
+                                                            <Button variant="ghost" size="sm" className="text-red-600 hover:text-red-700 hover:bg-red-50">
+                                                                <Trash2 className="h-4 w-4" />
+                                                            </Button>
+                                                        </div>
+                                                    </div>
+                                                    
+                                                    {policy.description && (
+                                                        <p className="text-sm text-gray-600 mb-3">{policy.description}</p>
+                                                    )}
+                                                    
+                                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                                                        <div>
+                                                            <span className="text-gray-500 font-medium">Initial Days</span>
+                                                            <p className="text-gray-900">{policy.initial_days}</p>
+                                                        </div>
+                                                        <div>
+                                                            <span className="text-gray-500 font-medium">Annual Accrual</span>
+                                                            <p className="text-gray-900">{policy.annual_accrual_amount}</p>
+                                                        </div>
+                                                        <div>
+                                                            <span className="text-gray-500 font-medium">Rollover</span>
+                                                            <p className="text-gray-900">
+                                                                {policy.rollover_enabled ? 
+                                                                    (policy.max_rollover_days ? `Yes (${policy.max_rollover_days} max)` : 'Yes') : 
+                                                                    'No'
+                                                                }
+                                                            </p>
+                                                        </div>
+                                                        <div>
+                                                            <span className="text-gray-500 font-medium">Effective Date</span>
+                                                            <p className="text-gray-900">{formatDate(policy.effective_date)}</p>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <div className="text-center py-8 text-gray-500">
+                                            <Settings className="h-12 w-12 mx-auto mb-3 text-gray-300" />
+                                            <p className="text-lg font-medium">No PTO Policies</p>
+                                            <p className="text-sm text-gray-400 mt-1">This employee has no PTO policies configured</p>
+                                        </div>
                                     )}
                                 </CardContent>
                             </Card>

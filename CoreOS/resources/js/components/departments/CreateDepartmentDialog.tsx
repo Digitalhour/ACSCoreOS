@@ -21,7 +21,7 @@ export default function CreateDepartmentDialog({ trigger }: CreateDepartmentDial
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        form.post('/departments', {
+        form.post('/human-resources/departments', {
             onSuccess: () => {
                 form.reset();
                 setOpen(false);

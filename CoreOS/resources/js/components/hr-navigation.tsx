@@ -14,8 +14,8 @@ const navGroups = [
         items: [
             {
                 title: "Human Resources Dashboard",
-                href: "/hr/overview",
-                description: "View key insights",
+                href: "/human-resources/overview",
+                description: "Overview",
             },
         ],
     },
@@ -25,12 +25,12 @@ const navGroups = [
         items: [
             {
                 title: "All Employees",
-                href: "/hr/employees",
+                href: "/human-resources/employees",
                 description: "Manage employee records",
             },
             {
                 title: "Onboarding",
-                href: "/user-management/onboard",
+                href: "/human-resources/onboard",
                 description: "Onboard new employees",
             },
         ],
@@ -41,22 +41,22 @@ const navGroups = [
         items: [
             {
                 title: "Requests",
-                href: "/hr/time-off-requests",
+                href: "/human-resources/time-off-requests",
                 description: "Approve or deny time off",
             },
             {
                 title: "Policies",
-                href: "/hr/pto-policies",
+                href: "/human-resources/pto-policies",
                 description: "Configure time off policies",
             },
             {
                 title: "Types",
-                href: "/hr/pto-types",
+                href: "/human-resources/pto-types",
                 description: "Manage PTO types",
             },
             {
                 title: "Blackouts",
-                href: "/admin/blackouts",
+                href: "/human-resources/blackouts",
                 description: "Set blackout dates",
             },
         ],
@@ -67,7 +67,7 @@ const navGroups = [
         items: [
             {
                 title: "Departments",
-                href: "/departments",
+                href: "/human-resources/departments",
                 description: "Manage departments",
             },
             {
