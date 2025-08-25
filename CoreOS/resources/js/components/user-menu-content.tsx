@@ -34,12 +34,12 @@ export function UserMenuContent({ user }: UserMenuContentProps) {
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
             <DropdownMenuGroup>
-                <DropdownMenuItem asChild>
-                    <Link className="block w-full" href={route('notifications.index')} as="button" prefetch onClick={cleanup}>
-                        <Bell className="mr-2" />
-                        Notifications
-                    </Link>
-                </DropdownMenuItem>
+                {/*<DropdownMenuItem asChild>*/}
+                {/*    <Link className="block w-full" href={route('notifications.index')} as="button" prefetch onClick={cleanup}>*/}
+                {/*        <Bell className="mr-2" />*/}
+                {/*        Notifications*/}
+                {/*    </Link>*/}
+                {/*</DropdownMenuItem>*/}
                 <DropdownMenuItem asChild>
                     <Link className="block w-full" href={route('profile.edit')} as="button" prefetch onClick={cleanup}>
                         <Settings className="mr-2" />

@@ -26,3 +26,9 @@ export enum TimeclockPermissionsEnum {
 
 }
 
+export enum SalesPermissionsEnum {
+
+    Show = 'Sale-Dashboard-Show',
+
+
+}

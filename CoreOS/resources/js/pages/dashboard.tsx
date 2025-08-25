@@ -15,7 +15,7 @@ import {Area, AreaChart, CartesianGrid, Line, LineChart, XAxis, YAxis, Responsiv
 import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue,} from "@/components/ui/select";
 import {usePermission} from "@/hooks/usePermission";
 import DashboardTimeClock from "@/components/DashboardTimeClock";
-import {TimeclockPermissionsEnum} from "@/types/permissions";
+import { SalesPermissionsEnum, TimeclockPermissionsEnum } from '@/types/permissions';
 import { TrendingUp, TrendingDown, Target, BarChart3, Calendar, Download, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -359,7 +359,7 @@ export default function Dashboard ({
                 </div>
 
                 {/* Time Clock Section - Always Visible at Top */}
-                {hasPermission(TimeclockPermissionsEnum.Show) && (
+                {hasPermission(SalesPermissionsEnum.Show) && (
                     <div className="mb-6">
                         <div className="max-w-md">
                             {User ? (
@@ -422,6 +422,7 @@ export default function Dashboard ({
                                             <BarChart3 className="h-5 w-5 text-primary" />
                                             <h3 className="text-lg font-semibold">Sales Performance</h3>
                                             {isLoading && <RefreshCw className="h-4 w-4 animate-spin text-muted-foreground" />}
+                                            {hasPermission(TimeclockPermissionsEnum.Show) && (
                                             <div className="ml-auto">
                                                 <Select value={timeRange} onValueChange={setTimeRange} disabled={isLoading}>
                                                     <SelectTrigger
@@ -452,6 +453,7 @@ export default function Dashboard ({
                                                     </SelectContent>
                                                 </Select>
                                             </div>
+                                            )}
                                         </div>
                                         <p className="text-sm text-muted-foreground">
                                             {getTimeRangeLabel()} - Performance Analytics & Trends
