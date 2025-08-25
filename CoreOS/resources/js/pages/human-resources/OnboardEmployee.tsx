@@ -78,11 +78,15 @@ const breadcrumbs: BreadcrumbItem[] = [
     },
     {
         title: 'Human Resources Dashboard',
-        href: '/hr/dashboard',
+        href: '/human-resources/overview',
+    },
+    {
+        title: 'Employees',
+        href: '/human-resources/employees',
     },
     {
         title: 'Onboard Employees',
-        href: '/user-management/onboard',
+        href: '/human-resources/onboard',
     },
 ];
 

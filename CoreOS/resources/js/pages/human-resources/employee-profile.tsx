@@ -243,15 +243,15 @@ export default function EmployeeProfile({ user }: { user: User }) {
         },
         {
             title: 'Human Resources',
-            href: '/hr/dashboard',
+            href: '/human-resources/overview',
         },
         {
             title: 'Employees',
-            href: '/hr/employees',
+            href: '/human-resources/employees',
         },
         {
             title: user.name,
-            href: `/hr/employees/${user.id}`,
+            href: `/human-resources/employees/${user.id}`,
         },
     ];
 
@@ -267,15 +267,15 @@ export default function EmployeeProfile({ user }: { user: User }) {
     const getStatusColor = (status: string) => {
         switch (status.toLowerCase()) {
             case 'pending':
-                return 'bg-yellow-100 text-yellow-800 border-yellow-200';
+                return 'bg-yellow-100 text-yellow-800 border-yellow-200 dark:bg-yellow-900/30 dark:text-yellow-300 dark:border-yellow-700';
             case 'approved':
-                return 'bg-green-100 text-green-800 border-green-200';
+                return 'bg-green-100 text-green-800 border-green-200 dark:bg-green-900/30 dark:text-green-300 dark:border-green-700';
             case 'denied':
-                return 'bg-red-100 text-red-800 border-red-200';
+                return 'bg-red-100 text-red-800 border-red-200 dark:bg-red-900/30 dark:text-red-300 dark:border-red-700';
             case 'cancelled':
-                return 'bg-gray-100 text-gray-800 border-gray-200';
+                return 'bg-gray-100 text-gray-800 border-gray-200 dark:text-gray-300 dark:border-gray-600';
             default:
-                return 'bg-gray-100 text-gray-800 border-gray-200';
+                return 'bg-gray-100 text-gray-800 border-gray-200 dark:text-gray-300 dark:border-gray-600';
         }
     };
 
@@ -283,18 +283,18 @@ export default function EmployeeProfile({ user }: { user: User }) {
         switch (roleName.toLowerCase()) {
             case 'admin':
             case 'administrator':
-                return 'bg-red-100 text-red-800 border-red-200';
+                return 'bg-red-100 text-red-800 border-red-200 dark:bg-red-900/30 dark:text-red-300 dark:border-red-700';
             case 'manager':
             case 'supervisor':
-                return 'bg-blue-100 text-blue-800 border-blue-200';
+                return 'bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-700';
             case 'hr':
             case 'human resources':
-                return 'bg-purple-100 text-purple-800 border-purple-200';
+                return 'bg-purple-100 text-purple-800 border-purple-200 dark:bg-purple-900/30 dark:text-purple-300 dark:border-purple-700';
             case 'employee':
             case 'user':
-                return 'bg-green-100 text-green-800 border-green-200';
+                return 'bg-green-100 text-green-800 border-green-200 dark:bg-green-900/30 dark:text-green-300 dark:border-green-700';
             default:
-                return 'bg-gray-100 text-gray-800 border-gray-200';
+                return 'bg-gray-100 text-gray-800 border-gray-200 dark:text-gray-300 dark:border-gray-600';
         }
     };
 
@@ -402,7 +402,7 @@ export default function EmployeeProfile({ user }: { user: User }) {
         setIsTogglingStatus(true);
 
         if (currentlyActive) {
-            router.delete(`/hr/employees/${userId}`, {
+            router.delete(`/human-resources/employees/${userId}`, {
                 preserveState: true,
                 preserveScroll: true,
                 onSuccess: () => {
@@ -419,7 +419,7 @@ export default function EmployeeProfile({ user }: { user: User }) {
                 }
             });
         } else {
-            router.patch(`/hr/employees/${userId}/restore`, {}, {
+            router.patch(`/human-resources/employees/${userId}/restore`, {}, {
                 preserveState: true,
                 preserveScroll: true,
                 onSuccess: () => {
@@ -523,7 +523,7 @@ export default function EmployeeProfile({ user }: { user: User }) {
     };
 
     const RequestSortHeader = ({ field, children }: { field: string; children: React.ReactNode }) => (
-        <th className="text-left py-3 px-4 font-medium text-gray-900 cursor-pointer hover:bg-gray-50"
+        <th className="text-left py-3 px-4 font-medium text-gray-900 dark:text-gray-100 cursor-pointer hover: dark:hover:bg-gray-800"
             onClick={() => handleRequestSort(field)}>
             <div className="flex items-center space-x-1">
                 <span>{children}</span>
@@ -538,15 +538,15 @@ export default function EmployeeProfile({ user }: { user: User }) {
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title={`${user.name} - Employee Profile`} />
 
-                <div className="bg-gray-50 min-h-screen">
+                <div className="min-h-screen ">
                     {/* Header */}
-                    <div className="bg-white border-b border-gray-200 px-6 py-4">
+                    <div className=" border-b border-gray-200 dark:border-gray-700 px-6 py-4">
                         <div className="flex items-center justify-between">
                             <div className="flex items-center space-x-4">
-                                <h1 className="text-xl font-semibold text-gray-900">Employee Profile</h1>
+                                <h1 className="text-xl font-semibold text-gray-900 dark:text-gray-100">Employee Profile</h1>
 
-                                <div className="h-4 w-px bg-gray-300"></div>
-                                <p className={"mr-4"}>{selectedUser.name}</p>
+                                <div className="h-4 w-px bg-gray-300 dark:bg-gray-600"></div>
+                                <p className="mr-4 text-gray-900 dark:text-gray-100">{selectedUser.name}</p>
 
                             </div>
                             <div className="flex items-center space-x-3">
@@ -566,9 +566,9 @@ export default function EmployeeProfile({ user }: { user: User }) {
 
                     <div className="flex">
                         {/* Sidebar */}
-                        <div className="w-80 bg-white border-r border-gray-200 min-h-screen">
+                        <div className="w-80  border-r border-gray-200 dark:border-gray-700 min-h-screen">
                             {/* Profile Section */}
-                            <div className="p-6 border-b border-gray-200">
+                            <div className="p-6 border-b border-gray-200 dark:border-gray-700">
                                 <div className="text-center">
                                     <div className="relative inline-block">
                                         <Avatar className="h-50 w-50 mx-auto">
@@ -581,12 +581,12 @@ export default function EmployeeProfile({ user }: { user: User }) {
                                             selectedUser.deleted_at ? 'bg-red-500' : 'bg-green-500'
                                         }`}></div>
                                     </div>
-                                    <h2 className="mt-4 text-xl font-semibold text-gray-900">{selectedUser.name}</h2>
-                                    <p className="text-sm text-gray-600 mt-1">{selectedUser.position}</p>
+                                    <h2 className="mt-4 text-xl font-semibold text-gray-900 dark:text-gray-100">{selectedUser.name}</h2>
+                                    <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">{selectedUser.position}</p>
                                     <Badge className={`mt-2 ${
                                         selectedUser.deleted_at
-                                            ? 'bg-red-100 text-red-700 border-red-200'
-                                            : 'bg-green-100 text-green-700 border-green-200'
+                                            ? 'bg-red-100 text-red-700 border-red-200 dark:bg-red-900/30 dark:text-red-300 dark:border-red-700'
+                                            : 'bg-green-100 text-green-700 border-green-200 dark:bg-green-900/30 dark:text-green-300 dark:border-green-700'
                                     }`}>
                                         {selectedUser.deleted_at ? 'Inactive' : 'Active'}
                                     </Badge>
@@ -594,50 +594,50 @@ export default function EmployeeProfile({ user }: { user: User }) {
                             </div>
 
                             {/* Contact Information */}
-                            <div className="p-6 border-b border-gray-200">
-                                <h3 className="text-sm font-semibold text-gray-900 uppercase tracking-wide mb-4">Contact Information</h3>
+                            <div className="p-6 border-b border-gray-200 dark:border-gray-700">
+                                <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 uppercase tracking-wide mb-4">Contact Information</h3>
                                 <div className="space-y-3">
                                     <div className="flex items-center text-sm">
-                                        <Mail className="h-4 w-4 mr-3 text-gray-400" />
-                                        <span className="text-gray-900">{selectedUser.email}</span>
+                                        <Mail className="h-4 w-4 mr-3 text-gray-400 dark:text-gray-500" />
+                                        <span className="text-gray-900 dark:text-gray-100">{selectedUser.email}</span>
                                     </div>
                                     {selectedUser.emergency_contacts.length > 0 && (
                                         <div className="flex items-start text-sm">
-                                            <Phone className="h-4 w-4 mr-3 text-gray-400 mt-0.5" />
-                                            <span className="text-gray-900">{selectedUser.emergency_contacts[0].phone}</span>
+                                            <Phone className="h-4 w-4 mr-3 text-gray-400 dark:text-gray-500 mt-0.5" />
+                                            <span className="text-gray-900 dark:text-gray-100">{selectedUser.emergency_contacts[0].phone}</span>
                                         </div>
                                     )}
                                     <div className="flex items-center text-sm">
-                                        <Building className="h-4 w-4 mr-3 text-gray-400" />
-                                        <span className="text-gray-900">{selectedUser.departments}</span>
+                                        <Building className="h-4 w-4 mr-3 text-gray-400 dark:text-gray-500" />
+                                        <span className="text-gray-900 dark:text-gray-100">{selectedUser.departments}</span>
                                     </div>
                                     <div className="flex items-center text-sm">
-                                        <User className="h-4 w-4 mr-3 text-gray-400" />
-                                        <span className="text-gray-900">ID #{selectedUser.id.toString().padStart(6, '0')}</span>
+                                        <User className="h-4 w-4 mr-3 text-gray-400 dark:text-gray-500" />
+                                        <span className="text-gray-900 dark:text-gray-100">ID #{selectedUser.id.toString().padStart(6, '0')}</span>
                                     </div>
                                 </div>
                             </div>
 
                             {/* Quick Stats */}
                             <div className="p-6">
-                                <h3 className="text-sm font-semibold text-gray-900 uppercase tracking-wide mb-4">PTO Overview</h3>
+                                <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 uppercase tracking-wide mb-4">PTO Overview</h3>
                                 <div className="space-y-4">
                                     <div className="flex justify-between items-center">
-                                        <span className="text-sm text-gray-600">Available Balance</span>
+                                        <span className="text-sm text-gray-600 dark:text-gray-400">Available Balance</span>
                                         <span className="text-sm font-semibold text-blue-600">
                                             {selectedUser.pto_balances.length > 0 ? selectedUser.pto_balances[0].balance.toFixed(1) : '0'} days
                                         </span>
                                     </div>
                                     <div className="flex justify-between items-center">
-                                        <span className="text-sm text-gray-600">Total Requests</span>
-                                        <span className="text-sm font-medium text-gray-900">{selectedUser.pto_stats.total}</span>
+                                        <span className="text-sm text-gray-600 dark:text-gray-400">Total Requests</span>
+                                        <span className="text-sm font-medium text-gray-900 dark:text-gray-100">{selectedUser.pto_stats.total}</span>
                                     </div>
                                     <div className="flex justify-between items-center">
-                                        <span className="text-sm text-gray-600">Pending</span>
+                                        <span className="text-sm text-gray-600 dark:text-gray-400">Pending</span>
                                         <span className="text-sm font-medium text-yellow-600">{selectedUser.pto_stats.pending}</span>
                                     </div>
                                     <div className="flex justify-between items-center">
-                                        <span className="text-sm text-gray-600">Approved</span>
+                                        <span className="text-sm text-gray-600 dark:text-gray-400">Approved</span>
                                         <span className="text-sm font-medium text-green-600">{selectedUser.pto_stats.approved}</span>
                                     </div>
                                 </div>
@@ -645,45 +645,45 @@ export default function EmployeeProfile({ user }: { user: User }) {
                         </div>
 
                         {/* Main Content */}
-                        <div className="flex-1">
+                        <div className="flex-1  ">
                             <div className="p-6">
                                 <Tabs defaultValue="overview" className="space-y-6">
                                     {/* Navigation Tabs */}
                                     <div className="mb-8">
-                                        <TabsList className="h-auto p-1 bg-gray-100 rounded-xl inline-flex">
+                                        <TabsList className="h-auto p-1 rounded-xl inline-flex">
                                             <TabsTrigger
                                                 value="overview"
-                                                className="data-[state=active]:bg-white data-[state=active]:text-gray-900 data-[state=active]:shadow-sm text-gray-600 hover:text-gray-900 px-4 py-2.5 rounded-lg font-medium text-sm transition-all duration-200"
+                                                className="data-[state=active]: dark:data-[state=active]:bg-gray-800 data-[state=active]:text-gray-900 dark:data-[state=active]:text-gray-100 data-[state=active]:shadow-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 px-4 py-2.5 rounded-lg font-medium text-sm transition-all duration-200"
                                             >
                                                 Overview
                                             </TabsTrigger>
                                             <TabsTrigger
                                                 value="roles"
-                                                className="data-[state=active]:bg-white data-[state=active]:text-gray-900 data-[state=active]:shadow-sm text-gray-600 hover:text-gray-900 px-4 py-2.5 rounded-lg font-medium text-sm transition-all duration-200"
+                                                className="data-[state=active]: dark:data-[state=active]:bg-gray-700 data-[state=active]:text-gray-900 dark:data-[state=active]:text-gray-100 data-[state=active]:shadow-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 px-4 py-2.5 rounded-lg font-medium text-sm transition-all duration-200"
                                             >
                                                 Roles & Permissions
                                             </TabsTrigger>
                                             <TabsTrigger
                                                 value="emergency"
-                                                className="data-[state=active]:bg-white data-[state=active]:text-gray-900 data-[state=active]:shadow-sm text-gray-600 hover:text-gray-900 px-4 py-2.5 rounded-lg font-medium text-sm transition-all duration-200"
+                                                className="data-[state=active]: dark:data-[state=active]:bg-gray-700 data-[state=active]:text-gray-900 dark:data-[state=active]:text-gray-100 data-[state=active]:shadow-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 px-4 py-2.5 rounded-lg font-medium text-sm transition-all duration-200"
                                             >
                                                 Emergency Contacts
                                             </TabsTrigger>
                                             <TabsTrigger
                                                 value="addresses"
-                                                className="data-[state=active]:bg-white data-[state=active]:text-gray-900 data-[state=active]:shadow-sm text-gray-600 hover:text-gray-900 px-4 py-2.5 rounded-lg font-medium text-sm transition-all duration-200"
+                                                className="data-[state=active]: dark:data-[state=active]:bg-gray-700 data-[state=active]:text-gray-900 dark:data-[state=active]:text-gray-100 data-[state=active]:shadow-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 px-4 py-2.5 rounded-lg font-medium text-sm transition-all duration-200"
                                             >
                                                 Addresses
                                             </TabsTrigger>
                                             <TabsTrigger
                                                 value="pto-requests"
-                                                className="data-[state=active]:bg-white data-[state=active]:text-gray-900 data-[state=active]:shadow-sm text-gray-600 hover:text-gray-900 px-4 py-2.5 rounded-lg font-medium text-sm transition-all duration-200"
+                                                className="data-[state=active]: dark:data-[state=active]:bg-gray-700 data-[state=active]:text-gray-900 dark:data-[state=active]:text-gray-100 data-[state=active]:shadow-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 px-4 py-2.5 rounded-lg font-medium text-sm transition-all duration-200"
                                             >
                                                 PTO History
                                             </TabsTrigger>
                                             <TabsTrigger
                                                 value="pto-policies"
-                                                className="data-[state=active]:bg-white data-[state=active]:text-gray-900 data-[state=active]:shadow-sm text-gray-600 hover:text-gray-900 px-4 py-2.5 rounded-lg font-medium text-sm transition-all duration-200"
+                                                className="data-[state=active]: dark:data-[state=active]:bg-gray-700 data-[state=active]:text-gray-900 dark:data-[state=active]:text-gray-100 data-[state=active]:shadow-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 px-4 py-2.5 rounded-lg font-medium text-sm transition-all duration-200"
                                             >
                                                 PTO Policies
                                             </TabsTrigger>
@@ -699,35 +699,35 @@ export default function EmployeeProfile({ user }: { user: User }) {
                                     </CardHeader>
                                     <CardContent className="space-y-4">
                                         <div>
-                                            <label className="text-sm font-medium text-gray-500">Full Name</label>
-                                            <p className="text-sm text-gray-900 mt-1">{selectedUser.name}</p>
+                                            <label className="text-sm font-medium text-gray-500 dark:text-gray-400">Full Name</label>
+                                            <p className="text-sm text-gray-900 dark:text-gray-100 mt-1">{selectedUser.name}</p>
                                         </div>
                                         <div>
-                                            <label className="text-sm font-medium text-gray-500">Email Address</label>
-                                            <p className="text-sm text-gray-900 mt-1">{selectedUser.email}</p>
+                                            <label className="text-sm font-medium text-gray-500 dark:text-gray-400">Email Address</label>
+                                            <p className="text-sm text-gray-900 dark:text-gray-100 mt-1">{selectedUser.email}</p>
                                         </div>
                                         <div>
-                                            <label className="text-sm font-medium text-gray-500">Department</label>
-                                            <p className="text-sm text-gray-900 mt-1">{selectedUser.departments}</p>
+                                            <label className="text-sm font-medium text-gray-500 dark:text-gray-400">Department</label>
+                                            <p className="text-sm text-gray-900 dark:text-gray-100 mt-1">{selectedUser.departments}</p>
                                         </div>
                                         <div>
-                                            <label className="text-sm font-medium text-gray-500">Position</label>
-                                            <p className="text-sm text-gray-900 mt-1">{selectedUser.position}</p>
+                                            <label className="text-sm font-medium text-gray-500 dark:text-gray-400">Position</label>
+                                            <p className="text-sm text-gray-900 dark:text-gray-100 mt-1">{selectedUser.position}</p>
                                         </div>
                                         <div>
-                                            <label className="text-sm font-medium text-gray-500">Primary Address</label>
+                                            <label className="text-sm font-medium text-gray-500 dark:text-gray-400">Primary Address</label>
                                             {(() => {
                                                 const addresses = selectedUser.addresses || [];
                                                 const primaryAddress = addresses.find(addr => addr.is_primary && addr.is_active);
                                                 return primaryAddress ? (
-                                                    <div className="text-sm text-gray-900 mt-1">
+                                                    <div className="text-sm text-gray-900 dark:text-gray-100 mt-1">
                                                         <div className="font-medium">{primaryAddress.label || primaryAddress.type}</div>
-                                                        <div className="text-gray-600 text-xs mt-1 whitespace-pre-line">
+                                                        <div className="text-gray-600 dark:text-gray-400 text-xs mt-1 whitespace-pre-line">
                                                             {primaryAddress.full_address}
                                                         </div>
                                                     </div>
                                                 ) : (
-                                                    <p className="text-sm text-gray-500 mt-1">No primary address</p>
+                                                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">No primary address</p>
                                                 );
                                             })()}
                                         </div>
@@ -740,28 +740,28 @@ export default function EmployeeProfile({ user }: { user: User }) {
                                     </CardHeader>
                                     <CardContent className="space-y-4">
                                         <div className="flex justify-between">
-                                            <span className="text-sm text-gray-500">Total Requests</span>
-                                            <span className="text-sm font-medium">{selectedUser.pto_stats.total}</span>
+                                            <span className="text-sm text-gray-500 dark:text-gray-400">Total Requests</span>
+                                            <span className="text-sm font-medium text-gray-900 dark:text-gray-100">{selectedUser.pto_stats.total}</span>
                                         </div>
                                         <div className="flex justify-between">
-                                            <span className="text-sm text-gray-500">Pending</span>
+                                            <span className="text-sm text-gray-500 dark:text-gray-400">Pending</span>
                                             <span className="text-sm font-medium text-yellow-600">{selectedUser.pto_stats.pending}</span>
                                         </div>
                                         <div className="flex justify-between">
-                                            <span className="text-sm text-gray-500">Approved</span>
+                                            <span className="text-sm text-gray-500 dark:text-gray-400">Approved</span>
                                             <span className="text-sm font-medium text-green-600">{selectedUser.pto_stats.approved}</span>
                                         </div>
                                         <div className="flex justify-between">
-                                            <span className="text-sm text-gray-500">Denied</span>
+                                            <span className="text-sm text-gray-500 dark:text-gray-400">Denied</span>
                                             <span className="text-sm font-medium text-red-600">{selectedUser.pto_stats.denied}</span>
                                         </div>
                                         <div className="flex justify-between">
-                                            <span className="text-sm text-gray-500">Cancelled</span>
-                                            <span className="text-sm font-medium text-gray-600">{selectedUser.pto_stats.cancelled}</span>
+                                            <span className="text-sm text-gray-500 dark:text-gray-400">Cancelled</span>
+                                            <span className="text-sm font-medium text-gray-600 dark:text-gray-400">{selectedUser.pto_stats.cancelled}</span>
                                         </div>
                                         <Separator />
                                         <div className="flex justify-between">
-                                            <span className="text-sm font-medium text-gray-700">Available Balance</span>
+                                            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Available Balance</span>
                                             <span className="text-sm font-bold text-blue-600">
                                                 {selectedUser.pto_balances.length > 0 ? selectedUser.pto_balances[0].balance.toFixed(1) : '0'} days
                                             </span>
@@ -781,12 +781,12 @@ export default function EmployeeProfile({ user }: { user: User }) {
                                 <CardContent>
                                     {/* Manager Section */}
                                     <div className="mb-8">
-                                        <h3 className="text-md font-semibold text-gray-900 mb-4 flex items-center">
+                                        <h3 className="text-md font-semibold text-gray-900 dark:text-gray-100 mb-4 flex items-center">
                                             <User className="h-4 w-4 mr-2" />
                                             Reports To
                                         </h3>
                                         {selectedUser.hierarchy.manager ? (
-                                            <div className="border rounded-lg p-4 bg-blue-50/50">
+                                            <div className=" rounded-lg p-4 justify-center grid ">
                                                 <div className="flex items-center space-x-4">
                                                     <div className="relative">
                                                         <Avatar className="h-12 w-12">
@@ -801,22 +801,22 @@ export default function EmployeeProfile({ user }: { user: User }) {
                                                     </div>
                                                     <div className="flex-1">
                                                         <div className="flex items-center space-x-2">
-                                                            <h4 className="font-semibold text-gray-900">{selectedUser.hierarchy.manager.name}</h4>
+                                                            <h4 className="font-semibold text-gray-900 dark:text-gray-100">{selectedUser.hierarchy.manager.name}</h4>
                                                             <Badge className={`text-xs ${
                                                                 selectedUser.hierarchy.manager.deleted_at
-                                                                    ? 'bg-red-100 text-red-700 border-red-200'
-                                                                    : 'bg-green-100 text-green-700 border-green-200'
+                                                                    ? 'bg-red-100 text-red-700 border-red-200 dark:bg-red-900/30 dark:text-red-300 dark:border-red-700'
+                                                                    : 'bg-green-100 text-green-700 border-green-200 dark:bg-green-900/30 dark:text-green-300 dark:border-green-700'
                                                             }`}>
                                                                 {selectedUser.hierarchy.manager.deleted_at ? 'Inactive' : 'Active'}
                                                             </Badge>
                                                         </div>
-                                                        <p className="text-sm text-gray-600 mt-1">{selectedUser.hierarchy.manager.position}</p>
-                                                        <p className="text-sm text-gray-500">{selectedUser.hierarchy.manager.email}</p>
+                                                        <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">{selectedUser.hierarchy.manager.position}</p>
+                                                        <p className="text-sm text-gray-500 dark:text-gray-400">{selectedUser.hierarchy.manager.email}</p>
                                                     </div>
                                                     <Button
                                                         variant="outline"
                                                         size="sm"
-                                                        onClick={() => router.visit(`/hr/employees/${selectedUser.hierarchy.manager?.id}`)}
+                                                        onClick={() => router.visit(`/human-resources/employees/${selectedUser.hierarchy.manager?.id}`)}
                                                         className="shrink-0"
                                                     >
                                                         <User className="h-4 w-4 mr-2" />
@@ -826,17 +826,17 @@ export default function EmployeeProfile({ user }: { user: User }) {
                                             </div>
                                         )
                                             : (
-                                            <div className="border-2 border-dashed border-gray-200 rounded-lg p-6 text-center text-gray-500">
-                                                <User className="h-8 w-8 mx-auto mb-2 text-gray-300" />
+                                            <div className="border-2 border-dashed border-gray-200 dark:border-gray-600 rounded-lg p-6 text-center text-gray-500 dark:text-gray-400">
+                                                <User className="h-8 w-8 mx-auto mb-2 text-gray-300 dark:text-gray-600" />
                                                 <p>This employee doesn't report to anyone</p>
-                                                <p className="text-sm text-gray-400 mt-1">Top-level position</p>
+                                                <p className="text-sm text-gray-400 dark:text-gray-500 mt-1">Top-level position</p>
                                             </div>
                                         )}
                                     </div>
 
                                     {/* Direct Reports Section */}
                                     <div>
-                                        <h3 className="text-md font-semibold text-gray-900 mb-4 flex items-center">
+                                        <h3 className="text-md font-semibold text-gray-900 dark:text-gray-100 mb-4 flex items-center">
                                             <Users className="h-4 w-4 mr-2" />
                                             Direct Reports ({selectedUser.hierarchy.subordinates.length})
                                         </h3>
@@ -844,7 +844,7 @@ export default function EmployeeProfile({ user }: { user: User }) {
                                         {selectedUser.hierarchy.subordinates.length > 0 ? (
                                             <div className="grid grid-cols-4 md:grid-cols-4 gap-4">
                                                 {selectedUser.hierarchy.subordinates.map((subordinate) => (
-                                                    <div key={subordinate.id} className="border rounded-lg p-4 hover:shadow-md transition-shadow duration-200">
+                                                    <div key={subordinate.id} className="border border-gray-200 dark:border-gray-600 rounded-lg p-4 hover:shadow-md transition-shadow duration-200  dark:bg-gray-950">
                                                         <div className="flex items-center space-x-4">
                                                             <div className="relative">
                                                                 <Avatar className="h-10 w-10">
@@ -859,25 +859,25 @@ export default function EmployeeProfile({ user }: { user: User }) {
                                                             </div>
                                                             <div className="flex-1 min-w-0">
                                                                 <div className="flex items-center space-x-2">
-                                                                    <h4 className="font-medium text-gray-900 truncate">{subordinate.name}</h4>
+                                                                    <h4 className="font-medium text-gray-900 dark:text-gray-100 truncate">{subordinate.name}</h4>
                                                                     <Badge className={`text-xs ${
                                                                         subordinate.deleted_at
-                                                                            ? 'bg-red-100 text-red-700 border-red-200'
-                                                                            : 'bg-green-100 text-green-700 border-green-200'
+                                                                            ? 'bg-red-100 text-red-700 border-red-200 dark:bg-red-900/30 dark:text-red-300 dark:border-red-700'
+                                                                            : 'bg-green-100 text-green-700 border-green-200 dark:bg-green-900/30 dark:text-green-300 dark:border-green-700'
                                                                     }`}>
                                                                         {subordinate.deleted_at ? 'Inactive' : 'Active'}
                                                                     </Badge>
                                                                 </div>
-                                                                <p className="text-sm text-gray-600 truncate">{subordinate.position}</p>
-                                                                <p className="text-sm text-gray-500 truncate">{subordinate.email}</p>
+                                                                <p className="text-sm text-gray-600 dark:text-gray-400 truncate">{subordinate.position}</p>
+                                                                <p className="text-sm text-gray-500 dark:text-gray-400 truncate">{subordinate.email}</p>
                                                             </div>
                                                         </div>
-                                                        <div className="mt-3 pt-3 border-t border-gray-100">
+                                                        <div className="mt-3 pt-3 border-t border-gray-100 dark:border-gray-600">
                                                             <Button
                                                                 variant="ghost"
                                                                 size="sm"
-                                                                onClick={() => router.visit(`/hr/employees/${subordinate.id}`)}
-                                                                className="w-full justify-center text-sm hover:bg-blue-50 hover:text-blue-700"
+                                                                onClick={() => router.visit(`/human-resources/employees/${subordinate.id}`)}
+                                                                className="w-full justify-center text-sm "
                                                             >
                                                                 <User className="h-4 w-4 mr-2" />
                                                                 View Profile
@@ -897,25 +897,25 @@ export default function EmployeeProfile({ user }: { user: User }) {
                                     </div>
 
                                     {/* Hierarchy Summary */}
-                                    <div className="mt-8 pt-6 border-t border-gray-200">
+                                    <div className="mt-8 pt-6 border-t border-gray-200 dark:border-gray-600">
                                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-center">
-                                            <div className="bg-gray-50 rounded-lg p-4">
+                                            <div className=" rounded-lg p-4">
                                                 <div className="text-2xl font-bold text-blue-600">
                                                     {selectedUser.hierarchy.manager ? 1 : 0}
                                                 </div>
-                                                <div className="text-sm text-gray-600">Manager</div>
+                                                <div className="text-sm text-gray-600 dark:text-gray-400">Manager</div>
                                             </div>
-                                            <div className="bg-gray-50 rounded-lg p-4">
+                                            <div className=" rounded-lg p-4">
                                                 <div className="text-2xl font-bold text-green-600">
                                                     {selectedUser.hierarchy.subordinates.length}
                                                 </div>
-                                                <div className="text-sm text-gray-600">Direct Reports</div>
+                                                <div className="text-sm text-gray-600 dark:text-gray-400">Direct Reports</div>
                                             </div>
-                                            <div className="bg-gray-50 rounded-lg p-4">
+                                            <div className=" rounded-lg p-4">
                                                 <div className="text-2xl font-bold text-purple-600">
                                                     {selectedUser.hierarchy.is_manager ? 'Yes' : 'No'}
                                                 </div>
-                                                <div className="text-sm text-gray-600">Is Manager</div>
+                                                <div className="text-sm text-gray-600 dark:text-gray-400">Is Manager</div>
                                             </div>
                                         </div>
                                     </div>
@@ -963,7 +963,7 @@ export default function EmployeeProfile({ user }: { user: User }) {
                                 <CardContent>
                                     {isEditingRoles && (
                                         <div className="mb-4">
-                                            <h4 className="text-sm font-medium text-gray-700 mb-2">Add Role</h4>
+                                            <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Add Role</h4>
                                             <Select onValueChange={(value) => handleAddRole(parseInt(value))}>
                                                 <SelectTrigger className="w-full">
                                                     <SelectValue placeholder="Select a role to add" />
@@ -984,7 +984,7 @@ export default function EmployeeProfile({ user }: { user: User }) {
                                     {selectedUser.roles.length > 0 ? (
                                         <div className="space-y-4">
                                             {selectedUser.roles.map((role) => (
-                                                <div key={role.id} className="border rounded-lg p-4">
+                                                <div key={role.id} className="border border-gray-200 dark:border-gray-600 rounded-lg p-4  dark:bg-gray-950">
                                                     <div className="flex items-center justify-between mb-3">
                                                         <Badge className={getRoleColor(role.name)}>
                                                             {role.name}
@@ -1001,7 +1001,7 @@ export default function EmployeeProfile({ user }: { user: User }) {
                                                         )}
                                                     </div>
                                                     <div>
-                                                        <h4 className="text-sm font-medium text-gray-700 mb-2">Role Permissions</h4>
+                                                        <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Role Permissions</h4>
                                                         <div className="flex flex-wrap gap-1">
                                                             {role.permissions.map((permission, index) => (
                                                                 <Badge key={index} variant="outline" className="text-xs">
@@ -1014,7 +1014,7 @@ export default function EmployeeProfile({ user }: { user: User }) {
                                             ))}
                                         </div>
                                     ) : (
-                                        <p className="text-gray-500">No roles assigned</p>
+                                        <p className="text-gray-500 dark:text-gray-400">No roles assigned</p>
                                     )}
                                 </CardContent>
                             </Card>
@@ -1024,13 +1024,13 @@ export default function EmployeeProfile({ user }: { user: User }) {
                                 <CardHeader>
                                     <div className="flex items-center justify-between">
                                         <CardTitle className="text-lg">Direct Permissions</CardTitle>
-                                        <span className="text-sm text-gray-500">Permissions assigned directly to user</span>
+                                        <span className="text-sm text-gray-500 dark:text-gray-400">Permissions assigned directly to user</span>
                                     </div>
                                 </CardHeader>
                                 <CardContent>
                                     {isEditingRoles && (
                                         <div className="mb-4">
-                                            <h4 className="text-sm font-medium text-gray-700 mb-2">Add Permission</h4>
+                                            <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Add Permission</h4>
                                             <Select onValueChange={(value) => handleAddPermission(parseInt(value))}>
                                                 <SelectTrigger className="w-full">
                                                     <SelectValue placeholder="Select a permission to add" />
@@ -1069,7 +1069,7 @@ export default function EmployeeProfile({ user }: { user: User }) {
                                             ))}
                                         </div>
                                     ) : (
-                                        <p className="text-gray-500">No direct permissions assigned</p>
+                                        <p className="text-gray-500 dark:text-gray-400">No direct permissions assigned</p>
                                     )}
                                 </CardContent>
                             </Card>
@@ -1080,7 +1080,7 @@ export default function EmployeeProfile({ user }: { user: User }) {
                                     <CardTitle className="text-lg">All Effective Permissions</CardTitle>
                                 </CardHeader>
                                 <CardContent>
-                                    <p className="text-sm text-gray-600 mb-3">All permissions this user has through roles and direct assignments</p>
+                                    <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">All permissions this user has through roles and direct assignments</p>
                                     {selectedUser.all_permissions && selectedUser.all_permissions.length > 0 ? (
                                         <div className="flex flex-wrap gap-1">
                                             {selectedUser.all_permissions.map((permission, index) => (
@@ -1090,7 +1090,7 @@ export default function EmployeeProfile({ user }: { user: User }) {
                                             ))}
                                         </div>
                                     ) : (
-                                        <p className="text-gray-500">No permissions</p>
+                                        <p className="text-gray-500 dark:text-gray-400">No permissions</p>
                                     )}
                                 </CardContent>
                             </Card>
@@ -1106,11 +1106,11 @@ export default function EmployeeProfile({ user }: { user: User }) {
                                     {selectedUser.emergency_contacts.length > 0 ? (
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                             {selectedUser.emergency_contacts.map((contact) => (
-                                                <div key={contact.id} className="border rounded-lg p-4">
+                                                <div key={contact.id} className="border border-gray-200 dark:border-gray-600 rounded-lg p-4  dark:bg-gray-950">
                                                     <div className="flex items-center justify-between mb-3">
                                                         <div className="flex items-center">
-                                                            <User className="h-5 w-5 mr-2 text-gray-400"/>
-                                                            <h4 className="font-medium text-gray-900">
+                                                            <User className="h-5 w-5 mr-2 text-gray-400 dark:text-gray-500"/>
+                                                            <h4 className="font-medium text-gray-900 dark:text-gray-100">
                                                                 {contact.name}
                                                             </h4>
                                                         </div>
@@ -1120,27 +1120,27 @@ export default function EmployeeProfile({ user }: { user: User }) {
                                                     </div>
                                                     <div className="space-y-3 text-sm">
                                                         <div>
-                                                            <label className="text-gray-500 font-medium">Relationship</label>
-                                                            <p className="text-gray-900">{contact.relationship}</p>
+                                                            <label className="text-gray-500 dark:text-gray-400 font-medium">Relationship</label>
+                                                            <p className="text-gray-900 dark:text-gray-100">{contact.relationship}</p>
                                                         </div>
                                                         <div>
-                                                            <label className="text-gray-500 font-medium">Phone</label>
-                                                            <p className="text-gray-900">{contact.phone}</p>
+                                                            <label className="text-gray-500 dark:text-gray-400 font-medium">Phone</label>
+                                                            <p className="text-gray-900 dark:text-gray-100">{contact.phone}</p>
                                                         </div>
                                                         <div>
-                                                            <label className="text-gray-500 font-medium">Email</label>
-                                                            <p className="text-gray-900">{contact.email || "N/A"}</p>
+                                                            <label className="text-gray-500 dark:text-gray-400 font-medium">Email</label>
+                                                            <p className="text-gray-900 dark:text-gray-100">{contact.email || "N/A"}</p>
                                                         </div>
                                                         <div>
-                                                            <label className="text-gray-500 font-medium">Address</label>
-                                                            <p className="text-gray-900">{contact.address}</p>
+                                                            <label className="text-gray-500 dark:text-gray-400 font-medium">Address</label>
+                                                            <p className="text-gray-900 dark:text-gray-100">{contact.address}</p>
                                                         </div>
                                                     </div>
                                                 </div>
                                             ))}
                                         </div>
                                     ) : (
-                                        <p className="text-gray-500">No emergency contacts on file</p>
+                                        <p className="text-gray-500 dark:text-gray-400">No emergency contacts on file</p>
                                     )}
                                 </CardContent>
                             </Card>
@@ -1164,7 +1164,7 @@ export default function EmployeeProfile({ user }: { user: User }) {
                                                     return a.type.localeCompare(b.type);
                                                 })
                                                 .map((address) => (
-                                                    <div key={address.id} className={`border rounded-lg p-4 ${!address.is_active ? 'opacity-60' : ''}`}>
+                                                    <div key={address.id} className={`border border-gray-200 dark:border-gray-600 rounded-lg p-4  ${!address.is_active ? 'opacity-60' : ''}`}>
                                                         <div className="flex items-center justify-between mb-3">
                                                             <div className="flex items-center space-x-2">
                                                                 <div className="flex items-center">
@@ -1180,10 +1180,10 @@ export default function EmployeeProfile({ user }: { user: User }) {
                                                                                 return <MapPin className="h-4 w-4 text-gray-600 mr-2" />;
                                                                         }
                                                                     })()}
-                                                                    <h4 className="font-medium text-gray-900">
+                                                                    <h4 className="font-medium text-gray-900 dark:text-gray-100">
                                                                         {address.label || address.type}
                                                                         {address.label && address.label !== address.type && (
-                                                                            <span className="text-sm font-normal text-gray-500 ml-1">
+                                                                            <span className="text-sm font-normal text-gray-500 dark:text-gray-400 ml-1">
                                                                                 ({address.type})
                                                                             </span>
                                                                         )}
@@ -1192,7 +1192,7 @@ export default function EmployeeProfile({ user }: { user: User }) {
                                                             </div>
                                                             <div className="flex space-x-1">
                                                                 {address.is_primary && (
-                                                                    <Badge className="bg-blue-100 text-blue-800 border-blue-200">
+                                                                    <Badge className="bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-700">
                                                                         <Shield className="h-3 w-3 mr-1" />
                                                                         Primary
                                                                     </Badge>
@@ -1204,11 +1204,11 @@ export default function EmployeeProfile({ user }: { user: User }) {
                                                                 )}
                                                             </div>
                                                         </div>
-                                                        <div className="text-sm text-gray-900 whitespace-pre-line">
+                                                        <div className="text-sm text-gray-900 dark:text-gray-100 whitespace-pre-line">
                                                             {address.full_address}
                                                         </div>
                                                         {address.notes && (
-                                                            <div className="mt-2 text-sm text-gray-500 italic">
+                                                            <div className="mt-2 text-sm text-gray-500 dark:text-gray-400 italic">
                                                                 {address.notes}
                                                             </div>
                                                         )}
@@ -1216,7 +1216,7 @@ export default function EmployeeProfile({ user }: { user: User }) {
                                                 ))}
                                         </div>
                                     ) : (
-                                        <p className="text-gray-500">No addresses on file</p>
+                                        <p className="text-gray-500 dark:text-gray-400">No addresses on file</p>
                                     )}
                                 </CardContent>
                             </Card>
@@ -1233,22 +1233,22 @@ export default function EmployeeProfile({ user }: { user: User }) {
                                     {selectedUser.pto_balances.length > 0 ? (
                                         <div className="space-y-4">
                                             {selectedUser.pto_balances.map((balance) => (
-                                                <div key={balance.id} className="border rounded-lg p-4">
+                                                <div key={balance.id} className="border border-gray-200 dark:border-gray-600 rounded-lg p-4  dark:bg-gray-950">
                                                     <div className="flex items-center justify-between mb-3">
-                                                        <h4 className="font-medium text-gray-900">{balance.type}</h4>
+                                                        <h4 className="font-medium text-gray-900 dark:text-gray-100">{balance.type}</h4>
                                                         <Badge variant="secondary">{balance.year}</Badge>
                                                     </div>
                                                     <div className="grid grid-cols-3 gap-4 text-sm">
                                                         <div className="text-center">
-                                                            <p className="text-gray-500">Available</p>
+                                                            <p className="text-gray-500 dark:text-gray-400">Available</p>
                                                             <p className="text-lg font-semibold text-green-600">{balance.balance}</p>
                                                         </div>
                                                         <div className="text-center">
-                                                            <p className="text-gray-500">Used</p>
+                                                            <p className="text-gray-500 dark:text-gray-400">Used</p>
                                                             <p className="text-lg font-semibold text-red-600">{balance.used_balance}</p>
                                                         </div>
                                                         <div className="text-center">
-                                                            <p className="text-gray-500">Pending</p>
+                                                            <p className="text-gray-500 dark:text-gray-400">Pending</p>
                                                             <p className="text-lg font-semibold text-yellow-600">{balance.pending_balance}</p>
                                                         </div>
                                                     </div>
@@ -1256,7 +1256,7 @@ export default function EmployeeProfile({ user }: { user: User }) {
                                             ))}
                                         </div>
                                     ) : (
-                                        <p className="text-gray-500">No PTO balances available</p>
+                                        <p className="text-gray-500 dark:text-gray-400">No PTO balances available</p>
                                     )}
                                 </CardContent>
                             </Card>
@@ -1288,31 +1288,31 @@ export default function EmployeeProfile({ user }: { user: User }) {
                                     {selectedUser.pto_requests.length > 0 ? (
                                         <div className="space-y-4">
                                             {getFilteredAndSortedRequests(selectedUser.pto_requests).map((request) => (
-                                                <div key={request.id} className="border rounded-lg overflow-hidden">
+                                                <div key={request.id} className="border border-gray-200 dark:border-gray-600 rounded-lg overflow-hidden  dark:bg-gray-950">
                                                     {/* Main Request Row */}
-                                                    <div className="p-4 hover:bg-gray-50 cursor-pointer transition-colors" onClick={() => toggleRequestExpansion(request.id)}>
+                                                    <div className="p-4 hover: dark:hover:bg-gray-700 cursor-pointer transition-colors" onClick={() => toggleRequestExpansion(request.id)}>
                                                         <div className="flex items-center justify-between">
                                                             <div className="flex items-center space-x-4">
                                                                 <div className="flex items-center space-x-2">
-                                                                    {expandedRequests.has(request.id) ? 
-                                                                        <ChevronDown className="h-4 w-4 text-gray-400" /> : 
-                                                                        <ChevronUp className="h-4 w-4 text-gray-400" />
+                                                                    {expandedRequests.has(request.id) ?
+                                                                        <ChevronDown className="h-4 w-4 text-gray-400 dark:text-gray-500" /> :
+                                                                        <ChevronUp className="h-4 w-4 text-gray-400 dark:text-gray-500" />
                                                                     }
-                                                                    <span className="text-sm font-semibold text-gray-900">{request.request_number}</span>
+                                                                    <span className="text-sm font-semibold text-gray-900 dark:text-gray-100">{request.request_number}</span>
                                                                 </div>
                                                                 <div className="flex items-center space-x-3">
-                                                                    <span className="text-sm text-gray-600">{request.pto_type}</span>
-                                                                    <span className="text-sm text-gray-600">
+                                                                    <span className="text-sm text-gray-600 dark:text-gray-400">{request.pto_type}</span>
+                                                                    <span className="text-sm text-gray-600 dark:text-gray-400">
                                                                         {formatDate(request.start_date)} - {formatDate(request.end_date)}
                                                                     </span>
-                                                                    <span className="text-sm text-gray-600">({request.total_days} days)</span>
+                                                                    <span className="text-sm text-gray-600 dark:text-gray-400">({request.total_days} days)</span>
                                                                 </div>
                                                             </div>
                                                             <div className="flex items-center space-x-3">
                                                                 <Badge className={getStatusColor(request.status)}>
                                                                     {request.status}
                                                                 </Badge>
-                                                                <span className="text-xs text-gray-500">
+                                                                <span className="text-xs text-gray-500 dark:text-gray-400">
                                                                     {formatDateTime(request.created_at)}
                                                                 </span>
                                                             </div>
@@ -1321,38 +1321,38 @@ export default function EmployeeProfile({ user }: { user: User }) {
 
                                                     {/* Expanded Timeline Section */}
                                                     {expandedRequests.has(request.id) && (
-                                                        <div className="border-t bg-gray-50/50">
+                                                        <div className="border-t border-gray-200 dark:border-gray-600 /50 dark:bg-gray-950/50">
                                                             <div className="p-6">
                                                                 {/* Request Details */}
                                                                 <div className="mb-6">
-                                                                    <h4 className="text-sm font-semibold text-gray-900 mb-3">Request Details</h4>
+                                                                    <h4 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-3">Request Details</h4>
                                                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
                                                                         <div>
-                                                                            <span className="text-gray-500 font-medium">Reason:</span>
-                                                                            <p className="text-gray-900 mt-1">{request.reason || 'No reason provided'}</p>
+                                                                            <span className="text-gray-500 dark:text-gray-400 font-medium">Reason:</span>
+                                                                            <p className="text-gray-900 dark:text-gray-100 mt-1">{request.reason || 'No reason provided'}</p>
                                                                         </div>
                                                                         {request.approval_notes && (
                                                                             <div>
-                                                                                <span className="text-gray-500 font-medium">Approval Notes:</span>
-                                                                                <p className="text-gray-900 mt-1">{request.approval_notes}</p>
+                                                                                <span className="text-gray-500 dark:text-gray-400 font-medium">Approval Notes:</span>
+                                                                                <p className="text-gray-900 dark:text-gray-100 mt-1">{request.approval_notes}</p>
                                                                             </div>
                                                                         )}
                                                                         {request.denial_reason && (
                                                                             <div>
-                                                                                <span className="text-gray-500 font-medium">Denial Reason:</span>
+                                                                                <span className="text-gray-500 dark:text-gray-400 font-medium">Denial Reason:</span>
                                                                                 <p className="text-red-700 mt-1">{request.denial_reason}</p>
                                                                             </div>
                                                                         )}
                                                                         {request.manager_notes && (
                                                                             <div>
-                                                                                <span className="text-gray-500 font-medium">Manager Notes:</span>
-                                                                                <p className="text-gray-900 mt-1">{request.manager_notes}</p>
+                                                                                <span className="text-gray-500 dark:text-gray-400 font-medium">Manager Notes:</span>
+                                                                                <p className="text-gray-900 dark:text-gray-100 mt-1">{request.manager_notes}</p>
                                                                             </div>
                                                                         )}
                                                                         {request.hr_notes && (
                                                                             <div>
-                                                                                <span className="text-gray-500 font-medium">HR Notes:</span>
-                                                                                <p className="text-gray-900 mt-1">{request.hr_notes}</p>
+                                                                                <span className="text-gray-500 dark:text-gray-400 font-medium">HR Notes:</span>
+                                                                                <p className="text-gray-900 dark:text-gray-100 mt-1">{request.hr_notes}</p>
                                                                             </div>
                                                                         )}
                                                                     </div>
@@ -1361,7 +1361,7 @@ export default function EmployeeProfile({ user }: { user: User }) {
                                                                 {/* Timeline Section */}
                                                                 {request.modification_history && request.modification_history.length > 0 && (
                                                                     <div>
-                                                                        <h4 className="text-sm font-semibold text-gray-900 mb-4 flex items-center">
+                                                                        <h4 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-4 flex items-center">
                                                                             <Clock className="h-4 w-4 mr-2" />
                                                                             Request Timeline
                                                                         </h4>
@@ -1375,17 +1375,17 @@ export default function EmployeeProfile({ user }: { user: User }) {
                                                                                     </div>
                                                                                     <div className="flex-1 min-w-0">
                                                                                         <div className="flex items-center space-x-2">
-                                                                                            <span className="text-sm font-medium text-gray-900 capitalize">
+                                                                                            <span className="text-sm font-medium text-gray-900 dark:text-gray-100 capitalize">
                                                                                                 {historyItem.action}
                                                                                             </span>
-                                                                                            <span className="text-xs text-gray-500">by</span>
-                                                                                            <span className="text-sm text-gray-700">{historyItem.user}</span>
+                                                                                            <span className="text-xs text-gray-500 dark:text-gray-400">by</span>
+                                                                                            <span className="text-sm text-gray-700 dark:text-gray-300">{historyItem.user}</span>
                                                                                         </div>
-                                                                                        <div className="text-xs text-gray-500 mt-1">
+                                                                                        <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                                                                                             {formatDateTime(historyItem.timestamp)}
                                                                                         </div>
                                                                                         {historyItem.details && (
-                                                                                            <div className="text-sm text-gray-600 mt-2 bg-white rounded p-2 border border-gray-100">
+                                                                                            <div className="text-sm text-gray-600 dark:text-gray-400 mt-2  dark:bg-gray-700 rounded p-2 border border-gray-100 dark:border-gray-600">
                                                                                                 {historyItem.details}
                                                                                             </div>
                                                                                         )}
@@ -1398,17 +1398,17 @@ export default function EmployeeProfile({ user }: { user: User }) {
 
                                                                 {/* Blackout Warnings/Conflicts if present */}
                                                                 {request.blackouts && request.blackouts.length > 0 && (
-                                                                    <div className="mt-6 pt-4 border-t border-gray-200">
-                                                                        <h4 className="text-sm font-semibold text-gray-900 mb-3 flex items-center">
+                                                                    <div className="mt-6 pt-4 border-t border-gray-200 dark:border-gray-600">
+                                                                        <h4 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-3 flex items-center">
                                                                             <AlertTriangle className="h-4 w-4 mr-2 text-yellow-500" />
                                                                             Blackout Periods
                                                                         </h4>
                                                                         <div className="space-y-2">
                                                                             {request.blackouts.map((blackout, index) => (
                                                                                 <div key={index} className={`text-sm p-3 rounded-lg border ${
-                                                                                    blackout.type === 'conflict' 
-                                                                                        ? 'bg-red-50 border-red-200 text-red-800' 
-                                                                                        : 'bg-yellow-50 border-yellow-200 text-yellow-800'
+                                                                                    blackout.type === 'conflict'
+                                                                                        ? 'bg-red-50 border-red-200 text-red-800 dark:bg-red-900/30 dark:border-red-700 dark:text-red-300'
+                                                                                        : 'bg-yellow-50 border-yellow-200 text-yellow-800 dark:bg-yellow-900/30 dark:border-yellow-700 dark:text-yellow-300'
                                                                                 }`}>
                                                                                     <div className="font-medium">{blackout.blackout_name}</div>
                                                                                     <div className="text-xs mt-1">{blackout.date_range}</div>
@@ -1425,7 +1425,7 @@ export default function EmployeeProfile({ user }: { user: User }) {
                                             ))}
                                         </div>
                                     ) : (
-                                        <p className="text-gray-500">No PTO requests found</p>
+                                        <p className="text-gray-500 dark:text-gray-400">No PTO requests found</p>
                                     )}
                                 </CardContent>
                             </Card>
@@ -1447,20 +1447,20 @@ export default function EmployeeProfile({ user }: { user: User }) {
                                     {selectedUser.pto_policies && selectedUser.pto_policies.length > 0 ? (
                                         <div className="space-y-4">
                                             {selectedUser.pto_policies.map((policy) => (
-                                                <div key={policy.id} className="border rounded-lg p-4 hover:shadow-sm transition-shadow">
+                                                <div key={policy.id} className="border border-gray-200 dark:border-gray-600 rounded-lg p-4 hover:shadow-sm transition-shadow  dark:bg-gray-950">
                                                     <div className="flex items-start justify-between mb-3">
                                                         <div className="flex items-center space-x-3">
-                                                            <div 
-                                                                className="w-4 h-4 rounded-full border-2 border-white shadow-sm" 
+                                                            <div
+                                                                className="w-4 h-4 rounded-full border-2 border-white shadow-sm"
                                                                 style={{ backgroundColor: policy.pto_type.color }}
                                                             ></div>
                                                             <div>
-                                                                <h4 className="font-semibold text-gray-900">{policy.name}</h4>
-                                                                <p className="text-sm text-gray-600">{policy.pto_type.name} ({policy.pto_type.code})</p>
+                                                                <h4 className="font-semibold text-gray-900 dark:text-gray-100">{policy.name}</h4>
+                                                                <p className="text-sm text-gray-600 dark:text-gray-400">{policy.pto_type.name} ({policy.pto_type.code})</p>
                                                             </div>
                                                         </div>
                                                         <div className="flex items-center space-x-2">
-                                                            <Badge className={policy.is_active ? 'bg-green-100 text-green-800 border-green-200' : 'bg-gray-100 text-gray-800 border-gray-200'}>
+                                                            <Badge className={policy.is_active ? 'bg-green-100 text-green-800 border-green-200 dark:bg-green-900/30 dark:text-green-300 dark:border-green-700' : 'bg-gray-100 text-gray-800 border-gray-200 dark:text-gray-300 dark:border-gray-600'}>
                                                                 {policy.is_active ? 'Active' : 'Inactive'}
                                                             </Badge>
                                                             <Button variant="ghost" size="sm">
@@ -1471,42 +1471,42 @@ export default function EmployeeProfile({ user }: { user: User }) {
                                                             </Button>
                                                         </div>
                                                     </div>
-                                                    
+
                                                     {policy.description && (
-                                                        <p className="text-sm text-gray-600 mb-3">{policy.description}</p>
+                                                        <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">{policy.description}</p>
                                                     )}
-                                                    
+
                                                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                                                         <div>
-                                                            <span className="text-gray-500 font-medium">Initial Days</span>
-                                                            <p className="text-gray-900">{policy.initial_days}</p>
+                                                            <span className="text-gray-500 dark:text-gray-400 font-medium">Initial Days</span>
+                                                            <p className="text-gray-900 dark:text-gray-100">{policy.initial_days}</p>
                                                         </div>
                                                         <div>
-                                                            <span className="text-gray-500 font-medium">Annual Accrual</span>
-                                                            <p className="text-gray-900">{policy.annual_accrual_amount}</p>
+                                                            <span className="text-gray-500 dark:text-gray-400 font-medium">Annual Accrual</span>
+                                                            <p className="text-gray-900 dark:text-gray-100">{policy.annual_accrual_amount}</p>
                                                         </div>
                                                         <div>
-                                                            <span className="text-gray-500 font-medium">Rollover</span>
-                                                            <p className="text-gray-900">
-                                                                {policy.rollover_enabled ? 
-                                                                    (policy.max_rollover_days ? `Yes (${policy.max_rollover_days} max)` : 'Yes') : 
+                                                            <span className="text-gray-500 dark:text-gray-400 font-medium">Rollover</span>
+                                                            <p className="text-gray-900 dark:text-gray-100">
+                                                                {policy.rollover_enabled ?
+                                                                    (policy.max_rollover_days ? `Yes (${policy.max_rollover_days} max)` : 'Yes') :
                                                                     'No'
                                                                 }
                                                             </p>
                                                         </div>
                                                         <div>
-                                                            <span className="text-gray-500 font-medium">Effective Date</span>
-                                                            <p className="text-gray-900">{formatDate(policy.effective_date)}</p>
+                                                            <span className="text-gray-500 dark:text-gray-400 font-medium">Effective Date</span>
+                                                            <p className="text-gray-900 dark:text-gray-100">{formatDate(policy.effective_date)}</p>
                                                         </div>
                                                     </div>
                                                 </div>
                                             ))}
                                         </div>
                                     ) : (
-                                        <div className="text-center py-8 text-gray-500">
-                                            <Settings className="h-12 w-12 mx-auto mb-3 text-gray-300" />
+                                        <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+                                            <Settings className="h-12 w-12 mx-auto mb-3 text-gray-300 dark:text-gray-600" />
                                             <p className="text-lg font-medium">No PTO Policies</p>
-                                            <p className="text-sm text-gray-400 mt-1">This employee has no PTO policies configured</p>
+                                            <p className="text-sm text-gray-400 dark:text-gray-500 mt-1">This employee has no PTO policies configured</p>
                                         </div>
                                     )}
                                 </CardContent>

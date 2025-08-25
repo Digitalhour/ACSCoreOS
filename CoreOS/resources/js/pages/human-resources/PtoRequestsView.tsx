@@ -30,8 +30,8 @@ const breadcrumbs: BreadcrumbItem[] = [
         href: '/dashboard',
     },
     {
-        title: 'PTO Dashboard',
-        href: '/admin/pto',
+        title: 'Human Resources Dashboard',
+        href: '/human-resources/overview',
     },
     {
         title: 'PTO Reques',

@@ -367,11 +367,10 @@ export default function PtoPoliciesView({ ptoPolicies: initialPolicies, users: i
             <HrLayout>
                 <div className="flex flex-col gap-4 ">
                     <div className="flex items-center justify-between">
-                        <h1 className="text-2xl font-bold">Manage PTO Policies</h1>
-                        <Button onClick={handleCreate} className="gap-2">
-                            <Plus className="h-4 w-4" />
-                            Add PTO Policy
-                        </Button>
+                        <div>
+                        {/* blank space.    */}
+                        </div>
+
                     </div>
 
                     {/* Filters */}
@@ -428,6 +427,10 @@ export default function PtoPoliciesView({ ptoPolicies: initialPolicies, users: i
                                     <Switch id="active-only" checked={showActiveOnly} onCheckedChange={setShowActiveOnly} />
                                     <Label htmlFor="active-only">Active only</Label>
                                 </div>
+                                <Button onClick={handleCreate} className="gap-2">
+                                    <Plus className="h-4 w-4" />
+                                    Add PTO Policy
+                                </Button>
                             </div>
                         </CardContent>
                     </Card>

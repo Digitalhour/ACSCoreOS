@@ -44,8 +44,8 @@ const breadcrumbs: BreadcrumbItem[] = [
         href: '/dashboard',
     },
     {
-        title: 'Human Resources Dahboard',
-        href: '/human-resources/dashboard',
+        title: 'Human Resources Dashboard',
+        href: '/human-resources/overview',
     },
     {
         title: 'Employees',
@@ -389,7 +389,7 @@ export default function Employees({ users }: { users: User[] }) {
         setIsTogglingStatus(true);
 
         if (currentlyActive) {
-            router.delete(`/hr/employees/${userId}`, {
+            router.delete(`/human-resources/employees/${userId}`, {
                 preserveState: true,
                 preserveScroll: true,
                 onSuccess: () => {
@@ -408,7 +408,7 @@ export default function Employees({ users }: { users: User[] }) {
                 }
             });
         } else {
-            router.patch(`/hr/employees/${userId}/restore`, {}, {
+            router.patch(`/human-resources/employees/${userId}/restore`, {}, {
                 preserveState: true,
                 preserveScroll: true,
                 onSuccess: () => {
@@ -689,14 +689,14 @@ export default function Employees({ users }: { users: User[] }) {
                                     {/* Employee Info */}
                                     <div className="space-y-3">
                                         <div>
-                                            <h3 className="font-semibold text-gray-900 text-lg leading-tight">{user.name}</h3>
+                                            <h3 className="font-semibold dark:text-white text-gray-900 text-lg leading-tight">{user.name}</h3>
                                             <p className="text-sm text-gray-600 mt-1">{user.email}</p>
                                         </div>
 
                                         <div className="space-y-2">
                                             <div className="flex items-center text-sm">
                                                 <Briefcase className="h-4 w-4 text-gray-400 mr-2" />
-                                                <span className="text-gray-700 font-medium">{user.position}</span>
+                                                <span className="text-gray-700 dark:text-gray-50 font-medium">{user.position}</span>
                                             </div>
                                             <div className="flex items-center text-sm">
                                                 <Building className="h-4 w-4 text-gray-400 mr-2" />

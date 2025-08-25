@@ -2,7 +2,7 @@ import {Button} from '@/components/ui/button';
 import {DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,} from '@/components/ui/dropdown-menu';
 import {Separator} from '@/components/ui/separator';
 import {Link} from '@inertiajs/react';
-import {BarChart3, Building, CalendarIcon, ChevronDown, Users} from 'lucide-react';
+import { BarChart3, Building, CalendarIcon, ChevronDown, Home, Users } from 'lucide-react';
 import {useEffect, useState} from 'react';
 import Heading from "@/components/heading";
 
@@ -42,17 +42,17 @@ const navGroups = [
             {
                 title: "Requests",
                 href: "/human-resources/time-off-requests",
-                description: "Approve or deny time off",
+                description: "Company wide requests",
             },
             {
                 title: "Policies",
                 href: "/human-resources/pto-policies",
-                description: "Configure time off policies",
+                description: "Configure individuals time off policies",
             },
             {
                 title: "Types",
                 href: "/human-resources/pto-types",
-                description: "Manage PTO types",
+                description: "Manage time off types",
             },
             {
                 title: "Blackouts",
@@ -105,14 +105,14 @@ export default function HrNavigation() {
             {/* Navigation Menu */}
             <div className="flex flex-wrap gap-2 mb-4">
                 {/* Dashboard Link */}
+                <Button asChild variant="outline" >
                 <Link
                     href={navGroups[0].items[0].href}
-                    className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-md border border-gray-200 bg-white hover:bg-gray-50 transition-colors"
                 >
-                    <BarChart3 className="h-4 w-4" />
-                    Dashboard
-                </Link>
+                    <Home className="h-4 w-4" />
 
+                </Link>
+                   </Button>
                 {/* Employees Dropdown */}
                 <DropdownMenu>
                     <DropdownMenuTrigger asChild>
