@@ -45,11 +45,11 @@ const breadcrumbs: BreadcrumbItem[] = [
     },
     {
         title: 'Human Resources Dahboard',
-        href: '/hr/dashboard',
+        href: '/human-resources/dashboard',
     },
     {
         title: 'Employees',
-        href: '/hr/employees',
+        href: '/human-resources/employees',
     },
 ];
 
@@ -264,7 +264,7 @@ export default function Employees({ users }: { users: User[] }) {
     };
 
     const openEmployeeProfile = (user: User) => {
-        router.visit(`/hr/employees/${user.id}`);
+        router.visit(`/human-resources/employees/${user.id}`);
     };
 
     const fetchRolesAndPermissions = async () => {
