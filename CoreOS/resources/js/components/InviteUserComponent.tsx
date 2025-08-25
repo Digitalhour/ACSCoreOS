@@ -11,7 +11,7 @@ interface InviteUserComponentProps {
 
 const InviteUserComponent: React.FC<InviteUserComponentProps> = () => {
     return (
-        <Link href="/user-management/onboard">
+        <Link href="/human-resources/onboard">
             <Button variant="secondary">
                 <UserPlus className="mr-2 h-4 w-4" />
                 Onboard Employee
